@@ -212,7 +212,7 @@ export default class App extends Component {
   }
 
   copyLink() {
-    navigator.clipboard.writeText("https://localhost:3000/#/" + this.state.id);
+    navigator.clipboard.writeText("https://rodrigohpalmeirim.github.io/movie-night/#/" + this.state.id);
   }
 
   toggleUrlSelector() {
