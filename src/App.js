@@ -23,7 +23,8 @@ export default class App extends Component {
       readyCount: 0,
       waiting: false,
       urlSelector: false,
-      ready: false
+      ready: false,
+      controlsShown: true
     }
 
     this.video = React.createRef();
@@ -37,6 +38,13 @@ export default class App extends Component {
   }
 
   componentDidMount() {
+    let timeout;
+    document.addEventListener("mousemove", () => {
+      clearTimeout(timeout);
+      this.setState({ controlsShown: true });
+      timeout = setTimeout(() => { this.setState({ controlsShown: false }) }, 2600);
+    });
+
     peer.on("open", (id) => {
       this.setState({
         id: id,
@@ -233,8 +241,8 @@ export default class App extends Component {
             <ActionInput placeholder="https://example.com/video.mp4" autoFocus={true} icon={faPlay} width={350} action={this.changeUrl} />
           </div>
         }
-        <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20 }} onClick={this.copyLink} />
-        <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 60 }} onClick={this.toggleUrlSelector} />
+        <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />
+        <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlSelector} />
       </div>
     );
   }
