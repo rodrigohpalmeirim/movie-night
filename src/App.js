@@ -1,7 +1,7 @@
 import './App.css';
 import React, { Component } from 'react';
 import Peer from "peerjs";
-import { faFilm, faLink, faPlay, faShare } from '@fortawesome/free-solid-svg-icons';
+import { faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -9,6 +9,16 @@ var peer;
 var connections = {};
 var paused = false;
 var localAction = true;
+
+Number.prototype.toHHMMSS = function () {
+  var hours = Math.floor(this / 3600);
+  var minutes = Math.floor((this - (hours * 3600)) / 60);
+  var seconds = Math.floor(this - (hours * 3600) - (minutes * 60));
+
+  if (minutes < 10) { minutes = "0" + minutes; }
+  if (seconds < 10) { seconds = "0" + seconds; }
+  return hours + ':' + minutes + ':' + seconds;
+}
 
 export default class App extends Component {
   constructor(props) {
@@ -22,9 +32,12 @@ export default class App extends Component {
     this.state = {
       readyCount: 0,
       waiting: false,
-      urlSelector: false,
+      urlPanel: false,
+      descriptionPanel: false,
       ready: false,
-      controlsShown: true
+      controlsShown: true,
+      joined: true,
+      description: { people: 1 }
     }
 
     this.video = React.createRef();
@@ -34,7 +47,9 @@ export default class App extends Component {
     this.dataHandler = this.dataHandler.bind(this);
     this.changeUrl = this.changeUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
-    this.toggleUrlSelector = this.toggleUrlSelector.bind(this);
+    this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
+    this.toggleDescriptionPanel = this.toggleDescriptionPanel.bind(this);
+    this.join = this.join.bind(this);
   }
 
   componentDidMount() {
@@ -48,7 +63,7 @@ export default class App extends Component {
     peer.on("open", (id) => {
       this.setState({
         id: id,
-        urlSelector: true,
+        urlPanel: true,
       });
       if (this.props.match.params.peerid) {
         this.connect(this.props.match.params.peerid);
@@ -108,9 +123,9 @@ export default class App extends Component {
 
   connectionHandler(connection) {
     connection.on("open", () => {
-      connections[connection.peer] = connection;
-      if (this.props.match.params.peerid) {
-        connection.send({ type: "info request" });
+      if (this.props.match.params.peerid === connection.peer) {
+        connections[connection.peer] = connection;
+        connection.send({ type: "description request" });
       }
 
       console.log("Connected to:", connection.peer);
@@ -129,6 +144,14 @@ export default class App extends Component {
     switch (data.type) {
       case "info request":
         connection.send({ type: "info", content: { peers: Object.keys(connections), url: this.state.url, time: this.video.current.currentTime, paused: paused, waiting: this.state.waiting, readyCount: this.state.readyCount } });
+        connections[connection.peer] = connection;
+        this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
+        break;
+      case "description request":
+        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: this.video.current.duration } });
+        break;
+      case "description":
+        this.setState({ joined: false, description: data.content, descriptionPanel: true, urlPanel: false });
         break;
       case "info":
         for (const peerId of data.content.peers) {
@@ -137,10 +160,11 @@ export default class App extends Component {
         this.setState({
           waiting: data.content.waiting,
           readyCount: data.content.readyCount,
-          url: data.content.url
+          url: data.content.url,
+          joined: true,
+          urlPanel: !data.content.url,
+          description: { ...this.state.description, ...{ people: this.state.description.people + 1 } },
         });
-        if (data.content.url)
-          this.setState({ urlSelector: false });
         this.video.current.currentTime = data.content.time;
         paused = data.content.paused;
         this.testReady();
@@ -153,7 +177,7 @@ export default class App extends Component {
             waiting: true,
             readyCount: 0,
             ready: false,
-            urlSelector: false,
+            urlPanel: false,
           });
           paused = false;
         }
@@ -187,6 +211,11 @@ export default class App extends Component {
     }
   }
 
+  join() {
+    connections[this.props.match.params.peerid].send({ type: "info request" });
+    this.setState({ descriptionPanel: false });
+  }
+
   testReady() {
     if (this.state.url && this.state.readyCount === Object.keys(connections).length + 1) {
       this.setState({ waiting: false });
@@ -207,7 +236,7 @@ export default class App extends Component {
     if (url !== this.state.url) {
       this.setState({
         url: url,
-        urlSelector: false,
+        urlPanel: false,
       });
       this.sendEveryone({ type: "url", content: url });
       this.setState({
@@ -223,8 +252,18 @@ export default class App extends Component {
     navigator.clipboard.writeText("https://rodrigohpalmeirim.github.io/movie-night/#/" + this.state.id);
   }
 
-  toggleUrlSelector() {
-    this.setState({ urlSelector: !this.state.urlSelector });
+  toggleUrlPanel() {
+    this.setState({
+      descriptionPanel: false,
+      urlPanel: !this.state.urlPanel
+    });
+  }
+
+  toggleDescriptionPanel() {
+    this.setState({
+      urlPanel: false,
+      descriptionPanel: !this.state.descriptionPanel
+    });
   }
 
   render() {
@@ -232,17 +271,30 @@ export default class App extends Component {
       <div className="App">
         <video ref={this.video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
         {this.state.waiting && (this.state.ready ?
-          <span className="status">Waiting for {Object.keys(connections).length + 1 - this.state.readyCount} {Object.keys(connections).length + 1 - this.state.readyCount !== 1 ? "peers" : "peer"}...</span> :
+          <span className="status">Waiting for {Object.keys(connections).length + 1 - this.state.readyCount} {Object.keys(connections).length + 1 - this.state.readyCount === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
         )}
-        {this.state.urlSelector &&
+        {this.state.urlPanel &&
           <div className="panel" id="url-selector">
             <span className="item-title">Enter a video URL</span>
             <ActionInput placeholder="https://example.com/video.mp4" autoFocus={true} icon={faPlay} width={350} action={this.changeUrl} />
           </div>
         }
-        <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />
-        <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlSelector} />
+        {this.state.descriptionPanel &&
+          <div className="panel" id="join">
+            <span className="item-title">Party Description</span><spacer />
+            <ul>
+              <li>People: {this.state.description.people}</li>
+              {this.state.description.duration > 1 &&
+                <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}<spacer />
+            </ul>
+            {!this.state.joined &&
+              <button onClick={this.join}>Join</button>}
+          </div>
+        }
+        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />}
+        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlPanel} />}
+        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faUsers} style={{ left: 100, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleDescriptionPanel} />}
       </div>
     );
   }

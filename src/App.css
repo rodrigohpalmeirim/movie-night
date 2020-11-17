@@ -137,15 +137,6 @@ input {
   margin: 8px auto;
 }
 
-#panel {
-  width: 270px;
-  margin: 3vh 7vw;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 1;
-}
-
 video {
   width: 100vw;
   height: 100vh;
@@ -171,16 +162,37 @@ video {
   opacity: 1 !important;
 }
 
-#url-selector {
+.panel {
+  padding: 20px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   position: absolute;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
   background-color: var(--background-0);
-  width: 400px;
-  height: 160px;
   border-radius: 10px;
   outline-width: 0px;
   box-shadow: 0px 0px 15px -5px black;
+}
+
+.panel ul {
+  padding: 0;
+  margin: 10px 0px;
+}
+
+.panel ul li {
+  list-style-type: none;
+  align-self: flex-start;
+  text-align: start;
+  margin: 5px 0px;
+}
+
+#join {
+  width: 250px;
+}
+
+#url-selector {
+  width: 360px;
+  height: 120px;
 }
