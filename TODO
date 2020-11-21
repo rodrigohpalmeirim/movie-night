@@ -1,7 +1,7 @@
 remember play when waiting
 ping connected peers
-add subtitle support
 add tooltips
 add panel close button
 add room names
+add connecting spinner
 move unnecessary states to vars

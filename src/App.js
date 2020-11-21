@@ -1,7 +1,7 @@
 import './App.css';
 import React, { Component } from 'react';
 import Peer from "peerjs";
-import { faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faClosedCaptioning, faFileUpload, faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -9,6 +9,7 @@ var peer;
 var connections = {};
 var paused = false;
 var localAction = true;
+var subtitles = [];
 
 Number.prototype.toHHMMSS = function () {
   var hours = Math.floor(this / 3600);
@@ -37,7 +38,8 @@ export default class App extends Component {
       ready: false,
       controlsShown: true,
       joined: true,
-      description: { people: 1 }
+      description: { people: 1 },
+      subtitlesPanel: false,
     }
 
     this.video = React.createRef();
@@ -49,6 +51,9 @@ export default class App extends Component {
     this.copyLink = this.copyLink.bind(this);
     this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
     this.toggleDescriptionPanel = this.toggleDescriptionPanel.bind(this);
+    this.toggleSubtitlesPanel = this.toggleSubtitlesPanel.bind(this);
+    this.uploadSubtitles = this.uploadSubtitles.bind(this);
+    this.updateSubtitles = this.updateSubtitles.bind(this);
     this.join = this.join.bind(this);
   }
 
@@ -182,6 +187,10 @@ export default class App extends Component {
           paused = false;
         }
         break;
+      case "subtitles": {
+        subtitles = data.content;
+        this.updateSubtitles();
+      }
       case "play":
         localAction = false;
         this.video.current.play();
@@ -248,6 +257,30 @@ export default class App extends Component {
     }
   }
 
+  uploadSubtitles(event) {
+    this.setState({ subtitlesPanel: false });
+    for (const file of event.target.files) {
+      subtitles.push(file);
+    }
+    this.sendEveryone({ type: "subtitles", content: subtitles });
+    this.updateSubtitles();
+  }
+
+  updateSubtitles() {
+    this.video.current.innerHTML = "";
+    while (this.video.current.firstChild) {
+      this.video.current.removeChild(this.video.current.lastChild);
+    }
+    for (const file of subtitles) {
+      const track = document.createElement("track");
+      track.kind = "captions";
+      // track.label = "English";
+      // track.srclang = "en";
+      track.src = URL.createObjectURL(new Blob([file]));
+      this.video.current.appendChild(track);
+    }
+  }
+
   copyLink() {
     navigator.clipboard.writeText("https://rodrigohpalmeirim.github.io/movie-night/#/" + this.state.id);
   }
@@ -255,6 +288,7 @@ export default class App extends Component {
   toggleUrlPanel() {
     this.setState({
       descriptionPanel: false,
+      subtitlesPanel: false,
       urlPanel: !this.state.urlPanel
     });
   }
@@ -262,7 +296,16 @@ export default class App extends Component {
   toggleDescriptionPanel() {
     this.setState({
       urlPanel: false,
+      subtitlesPanel: false,
       descriptionPanel: !this.state.descriptionPanel
+    });
+  }
+
+  toggleSubtitlesPanel() {
+    this.setState({
+      urlPanel: false,
+      descriptionPanel: false,
+      subtitlesPanel: !this.state.subtitlesPanel
     });
   }
 
@@ -276,25 +319,35 @@ export default class App extends Component {
         )}
         {this.state.urlPanel &&
           <div className="panel" id="url-selector">
-            <span className="item-title">Enter a video URL</span>
-            <ActionInput placeholder="https://example.com/video.mp4" autoFocus={true} icon={faPlay} width={350} action={this.changeUrl} />
+            <span className="item-title">Movie URL</span>
+            <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={this.changeUrl} />
           </div>
         }
         {this.state.descriptionPanel &&
           <div className="panel" id="join">
-            <span className="item-title">Party Description</span><spacer />
+            <span className="item-title">Party Description</span>
             <ul>
               <li>People: {this.state.description.people}</li>
               {this.state.description.duration > 1 &&
-                <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}<spacer />
+                <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}
             </ul>
             {!this.state.joined &&
               <button onClick={this.join}>Join</button>}
           </div>
         }
-        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />}
-        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlPanel} />}
-        {this.state.joined && <FontAwesomeIcon className="top-button" icon={faUsers} style={{ left: 100, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleDescriptionPanel} />}
+        {this.state.subtitlesPanel &&
+          <div className="panel" id="subtitles">
+            <span className="item-title">Upload Subtitles</span>
+            <input type="file" accept=".vtt" multiple onChange={this.uploadSubtitles} id="upload-button" style={{ position: "absolute", display: "none" }} />
+            <label htmlFor="upload-button" className="big-icon-button" style={{ width: 41, height: 41 }}>
+              <FontAwesomeIcon icon={faFileUpload} />
+            </label>
+          </div>
+        }
+        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />}
+        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faUsers} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleDescriptionPanel} />}
+        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlPanel} />}
+        {this.state.id && this.state.joined && this.state.url && <FontAwesomeIcon className="top-button" icon={faClosedCaptioning} style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleSubtitlesPanel} />}
       </div>
     );
   }
