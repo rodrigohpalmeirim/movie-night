@@ -148,7 +148,18 @@ export default class App extends Component {
   dataHandler(connection, data) {
     switch (data.type) {
       case "info request":
-        connection.send({ type: "info", content: { peers: Object.keys(connections), url: this.state.url, time: this.video.current.currentTime, paused: paused, waiting: this.state.waiting, readyCount: this.state.readyCount } });
+        connection.send({
+          type: "info",
+          content: {
+            peers: Object.keys(connections),
+            url: this.state.url,
+            time: this.video.current.currentTime,
+            paused: paused,
+            waiting: this.state.waiting,
+            readyCount: this.state.readyCount,
+            subtitles: subtitles,
+          }
+        });
         connections[connection.peer] = connection;
         this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
         break;
@@ -171,6 +182,9 @@ export default class App extends Component {
           description: { ...this.state.description, ...{ people: this.state.description.people + 1 } },
         });
         this.video.current.currentTime = data.content.time;
+        subtitles = data.content.subtitles;
+        console.log(subtitles)
+        this.updateSubtitles();
         paused = data.content.paused;
         this.testReady();
         break;
