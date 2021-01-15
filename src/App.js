@@ -199,6 +199,8 @@ export default class App extends Component {
             urlPanel: false,
           });
           paused = false;
+          subtitles = [];
+          this.updateSubtitles();
         }
         break;
       case "subtitles": {
@@ -269,6 +271,8 @@ export default class App extends Component {
         ready: false
       });
       paused = false;
+      subtitles = [];
+      this.updateSubtitles();
     }
   }
 
