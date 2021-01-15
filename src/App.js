@@ -146,6 +146,7 @@ export default class App extends Component {
   }
 
   dataHandler(connection, data) {
+    console.log("Received data:", data)
     switch (data.type) {
       case "info request":
         connection.send({
@@ -183,14 +184,12 @@ export default class App extends Component {
         });
         this.video.current.currentTime = data.content.time;
         subtitles = data.content.subtitles;
-        console.log(subtitles)
         this.updateSubtitles();
         paused = data.content.paused;
         this.testReady();
         break;
       case "url":
         if (data.content !== this.state.url) {
-          console.log(data.content);
           this.setState({
             url: data.content,
             waiting: true,
@@ -256,6 +255,7 @@ export default class App extends Component {
     for (const id in connections) {
       connections[id].send(data);
     }
+    console.log("Sent data:", data)
   }
 
   changeUrl(url) {
