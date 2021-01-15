@@ -204,6 +204,7 @@ export default class App extends Component {
       case "subtitles": {
         subtitles = data.content;
         this.updateSubtitles();
+        break;
       }
       case "play":
         localAction = false;
