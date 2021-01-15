@@ -10,6 +10,7 @@ var connections = {};
 var paused = false;
 var localAction = true;
 var subtitles = [];
+var log = "";
 
 Number.prototype.toHHMMSS = function () {
   var hours = Math.floor(this / 3600);
@@ -19,6 +20,25 @@ Number.prototype.toHHMMSS = function () {
   if (minutes < 10) { minutes = "0" + minutes; }
   if (seconds < 10) { seconds = "0" + seconds; }
   return hours + ':' + minutes + ':' + seconds;
+}
+
+function download(text, filename) {
+  const file = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(file);
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () {
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }, 0);
+}
+
+function consoleLog(...message) {
+  log += (new Date()).toJSON().slice(11, -1) + " - " + message.join(" ") + "\n";
+  console.log(message.join(" "));
 }
 
 export default class App extends Component {
@@ -63,6 +83,12 @@ export default class App extends Component {
       clearTimeout(timeout);
       this.setState({ controlsShown: true });
       timeout = setTimeout(() => { this.setState({ controlsShown: false }) }, 2600);
+    });
+
+    document.addEventListener("keypress", event => {
+      if (event.key === "l") {
+        download(log, "log.txt");
+      }
     });
 
     peer.on("open", (id) => {
@@ -133,12 +159,12 @@ export default class App extends Component {
         connection.send({ type: "description request" });
       }
 
-      console.log("Connected to:", connection.peer);
+      consoleLog("Connected to: " + connection.peer);
     });
 
     connection.on("close", () => {
       delete connections[connection.peer];
-      console.log("Disconnected from:", connection.peer);
+      consoleLog("Disconnected from: " + connection.peer);
       this.testReady();
     });
 
@@ -146,7 +172,7 @@ export default class App extends Component {
   }
 
   dataHandler(connection, data) {
-    console.log("Received data:", data)
+    consoleLog("Received data: " + JSON.stringify(data));
     switch (data.type) {
       case "info request":
         connection.send({
@@ -255,7 +281,7 @@ export default class App extends Component {
     for (const id in connections) {
       connections[id].send(data);
     }
-    console.log("Sent data:", data)
+    consoleLog("Sent data: " + JSON.stringify(data));
   }
 
   changeUrl(url) {
