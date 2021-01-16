@@ -387,7 +387,7 @@ export default class App extends Component {
         {this.state.subtitlesPanel &&
           <div className="panel" id="subtitles">
             <span className="item-title">Upload Subtitles</span>
-            <input type="file" accept=".vtt" multiple onChange={this.uploadSubtitles} id="upload-button" style={{ position: "absolute", display: "none" }} />
+            <input type="file" accept=".vtt,.srt" multiple onChange={this.uploadSubtitles} id="upload-button" style={{ position: "absolute", display: "none" }} />
             <label htmlFor="upload-button" className="big-icon-button" style={{ width: 41, height: 41 }}>
               <FontAwesomeIcon icon={faFileUpload} />
             </label>
