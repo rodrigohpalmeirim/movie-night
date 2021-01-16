@@ -192,7 +192,7 @@ export default class App extends Component {
         this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
         break;
       case "description request":
-        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: this.video.current.duration } });
+        connection.send({ type: "description", content: { people: Object.keys(connections).length, duration: this.video.current.duration } });
         break;
       case "description":
         this.setState({ joined: false, description: data.content, descriptionPanel: true, urlPanel: false });
