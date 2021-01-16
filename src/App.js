@@ -154,12 +154,12 @@ export default class App extends Component {
 
   connectionHandler(connection) {
     connection.on("open", () => {
+      consoleLog("Connected to: " + connection.peer);
+      connections[connection.peer] = connection;
+
       if (this.props.match.params.peerid === connection.peer) {
-        connections[connection.peer] = connection;
         connection.send({ type: "description request" });
       }
-
-      consoleLog("Connected to: " + connection.peer);
     });
 
     connection.on("close", () => {
