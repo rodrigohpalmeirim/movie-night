@@ -4,6 +4,7 @@ import Peer from "peerjs";
 import { faClosedCaptioning, faFileUpload, faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { srt2webvtt } from "./subtitles";
 
 var peer;
 var connections = {};
@@ -302,9 +303,12 @@ export default class App extends Component {
     }
   }
 
-  uploadSubtitles(event) {
+  async uploadSubtitles(event) {
     this.setState({ subtitlesPanel: false });
-    for (const file of event.target.files) {
+    for (var file of event.target.files) {
+      if (file.type.includes("x-subrip")) {
+        file = new Blob([srt2webvtt(await file.text())], { type: 'text/vtt' });
+      }
       subtitles.push(file);
     }
     this.sendEveryone({ type: "subtitles", content: subtitles });
