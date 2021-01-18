@@ -165,12 +165,21 @@ export default class App extends Component {
 
     connection.on("close", () => {
       delete connections[connection.peer];
+      this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people - 1 } } });
+      this.sendEveryone({ type: "kick", content: connection.peer });
       consoleLog("Disconnected from: " + connection.peer);
       this.testReady();
     });
 
+    connection.peerConnection.onconnectionstatechange = event => {
+      if (event.currentTarget.connectionState === 'disconnected') {
+        connection.close();
+      }
+    };
+
     connection.on("data", (data) => this.dataHandler(connection, data));
   }
+
 
   dataHandler(connection, data) {
     consoleLog("Received data: " + JSON.stringify(data));
@@ -257,6 +266,9 @@ export default class App extends Component {
           this.setState({ readyCount: this.state.readyCount + 1 });
         }
         this.testReady();
+        break;
+      case "kick":
+        try { connections[data.content].close(); } catch { }
         break;
       default:
         break;
