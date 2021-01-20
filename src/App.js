@@ -409,10 +409,10 @@ export default class App extends Component {
             </label>
           </div>
         }
-        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faLink} style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.copyLink} />}
-        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faUsers} style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleDescriptionPanel} />}
-        {this.state.id && this.state.joined && <FontAwesomeIcon className="top-button" icon={faFilm} style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleUrlPanel} />}
-        {this.state.id && this.state.joined && this.state.url && <FontAwesomeIcon className="top-button" icon={faClosedCaptioning} style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }} onClick={this.toggleSubtitlesPanel} />}
+        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={this.copyLink} /><span className="tooltip">Copy Link</span></div>}
+        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={this.toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>}
+        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={this.toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>}
+        {this.state.id && this.state.joined && this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
       </div>
     );
   }
