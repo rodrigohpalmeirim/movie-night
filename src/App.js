@@ -130,7 +130,11 @@ export default class App extends Component {
     };
     this.video.current.oncanplay = () => {
       this.sendEveryone({ type: "ready", content: this.video.current.currentTime });
-      this.setState({ readyCount: this.state.readyCount + 1, ready: true });
+      this.setState({
+        readyCount: this.state.readyCount + 1,
+        ready: true,
+        description: { ...this.state.description, ...{ duration: this.video.current.duration } }
+      });
       this.testReady();
     }
     this.video.current.onwaiting = () => {
