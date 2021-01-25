@@ -138,11 +138,14 @@ export default class App extends Component {
       this.testReady();
     }
     this.video.current.onwaiting = () => {
-      this.setState({ waiting: true });
-      if (localAction)
-        this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
-      localAction = true;
-      this.setState({ readyCount: 0, ready: false });
+      if (!this.state.waiting) {
+        consoleLog("Event: buffering");
+        this.setState({ waiting: true });
+        if (localAction)
+          this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
+        localAction = true;
+        this.setState({ readyCount: 0, ready: false });
+      }
     }
   }
 
