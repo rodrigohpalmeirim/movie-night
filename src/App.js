@@ -104,6 +104,7 @@ export default class App extends Component {
     peer.on("connection", this.connectionHandler);
 
     this.video.current.onplay = () => {
+      consoleLog("Event: playing, localAction:", localAction)
       if (this.state.waiting) {
         this.video.current.pause();
       } else {
@@ -114,12 +115,13 @@ export default class App extends Component {
       localAction = true;
     }
     this.video.current.onpause = () => {
-      if (!this.state.waiting && this.video.current.readyState === 4) {
+      consoleLog("Event: paused, localAction:", localAction)
+      if (!this.state.waiting && this.video.current.readyState >= 3) {
         paused = true;
         if (localAction)
           this.sendEveryone({ type: "pause" });
+        localAction = true;
       }
-      localAction = true;
     }
     this.video.current.onseeking = () => {
       this.setState({ waiting: true });
@@ -140,9 +142,9 @@ export default class App extends Component {
     this.video.current.onwaiting = () => {
       if (!this.state.waiting) {
         consoleLog("Event: buffering");
+        this.video.current.pause();
         this.setState({ waiting: true });
-        if (localAction)
-          this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
+        this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
         localAction = true;
         this.setState({ readyCount: 0, ready: false });
       }
