@@ -68,7 +68,7 @@ export default class App extends Component {
     this.connect = this.connect.bind(this);
     this.connectionHandler = this.connectionHandler.bind(this);
     this.dataHandler = this.dataHandler.bind(this);
-    this.changeUrl = this.changeUrl.bind(this);
+    this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
     this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
     this.toggleDescriptionPanel = this.toggleDescriptionPanel.bind(this);
@@ -164,10 +164,10 @@ export default class App extends Component {
 
   connectionHandler(connection) {
     connection.on("open", () => {
-      consoleLog("Connected to: " + connection.peer);
-      connections[connection.peer] = connection;
+      consoleLog("Received connection from: " + connection.peer);
 
       if (this.props.match.params.peerid === connection.peer) {
+        connections[connection.peer] = connection;
         connection.send({ type: "description request" });
       }
     });
@@ -192,6 +192,10 @@ export default class App extends Component {
 
   dataHandler(connection, data) {
     consoleLog("Received data: " + JSON.stringify(data));
+
+    if (!this.state.joined && data.type !== "info")
+      return;
+
     switch (data.type) {
       case "info request":
         connection.send({
@@ -206,11 +210,12 @@ export default class App extends Component {
             subtitles: subtitles,
           }
         });
+        consoleLog("Connected to:", connection.peer);
         connections[connection.peer] = connection;
         this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
         break;
       case "description request":
-        connection.send({ type: "description", content: { people: Object.keys(connections).length, duration: this.video.current.duration } });
+        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: this.video.current.duration } });
         break;
       case "description":
         this.setState({ joined: false, description: data.content, descriptionPanel: true, urlPanel: false });
@@ -234,18 +239,7 @@ export default class App extends Component {
         this.testReady();
         break;
       case "url":
-        if (data.content !== this.state.url) {
-          this.setState({
-            url: data.content,
-            waiting: true,
-            readyCount: 0,
-            ready: false,
-            urlPanel: false,
-          });
-          paused = false;
-          subtitles = [];
-          this.updateSubtitles();
-        }
+        this.updateUrl(data.content);
         break;
       case "subtitles": {
         subtitles = data.content;
@@ -306,14 +300,11 @@ export default class App extends Component {
     consoleLog("Sent data: " + JSON.stringify(data));
   }
 
-  changeUrl(url) {
+  updateUrl(url) {
     if (url !== this.state.url) {
       this.setState({
         url: url,
         urlPanel: false,
-      });
-      this.sendEveryone({ type: "url", content: url });
-      this.setState({
         waiting: true,
         readyCount: 0,
         ready: false
@@ -390,7 +381,7 @@ export default class App extends Component {
         {this.state.urlPanel &&
           <div className="panel" id="url-selector">
             <span className="item-title">Movie URL</span>
-            <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={this.changeUrl} />
+            <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={url => { this.sendEveryone({ type: "url", content: url }); this.updateUrl(url) }} />
           </div>
         }
         {this.state.descriptionPanel &&
