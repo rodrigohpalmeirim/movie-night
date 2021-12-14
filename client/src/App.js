@@ -48,6 +48,12 @@ export default class App extends Component {
 
     const socket = io();
 
+    console.log(window.location.pathname.slice(1))
+
+    socket.on("connect", () => {
+      socket.emit("join", window.location.pathname.slice(1));
+    });
+
     /* peer = new Peer(null, {
       host: "peerjs-server.ddns.net",
       port: "9000"
