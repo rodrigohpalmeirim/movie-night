@@ -12,6 +12,7 @@ var paused = false;
 var localAction = true;
 var subtitles = [];
 var log = "";
+var video;
 const socket = io();
 
 Number.prototype.toHHMMSS = function () {
@@ -47,41 +48,6 @@ export default class App extends Component {
   constructor(props) {
     super(props);
 
-    console.log(window.location.pathname.slice(1))
-
-    socket.on("connect", () => {
-      socket.emit("join", window.location.pathname.slice(1));
-    });
-
-    socket.on("disconnect", () => {
-      console.log("Connection lost");
-    });
-
-    socket.on("play", () => {
-      localAction = false;
-      this.video.current.play();
-    });
-
-    socket.on("pause", () => {
-      localAction = false;
-      this.video.current.pause();
-    });
-
-    socket.on("seek", time => {
-      this.setState({
-        waiting: true,
-        ready: false,
-      });
-      localAction = false;
-      this.video.current.pause();
-      this.video.current.currentTime = time;
-    });
-
-    /* socket.on("subtitles", subtitles => {
-      subtitles = data.subtitles;
-      this.updateSubtitles();
-    }); */
-
     this.state = {
       readyCount: 0,
       waiting: false,
@@ -94,7 +60,40 @@ export default class App extends Component {
       subtitlesPanel: false,
     }
 
-    this.video = React.createRef();
+    video = React.createRef();
+
+    socket.on("connect", () => {
+      socket.emit("join", window.location.pathname.slice(1));
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Connection lost");
+    });
+
+    socket.on("play", () => {
+      localAction = false;
+      video.current.play();
+    });
+
+    socket.on("pause", () => {
+      localAction = false;
+      video.current.pause();
+    });
+
+    socket.on("seek", time => {
+      this.setState({
+        waiting: true,
+        ready: false,
+      });
+      localAction = false;
+      video.current.pause();
+      video.current.currentTime = time;
+    });
+
+    /* socket.on("subtitles", subtitles => {
+      subtitles = data.subtitles;
+      this.updateSubtitles();
+    }); */
 
     this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
@@ -119,10 +118,10 @@ export default class App extends Component {
       }
     });
 
-    this.video.current.onplay = () => {
+    video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
       if (this.state.waiting) {
-        this.video.current.pause();
+        video.current.pause();
       } else {
         paused = false;
         if (localAction) {
@@ -131,9 +130,9 @@ export default class App extends Component {
       }
       localAction = true;
     }
-    this.video.current.onpause = () => {
+    video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
-      if (!this.state.waiting && this.video.current.readyState >= 3) {
+      if (!this.state.waiting && video.current.readyState >= 3) {
         paused = true;
         if (localAction) {
           socket.emit("pause");
@@ -141,29 +140,29 @@ export default class App extends Component {
         localAction = true;
       }
     }
-    this.video.current.onseeking = () => {
+    video.current.onseeking = () => {
       this.setState({ waiting: true });
       if (localAction) {
-        socket.emit("seek", this.video.current.currentTime);
+        socket.emit("seek", video.current.currentTime);
       }
       localAction = true;
       this.setState({ readyCount: 0, ready: false });
     };
-    this.video.current.oncanplay = () => {
-      socket.emit("ready", this.video.current.currentTime);
+    video.current.oncanplay = () => {
+      socket.emit("ready", video.current.currentTime);
       this.setState({
         readyCount: this.state.readyCount + 1,
         ready: true,
-        description: { ...this.state.description, ...{ duration: this.video.current.duration } }
+        description: { ...this.state.description, ...{ duration: video.current.duration } }
       });
       this.testReady();
     }
-    this.video.current.onwaiting = () => {
+    video.current.onwaiting = () => {
       if (!this.state.waiting) {
         consoleLog("Event: buffering");
-        this.video.current.pause();
+        video.current.pause();
         this.setState({ waiting: true });
-        socket.emit("seek", this.video.current.currentTime);
+        socket.emit("seek", video.current.currentTime);
         localAction = true;
         this.setState({ readyCount: 0, ready: false });
       }
@@ -187,7 +186,7 @@ export default class App extends Component {
           content: {
             peers: Object.keys(connections),
             url: this.state.url,
-            time: this.video.current.currentTime,
+            time: video.current.currentTime,
             paused: paused,
             waiting: this.state.waiting,
             readyCount: this.state.readyCount,
@@ -199,7 +198,7 @@ export default class App extends Component {
         this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
         break;
       case "description request":
-        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: this.video.current.duration } });
+        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: video.current.duration } });
         break;
       case "description":
         this.setState({ joined: false, description: data.content, descriptionPanel: true, urlPanel: false });
@@ -216,7 +215,7 @@ export default class App extends Component {
           urlPanel: !data.content.url,
           description: { ...this.state.description, ...{ people: this.state.description.people + 1 } },
         });
-        this.video.current.currentTime = data.content.time;
+        video.current.currentTime = data.content.time;
         subtitles = data.content.subtitles;
         this.updateSubtitles();
         paused = data.content.paused;
@@ -232,11 +231,11 @@ export default class App extends Component {
       }
       case "play":
         localAction = false;
-        this.video.current.play();
+        video.current.play();
         break;
       case "pause":
         localAction = false;
-        this.video.current.pause();
+        video.current.pause();
         break;
       case "seek":
         this.setState({
@@ -245,11 +244,11 @@ export default class App extends Component {
           ready: false,
         });
         localAction = false;
-        this.video.current.pause();
-        this.video.current.currentTime = data.content;
+        video.current.pause();
+        video.current.currentTime = data.content;
         break;
       case "ready":
-        if (data.content === this.video.current.currentTime) {
+        if (data.content === video.current.currentTime) {
           this.setState({ readyCount: this.state.readyCount + 1 });
         }
         this.testReady();
@@ -272,7 +271,7 @@ export default class App extends Component {
       this.setState({ waiting: false });
       if (!paused) {
         localAction = false;
-        this.video.current.play();
+        video.current.play();
       }
     }
   } */
@@ -312,9 +311,9 @@ export default class App extends Component {
   }
 
   updateSubtitles() {
-    this.video.current.innerHTML = "";
-    while (this.video.current.firstChild) {
-      this.video.current.removeChild(this.video.current.lastChild);
+    video.current.innerHTML = "";
+    while (video.current.firstChild) {
+      video.current.removeChild(video.current.lastChild);
     }
     for (const file of subtitles) {
       const track = document.createElement("track");
@@ -322,7 +321,7 @@ export default class App extends Component {
       // track.label = "English";
       // track.srclang = "en";
       track.src = URL.createObjectURL(new Blob([file]));
-      this.video.current.appendChild(track);
+      video.current.appendChild(track);
     }
   }
 
@@ -358,7 +357,7 @@ export default class App extends Component {
   render() {
     return (
       <div className="App">
-        <video ref={this.video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
+        <video ref={video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
         {this.state.waiting && (this.state.ready ?
           <span className="status">Waiting for {Object.keys(connections).length + 1 - this.state.readyCount} {Object.keys(connections).length + 1 - this.state.readyCount === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
