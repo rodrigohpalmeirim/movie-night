@@ -14,6 +14,7 @@ server.listen(port, () => {
 });
 
 io.on('connection', (socket) => {
+    socket.onAny((...a)=>console.log(a))
     console.log('a user connected');
     let roomId = () => {
         for (r of socket.rooms.keys()) {
@@ -21,16 +22,17 @@ io.on('connection', (socket) => {
                 return r;
             }
         }
+        console.log(socket.rooms);
         throw "No room id";
     }
 
     socket.on('disconnect', () => {
-        socket.leave(roomId());
-        console.log('user disconnected');
+        console.log('user disconnected, had rooms', socket.rooms);
     });
 
     socket.on("join", (roomIdNow) => {
         socket.join(roomIdNow);
+        console.log("User joined");
     });
 
 

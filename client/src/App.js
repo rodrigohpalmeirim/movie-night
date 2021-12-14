@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
 
 var peer;
-var connections = {};
+var socket;
 var paused = false;
 var localAction = true;
 var subtitles = [];
@@ -46,13 +46,10 @@ export default class App extends Component {
   constructor(props) {
     super(props);
 
-    const socket = io();
+    socket = io();
 
     console.log(window.location.pathname.slice(1))
 
-    socket.on("connect", () => {
-      socket.emit("join", window.location.pathname.slice(1));
-    });
 
     /* peer = new Peer(null, {
       host: "peerjs-server.ddns.net",
@@ -61,6 +58,7 @@ export default class App extends Component {
     peer = null;
 
     this.state = {
+      id:window.location.pathname.slice(1),
       readyCount: 0,
       waiting: false,
       urlPanel: false,
@@ -99,6 +97,12 @@ export default class App extends Component {
       if (event.key === "l") {
         download(log, "log.txt");
       }
+    });
+
+
+
+    socket.on("connect", () => {
+      socket.emit("join", window.location.pathname.slice(1));
     });
 
     /* peer.on("open", (id) => {
@@ -161,8 +165,8 @@ export default class App extends Component {
   }
 
   componentWillUnmount() {
-    for (const id in connections) {
-      try { connections[id].close(); } catch { }
+    for (const id in socket) {
+      try { socket[id].close(); } catch { }
     }
   }
 
@@ -173,8 +177,8 @@ export default class App extends Component {
 
   connectionHandler(connection) {
     connection.on("open", () => {
-      consoleLog("Received connection from: " + connection.peer);
-      connections[connection.peer] = connection;
+      consoleLog("Received connection from: " + connection);
+      socket[connection.peer] = connection;
 
       if (this.props.match.params.peerid === connection.peer) {
         connection.send({ type: "description request" });
@@ -182,7 +186,7 @@ export default class App extends Component {
     });
 
     connection.on("close", () => {
-      delete connections[connection.peer];
+      delete socket[connection.peer];
       this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people - 1 } } });
       this.sendEveryone({ type: "kick", content: connection.peer });
       consoleLog("Disconnected from: " + connection.peer);
@@ -212,7 +216,6 @@ export default class App extends Component {
         connection.send({
           type: "info",
           content: {
-            peers: Object.keys(connections),
             url: this.state.url,
             time: this.video.current.currentTime,
             paused: paused,
@@ -221,12 +224,10 @@ export default class App extends Component {
             subtitles: subtitles,
           }
         });
-        consoleLog("Connected to:", connection.peer);
-        connections[connection.peer] = connection;
         this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people + 1 } } });
         break;
       case "description request":
-        connection.send({ type: "description", content: { people: Object.keys(connections).length + 1, duration: this.video.current.duration } });
+        connection.send({ type: "description", content: { people: Object.keys(socket).length + 1, duration: this.video.current.duration } });
         break;
       case "description":
         this.setState({ joined: false, description: data.content, descriptionPanel: true, urlPanel: false });
@@ -282,7 +283,7 @@ export default class App extends Component {
         this.testReady();
         break;
       case "kick":
-        try { connections[data.content].close(); } catch { }
+        try { socket[data.content].close(); } catch { }
         break;
       default:
         break;
@@ -290,12 +291,12 @@ export default class App extends Component {
   }
 
   join() {
-    connections[this.props.match.params.peerid].send({ type: "info request" });
+    socket[this.props.match.params.peerid].send({ type: "info request" });
     this.setState({ descriptionPanel: false });
   }
 
   testReady() {
-    if (this.state.url && this.state.readyCount === Object.keys(connections).length + 1) {
+    if (this.state.url && this.state.readyCount === Object.keys(socket).length + 1) {
       this.setState({ waiting: false });
       if (!paused) {
         localAction = false;
@@ -305,9 +306,7 @@ export default class App extends Component {
   }
 
   sendEveryone(data) {
-    for (const id in connections) {
-      connections[id].send(data);
-    }
+    socket.emit(data.type,data.content);
     consoleLog("Sent data: " + JSON.stringify(data));
   }
 
@@ -354,7 +353,7 @@ export default class App extends Component {
   }
 
   copyLink() {
-    navigator.clipboard.writeText("https://rodrigohpalmeirim.github.io/movie-night/#/" + this.state.id);
+    navigator.clipboard.writeText(window.location);
   }
 
   toggleUrlPanel() {
@@ -386,7 +385,7 @@ export default class App extends Component {
       <div className="App">
         <video ref={this.video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
         {this.state.waiting && (this.state.ready ?
-          <span className="status">Waiting for {Object.keys(connections).length + 1 - this.state.readyCount} {Object.keys(connections).length + 1 - this.state.readyCount === 1 ? "person" : "people"}'s stream...</span> :
+          <span className="status">Waiting for {Object.keys(socket).length + 1 - this.state.readyCount} {Object.keys(socket).length + 1 - this.state.readyCount === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
         )}
         {this.state.urlPanel &&
