@@ -46,7 +46,7 @@ export default class App extends Component {
     super(props);
 
     this.state = {
-      description: { people: 1 },
+      people: 1,
       buffering: 0,
       waiting: false,
       ready: false,
@@ -83,10 +83,20 @@ export default class App extends Component {
       video.current.currentTime = time;
     });
 
-    /* socket.on("subtitles", subtitles => {
-      subtitles = data.subtitles;
+    socket.on("people", people => {
+      this.setState({
+        people: people
+      });
+    });
+
+    socket.on("url", url => {
+      this.updateUrl(url);
+    });
+
+    socket.on("subtitles", newSubtitles => {
+      subtitles = newSubtitles;
       this.updateSubtitles();
-    }); */
+    });
 
     this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
@@ -143,7 +153,6 @@ export default class App extends Component {
       socket.emit("ready", video.current.currentTime);
       this.setState({
         ready: true,
-        description: { ...this.state.description, ...{ duration: video.current.duration } }
       });
       // this.testReady();
     }
@@ -357,9 +366,9 @@ export default class App extends Component {
           <div className="panel" id="join">
             <span className="item-title">Party Description</span>
             <ul>
-              <li>People: {this.state.description.people}</li>
-              {this.state.description.duration > 1 &&
-                <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}
+              <li>People: {this.state.people}</li>
+              {video.current.duration > 1 &&
+                <li>Duration: {video.current.duration.toHHMMSS()}</li>}
             </ul>
             {/* {!this.state.joined &&
               <button onClick={this.join}>Join</button>} */}
@@ -377,7 +386,7 @@ export default class App extends Component {
         <div className="top-button" style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={this.copyLink} /><span className="tooltip">Copy Link</span></div>
         <div className="top-button" style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={this.toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
         <div className="top-button" style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={this.toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>
-        { this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
+        {this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
       </div>
     );
   }
