@@ -48,7 +48,6 @@ export default class App extends Component {
     this.state = {
       people: 1,
       buffering: 0,
-      waiting: false,
       ready: false,
       urlPanel: false,
       descriptionPanel: false,
@@ -75,12 +74,17 @@ export default class App extends Component {
 
     socket.on("seek", time => {
       this.setState({
-        waiting: true,
         ready: false,
       });
       localAction = false;
       video.current.pause();
       video.current.currentTime = time;
+    });
+
+    socket.on("buffering", buffering => {
+      this.setState({
+        buffering: buffering,
+      });
     });
 
     socket.on("people", people => {
@@ -123,7 +127,7 @@ export default class App extends Component {
 
     video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
-      if (this.state.waiting) {
+      if (this.state.buffering) {
         video.current.pause();
       } else {
         if (localAction) {
@@ -134,7 +138,7 @@ export default class App extends Component {
     }
     video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
-      if (!this.state.waiting && video.current.readyState >= 3) {
+      if (!this.state.buffering && video.current.readyState >= 3) {
         if (localAction) {
           socket.emit("pause", video.current.currentTime);
         }
@@ -142,7 +146,7 @@ export default class App extends Component {
       }
     }
     video.current.onseeking = () => {
-      this.setState({ waiting: true });
+      this.setState({ buffering: 1 });
       if (localAction) {
         socket.emit("seek", video.current.currentTime);
       }
@@ -154,13 +158,12 @@ export default class App extends Component {
       this.setState({
         ready: true,
       });
-      // this.testReady();
     }
     video.current.onwaiting = () => {
-      if (!this.state.waiting) {
+      if (!this.state.buffering) {
         consoleLog("Event: buffering");
         video.current.pause();
-        this.setState({ waiting: true });
+        this.setState({ buffering: 1 });
         socket.emit("seek", video.current.currentTime);
         localAction = true;
         this.setState({ ready: false });
@@ -284,7 +287,7 @@ export default class App extends Component {
       this.setState({
         url: url,
         urlPanel: false,
-        waiting: true,
+        buffering: 1,
         ready: false
       });
       subtitles = [];
@@ -352,7 +355,7 @@ export default class App extends Component {
     return (
       <div className="App">
         <video ref={video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
-        {this.state.waiting && (this.state.ready ?
+        {this.state.buffering > 0 && (this.state.ready ?
           <span className="status">Waiting for {this.state.buffering} {this.state.buffering === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
         )}
