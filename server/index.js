@@ -6,6 +6,7 @@ const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const { time } = require('console');
+const { callbackify } = require('util');
 const io = new Server(server);
 
 app.use(express.static(path.resolve(__dirname, '../client/build')));
@@ -22,7 +23,7 @@ io.on('connection', (socket) => {
 
     let room;
 
-
+    let ready = false;
     socket.on("join", (_roomId) => {
         if (rooms[_roomId] == undefined) {
             room = {
@@ -61,6 +62,9 @@ io.on('connection', (socket) => {
         if (room != undefined){
             console.log(room);
             io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
+            room.numPeople--;
+            if (!ready)
+                room.buffering--;
         }
     });
 
@@ -75,11 +79,13 @@ io.on('connection', (socket) => {
     socket.on("pause", (timestamp) => {
         socket.to(room.id).emit("pause", timestamp);
         room.playing = false;
+        ready = false;
         room.lastKnownSeek = timestamp;
         room.lastServerTime = new Date();
     });
 
     socket.on("seek", (timestamp) => {
+        ready = false;
         socket.to(room.id).emit("seek", timestamp);
         room.buffering = room.numPeople;
         room.lastKnownSeek = timestamp;
@@ -88,15 +94,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on("url", (url) => {
+        ready = false;
         socket.to(room.id).emit("url", url);
         room.url = url;
     });
 
 
     socket.on("ready", () => {
+        ready = true;
         room.buffering -=1;
         io.in(room.id).emit("buffering",room.buffering);
-        if (room.buffering == 0 && room.playing){
+        if (room.buffering <= 0 && room.playing){
             io.in(room.id).emit("play");
         }
     });
@@ -104,4 +112,8 @@ io.on('connection', (socket) => {
     socket.on("subtitles", (subtitles) => {
         socket.to(room.id).emit("subtitles", subtitles);
     });
+
+    socket.on("info",(roomId,callback)=>{
+        callback({people:rooms[roomId].numPeople});
+    })
 });
