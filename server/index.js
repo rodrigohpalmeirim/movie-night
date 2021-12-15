@@ -45,21 +45,21 @@ io.on('connection', (socket) => {
 
         ((room.playing) ? socket.to(room.id) : socket).emit("pause", time);
 
-        socket.emit("url",room.url);
-        socket.emit("seek",time());
-        socket.emit("buffering",room.buffering);
+        socket.emit("url", room.url);
+        socket.emit("seek", time());
+        socket.emit("buffering", room.buffering);
 
 
         io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
         console.log('a user joined');
-        console.log("room",room)
+        console.log("room", room)
     });
 
 
     socket.on('disconnect', () => {
         console.log('user disconnected');
-        if (room != undefined){
+        if (room != undefined) {
             console.log(room);
             io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
             room.numPeople--;
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
 
     socket.on("play", () => {
         room.playing = true;
-        if(room.buffering == 0){
+        if (room.buffering == 0) {
             socket.to(room.id).emit("play");
         }
     });
@@ -90,7 +90,7 @@ io.on('connection', (socket) => {
         room.buffering = room.numPeople;
         room.lastKnownSeek = timestamp;
         room.lastServerTime = new Date();
-        io.in(room.id).emit("buffering",room.buffering);
+        io.in(room.id).emit("buffering", room.buffering);
     });
 
     socket.on("url", (url) => {
@@ -102,9 +102,9 @@ io.on('connection', (socket) => {
 
     socket.on("ready", () => {
         ready = true;
-        room.buffering -=1;
-        io.in(room.id).emit("buffering",room.buffering);
-        if (room.buffering <= 0 && room.playing){
+        room.buffering -= 1;
+        io.in(room.id).emit("buffering", room.buffering);
+        if (room.buffering <= 0 && room.playing) {
             io.in(room.id).emit("play");
         }
     });
@@ -113,7 +113,7 @@ io.on('connection', (socket) => {
         socket.to(room.id).emit("subtitles", subtitles);
     });
 
-    socket.on("info",(roomId,callback)=>{
-        callback({people: rooms[roomId] !== undefined ? rooms[roomId].numPeople : 0});
+    socket.on("info", (roomId, callback) => {
+        callback({ people: rooms[roomId] !== undefined ? rooms[roomId].numPeople : 0 });
     })
 });
