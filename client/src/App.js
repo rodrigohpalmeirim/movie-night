@@ -155,7 +155,7 @@ export default class App extends Component {
     }
     video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
-      if (!this.state.buffering!==0 && video.current.readyState >= 3) {
+      if (this.state.buffering === 0 && video.current.readyState >= 3) {
         if (localAction) {
           socket.emit("pause", video.current.currentTime);
         }
@@ -307,7 +307,7 @@ export default class App extends Component {
       this.setState({
         url: url,
         urlPanel: false,
-        buffering: 1,
+        buffering: this.state.people - 1,
         ready: false
       });
       subtitles = [];
