@@ -46,9 +46,8 @@ export default class App extends Component {
     super(props);
 
     this.state = {
-      description: { people: 1 },
+      people: 1,
       buffering: 0,
-      waiting: false,
       ready: false,
       urlPanel: false,
       descriptionPanel: false,
@@ -75,7 +74,6 @@ export default class App extends Component {
 
     socket.on("seek", time => {
       this.setState({
-        waiting: true,
         ready: false,
       });
       localAction = false;
@@ -83,10 +81,26 @@ export default class App extends Component {
       video.current.currentTime = time;
     });
 
-    /* socket.on("subtitles", subtitles => {
-      subtitles = data.subtitles;
+    socket.on("buffering", buffering => {
+      this.setState({
+        buffering: buffering,
+      });
+    });
+
+    socket.on("people", people => {
+      this.setState({
+        people: people
+      });
+    });
+
+    socket.on("url", url => {
+      this.updateUrl(url);
+    });
+
+    socket.on("subtitles", newSubtitles => {
+      subtitles = newSubtitles;
       this.updateSubtitles();
-    }); */
+    });
 
     this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
@@ -113,26 +127,26 @@ export default class App extends Component {
 
     video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
-      if (this.state.waiting) {
+      if (this.state.buffering) {
         video.current.pause();
       } else {
         if (localAction) {
-          socket.emit("play");
+          socket.emit("play", video.current.currentTime);
         }
       }
       localAction = true;
     }
     video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
-      if (!this.state.waiting && video.current.readyState >= 3) {
+      if (!this.state.buffering && video.current.readyState >= 3) {
         if (localAction) {
-          socket.emit("pause");
+          socket.emit("pause", video.current.currentTime);
         }
         localAction = true;
       }
     }
     video.current.onseeking = () => {
-      this.setState({ waiting: true });
+      this.setState({ buffering: 1 });
       if (localAction) {
         socket.emit("seek", video.current.currentTime);
       }
@@ -140,18 +154,16 @@ export default class App extends Component {
       this.setState({ ready: false });
     };
     video.current.oncanplay = () => {
-      socket.emit("ready", video.current.currentTime);
+      socket.emit("ready");
       this.setState({
         ready: true,
-        description: { ...this.state.description, ...{ duration: video.current.duration } }
       });
-      // this.testReady();
     }
     video.current.onwaiting = () => {
-      if (!this.state.waiting) {
+      if (!this.state.buffering) {
         consoleLog("Event: buffering");
         video.current.pause();
-        this.setState({ waiting: true });
+        this.setState({ buffering: 1 });
         socket.emit("seek", video.current.currentTime);
         localAction = true;
         this.setState({ ready: false });
@@ -275,7 +287,7 @@ export default class App extends Component {
       this.setState({
         url: url,
         urlPanel: false,
-        waiting: true,
+        buffering: 1,
         ready: false
       });
       subtitles = [];
@@ -343,7 +355,7 @@ export default class App extends Component {
     return (
       <div className="App">
         <video ref={video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
-        {this.state.waiting && (this.state.ready ?
+        {this.state.buffering > 0 && (this.state.ready ?
           <span className="status">Waiting for {this.state.buffering} {this.state.buffering === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
         )}
@@ -357,9 +369,9 @@ export default class App extends Component {
           <div className="panel" id="join">
             <span className="item-title">Party Description</span>
             <ul>
-              <li>People: {this.state.description.people}</li>
-              {this.state.description.duration > 1 &&
-                <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}
+              <li>People: {this.state.people}</li>
+              {video.current.duration > 1 &&
+                <li>Duration: {video.current.duration.toHHMMSS()}</li>}
             </ul>
             {/* {!this.state.joined &&
               <button onClick={this.join}>Join</button>} */}
@@ -377,7 +389,7 @@ export default class App extends Component {
         <div className="top-button" style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={this.copyLink} /><span className="tooltip">Copy Link</span></div>
         <div className="top-button" style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={this.toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
         <div className="top-button" style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={this.toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>
-        { this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
+        {this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
       </div>
     );
   }

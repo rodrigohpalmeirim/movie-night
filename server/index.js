@@ -77,7 +77,7 @@ io.on('connection', (socket) => {
         room.url = url;
     });
 
-    socket.on("subtitles", () => {
-        //TODO
+    socket.on("subtitles", (subtitles) => {
+        socket.to(room).emit("subtitles", subtitles);
     });
 });
