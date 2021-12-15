@@ -72,14 +72,17 @@ export default class App extends Component {
 
     // Socket events
     socket.on("connect", () => {
-      if (window.location.pathname.length > 1) {
-        this.setState({ descriptionPanel: true });
-      } else {
+      if (window.location.pathname.length <= 1) {
         window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
       }
 
       socket.emit("info", window.location.pathname.slice(1), (response) => {
         this.setState({ people: response.people });
+        if (response.people === 0) {
+          this.join();
+        } else {
+          this.setState({ descriptionPanel: true });
+        }
       });
     });
 
