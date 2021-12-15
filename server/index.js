@@ -64,7 +64,7 @@ io.on('connection', (socket) => {
     socket.on("play", () => {
         room.playing = true;
         if(room.buffering == 0){
-            io.to(room.id).emit("play");
+            socket.to(room.id).emit("play");
         }
     });
 
@@ -80,6 +80,7 @@ io.on('connection', (socket) => {
         room.buffering = room.numPeople;
         room.lastKnownSeek = timestamp;
         room.lastServerTime = new Date();
+        io.in(room.id).emit("buffering",room.buffering);
     });
 
     socket.on("url", (url) => {
@@ -90,6 +91,7 @@ io.on('connection', (socket) => {
 
     socket.on("ready", () => {
         room.buffering -=1;
+        io.in(room.id).emit("buffering",room.buffering);
         if (room.buffering == 0 && room.playing){
             io.in(room.id).emit("play");
         }
