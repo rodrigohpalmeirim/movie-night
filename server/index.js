@@ -5,7 +5,6 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const { time } = require('console');
 const io = new Server(server);
 
 app.use(express.static(path.resolve(__dirname, '../client/build')));
