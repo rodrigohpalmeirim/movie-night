@@ -58,6 +58,19 @@ export default class App extends Component {
 
     video = React.createRef();
 
+    this.join = this.join.bind(this);
+    this.updateUrl = this.updateUrl.bind(this);
+    this.copyLink = this.copyLink.bind(this);
+    this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
+    this.toggleDescriptionPanel = this.toggleDescriptionPanel.bind(this);
+    this.toggleSubtitlesPanel = this.toggleSubtitlesPanel.bind(this);
+    this.uploadSubtitles = this.uploadSubtitles.bind(this);
+    this.updateSubtitles = this.updateSubtitles.bind(this);
+  }
+
+  componentDidMount() {
+
+    // Socket events
     socket.on("connect", () => {
       if (window.location.pathname.length > 1) {
         this.setState({ descriptionPanel: true });
@@ -114,17 +127,7 @@ export default class App extends Component {
       this.updateSubtitles();
     });
 
-    this.join = this.join.bind(this);
-    this.updateUrl = this.updateUrl.bind(this);
-    this.copyLink = this.copyLink.bind(this);
-    this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
-    this.toggleDescriptionPanel = this.toggleDescriptionPanel.bind(this);
-    this.toggleSubtitlesPanel = this.toggleSubtitlesPanel.bind(this);
-    this.uploadSubtitles = this.uploadSubtitles.bind(this);
-    this.updateSubtitles = this.updateSubtitles.bind(this);
-  }
-
-  componentDidMount() {
+    // User events
     let timeout;
     document.addEventListener("mousemove", () => {
       clearTimeout(timeout);
@@ -138,9 +141,10 @@ export default class App extends Component {
       }
     });
 
+    // Video events
     video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
-      if (this.state.buffering!==0) {
+      if (this.state.buffering !== 0) {
         video.current.pause();
       } else {
         if (localAction) {
