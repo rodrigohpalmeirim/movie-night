@@ -45,8 +45,5 @@
   "main": "index.js",
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "eslint-plugin-react-hooks": "^4.3.0"
-  }
+  "license": "ISC"
 }
