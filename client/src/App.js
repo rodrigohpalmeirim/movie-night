@@ -47,7 +47,7 @@ export default class App extends Component {
 
     this.state = {
       joined: false,
-      people: 1,
+      people: undefined,
       buffering: 0,
       ready: false,
       urlPanel: false,
@@ -64,6 +64,10 @@ export default class App extends Component {
       } else {
         window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
       }
+
+      socket.emit("info", window.location.pathname.slice(1), (response) => {
+        this.setState({ people: response.people });
+      });
     });
 
     socket.on("disconnect", () => {
@@ -381,7 +385,8 @@ export default class App extends Component {
           <div className="panel" id="join">
             <span className="item-title">Party Description</span>
             <ul>
-              <li>People: {this.state.people}</li>
+              {this.state.people !== undefined &&
+                <li>People: {this.state.people}</li>}
               {video.current.duration > 1 &&
                 <li>Duration: {video.current.duration.toHHMMSS()}</li>}
             </ul>
