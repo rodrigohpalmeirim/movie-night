@@ -110,6 +110,7 @@ export default class App extends Component {
       this.updateSubtitles();
     });
 
+    this.join = this.join.bind(this);
     this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
     this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
