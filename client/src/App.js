@@ -140,7 +140,7 @@ export default class App extends Component {
 
     video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
-      if (this.state.buffering) {
+      if (this.state.buffering!==0) {
         video.current.pause();
       } else {
         if (localAction) {
@@ -151,7 +151,7 @@ export default class App extends Component {
     }
     video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
-      if (!this.state.buffering && video.current.readyState >= 3) {
+      if (!this.state.buffering!==0 && video.current.readyState >= 3) {
         if (localAction) {
           socket.emit("pause", video.current.currentTime);
         }
