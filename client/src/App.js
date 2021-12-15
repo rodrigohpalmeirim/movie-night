@@ -7,7 +7,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
 
 var peer;
-var socket;
 var paused = false;
 var localAction = true;
 var subtitles = [];
@@ -154,7 +153,7 @@ export default class App extends Component {
         ready: true,
         description: { ...this.state.description, ...{ duration: this.video.current.duration } }
       });
-      this.testReady();
+      // this.testReady();
     }
     this.video.current.onwaiting = () => {
       if (!this.state.waiting) {
