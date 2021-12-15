@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
             rooms[room.id] = room;
         } else {
             room = rooms[_roomId];
-            room.numPeople += 1;
+            room.numPeople ++;
         }
         socket.join(room.id);
 
@@ -96,6 +96,7 @@ io.on('connection', (socket) => {
     socket.on("url", (url) => {
         ready = false;
         socket.to(room.id).emit("url", url);
+        room.buffering = room.numPeople;
         room.url = url;
     });
 
