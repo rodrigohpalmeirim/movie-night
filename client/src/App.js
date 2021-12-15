@@ -95,9 +95,10 @@ export default class App extends Component {
       video.current.play();
     });
 
-    socket.on("pause", () => {
+    socket.on("pause", time => {
       localAction = false;
       video.current.pause();
+      video.current.currentTime = time;
     });
 
     socket.on("seek", time => {
@@ -345,7 +346,6 @@ export default class App extends Component {
     }
   }
 
-  // TODO
   copyLink() {
     navigator.clipboard.writeText(window.location);
   }
