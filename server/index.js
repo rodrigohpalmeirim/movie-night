@@ -16,7 +16,7 @@ server.listen(port, () => {
 rooms = {};
 
 io.on('connection', (socket) => {
-    socket.onAny((...a)=>console.log(a))
+    socket.onAny((...a) => console.log(a))
     console.log('a user connected');
 
     let room;
@@ -55,7 +55,7 @@ io.on('connection', (socket) => {
         socket.to(room).emit("url", url);
     });
 
-    socket.on("subtitles", () => {
-        //TODO
+    socket.on("subtitles", (subtitles) => {
+        socket.to(room).emit("subtitles", subtitles);
     });
 });
