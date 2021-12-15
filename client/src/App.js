@@ -6,9 +6,6 @@ import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
 
-var peer;
-var connections = {};
-var paused = false;
 var localAction = true;
 var subtitles = [];
 var log = "";
@@ -49,14 +46,13 @@ export default class App extends Component {
     super(props);
 
     this.state = {
-      readyCount: 0,
+      description: { people: 1 },
+      buffering: 0,
       waiting: false,
+      ready: false,
       urlPanel: false,
       descriptionPanel: false,
-      ready: false,
       controlsShown: true,
-      joined: true,
-      description: { people: 1 },
       subtitlesPanel: false,
     }
 
@@ -123,7 +119,6 @@ export default class App extends Component {
       if (this.state.waiting) {
         video.current.pause();
       } else {
-        paused = false;
         if (localAction) {
           socket.emit("play");
         }
@@ -133,7 +128,6 @@ export default class App extends Component {
     video.current.onpause = () => {
       consoleLog("Event: paused, localAction:", localAction)
       if (!this.state.waiting && video.current.readyState >= 3) {
-        paused = true;
         if (localAction) {
           socket.emit("pause");
         }
@@ -146,12 +140,11 @@ export default class App extends Component {
         socket.emit("seek", video.current.currentTime);
       }
       localAction = true;
-      this.setState({ readyCount: 0, ready: false });
+      this.setState({ ready: false });
     };
     video.current.oncanplay = () => {
       socket.emit("ready", video.current.currentTime);
       this.setState({
-        readyCount: this.state.readyCount + 1,
         ready: true,
         description: { ...this.state.description, ...{ duration: video.current.duration } }
       });
@@ -164,7 +157,7 @@ export default class App extends Component {
         this.setState({ waiting: true });
         socket.emit("seek", video.current.currentTime);
         localAction = true;
-        this.setState({ readyCount: 0, ready: false });
+        this.setState({ ready: false });
       }
     }
   }
@@ -289,10 +282,8 @@ export default class App extends Component {
         url: url,
         urlPanel: false,
         waiting: true,
-        readyCount: 0,
         ready: false
       });
-      paused = false;
       subtitles = [];
       this.updateSubtitles();
     }
@@ -359,7 +350,7 @@ export default class App extends Component {
       <div className="App">
         <video ref={video} src={this.state.url} controls style={{ display: this.state.url ? "block" : "none" }} />
         {this.state.waiting && (this.state.ready ?
-          <span className="status">Waiting for {Object.keys(connections).length + 1 - this.state.readyCount} {Object.keys(connections).length + 1 - this.state.readyCount === 1 ? "person" : "people"}'s stream...</span> :
+          <span className="status">Waiting for {this.state.buffering} {this.state.buffering === 1 ? "person" : "people"}'s stream...</span> :
           <span className="status">Loading...</span>
         )}
         {this.state.urlPanel &&
@@ -376,8 +367,8 @@ export default class App extends Component {
               {this.state.description.duration > 1 &&
                 <li>Duration: {this.state.description.duration.toHHMMSS()}</li>}
             </ul>
-            {!this.state.joined &&
-              <button onClick={this.join}>Join</button>}
+            {/* {!this.state.joined &&
+              <button onClick={this.join}>Join</button>} */}
           </div>
         }
         {this.state.subtitlesPanel &&
