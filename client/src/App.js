@@ -62,7 +62,7 @@ export default class App extends Component {
       if (window.location.pathname.length > 1) {
         this.setState({ descriptionPanel: true });
       } else {
-        window.location.pathname = "/" + Math.random().toString(36).substring(2, 10);
+        window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
       }
     });
 
@@ -155,7 +155,7 @@ export default class App extends Component {
       }
     }
     video.current.onseeking = () => {
-      this.setState({ buffering: 1 });
+      this.setState({ buffering: this.state.people - 1 });
       if (localAction) {
         socket.emit("seek", video.current.currentTime);
       }
@@ -172,7 +172,7 @@ export default class App extends Component {
       if (!this.state.buffering) {
         consoleLog("Event: buffering");
         video.current.pause();
-        this.setState({ buffering: 1 });
+        this.setState({ buffering: this.state.people - 1 });
         socket.emit("seek", video.current.currentTime);
         localAction = true;
         this.setState({ ready: false });
