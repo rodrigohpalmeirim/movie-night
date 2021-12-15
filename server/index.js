@@ -114,6 +114,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on("info",(roomId,callback)=>{
-        callback({people:rooms[roomId].numPeople});
+        callback({people: rooms[roomId] !== undefined ? rooms[roomId].numPeople : 0});
     })
 });
