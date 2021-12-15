@@ -11,7 +11,7 @@ var subtitles = [];
 var log = "";
 const socket = io();
 
-Number.prototype.toHHMMSS = function () {
+function toHHMMSS() {
   var hours = Math.floor(this / 3600);
   var minutes = Math.floor((this - (hours * 3600)) / 60);
   var seconds = Math.floor(this - (hours * 3600) - (minutes * 60));
@@ -176,7 +176,7 @@ export default function App(props) {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setUrlPanel(false);
@@ -184,7 +184,7 @@ export default function App(props) {
     setReady(false);
     subtitles = [];
     updateSubtitles();
-  }, [url]);
+  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function join() {
     socket.emit("join", window.location.pathname.slice(1));
@@ -261,7 +261,7 @@ export default function App(props) {
             {people !== undefined &&
               <li>People: {people}</li>}
             {video.current != null && video.current.duration > 1 &&
-              <li>Duration: {video.current.duration.toHHMMSS()}</li>}
+              <li>Duration: {toHHMMSS(video.current.duration)}</li>}
           </ul>
           {!joined &&
             <button onClick={join}>Join</button>}
