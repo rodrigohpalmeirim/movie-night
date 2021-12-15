@@ -33,7 +33,7 @@ io.on('connection', (socket) => {
                 buffering: 0,
                 url: null,
                 numPeople: 1,
-                time: () => (playing ? (new Date() - room.lastServerTime) : 0) + lastKnownSeek,
+                time: () => (room.playing ? (new Date() - room.lastServerTime) : 0) + room.lastKnownSeek, // TODO fix this
             };
             rooms[room.id] = room;
         } else {
@@ -42,11 +42,13 @@ io.on('connection', (socket) => {
         }
         socket.join(room.id);
 
-        ((room.playing) ? socket.to(room.id) : socket).emit("pause", time);
+        ((room.playing) ? socket.to(room.id) : socket).emit("pause", room.time()); // TODO fix this
+        console.log(room.time())
 
         socket.emit("url", room.url);
-        socket.emit("seek", time());
+        socket.emit("seek", room.time());
         socket.emit("buffering", room.buffering);
+        socket.emit("people", room.numPeople);
 
 
         io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
@@ -77,10 +79,12 @@ io.on('connection', (socket) => {
 
     socket.on("pause", (timestamp) => {
         socket.to(room.id).emit("pause", timestamp);
+        room.buffering = room.numPeople - 1;
         room.playing = false;
         ready = false;
         room.lastKnownSeek = timestamp;
         room.lastServerTime = new Date();
+        io.in(room.id).emit("buffering", room.buffering);
     });
 
     socket.on("seek", (timestamp) => {
