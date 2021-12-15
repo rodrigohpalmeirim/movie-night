@@ -46,6 +46,7 @@ export default class App extends Component {
     super(props);
 
     this.state = {
+      joined: false,
       people: 1,
       buffering: 0,
       ready: false,
@@ -57,6 +58,13 @@ export default class App extends Component {
 
     video = React.createRef();
 
+    socket.on("connect", () => {
+      if (window.location.pathname.length > 1) {
+        this.setState({ descriptionPanel: true });
+      } else {
+        window.location.pathname = "/" + Math.random().toString(36).substring(2, 10);
+      }
+    });
 
     socket.on("disconnect", () => {
       console.log("Connection lost");
@@ -175,6 +183,14 @@ export default class App extends Component {
     socket.close();
   }
 
+  join() {
+    socket.emit("join", window.location.pathname.slice(1));
+    this.setState({
+      descriptionPanel: false,
+      joined: true,
+    });
+  }
+
   /* dataHandler(connection, data) {
     consoleLog("Received data: " + JSON.stringify(data));
 
@@ -258,11 +274,6 @@ export default class App extends Component {
       default:
         break;
     }
-  } */
-
-  /* join() {
-    connections[this.props.match.params.peerid].send({ type: "info request" });
-    this.setState({ descriptionPanel: false });
   } */
 
   /* testReady() {
@@ -373,8 +384,8 @@ export default class App extends Component {
               {video.current.duration > 1 &&
                 <li>Duration: {video.current.duration.toHHMMSS()}</li>}
             </ul>
-            {/* {!this.state.joined &&
-              <button onClick={this.join}>Join</button>} */}
+            {!this.state.joined &&
+              <button onClick={this.join}>Join</button>}
           </div>
         }
         {this.state.subtitlesPanel &&
