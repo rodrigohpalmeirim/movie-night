@@ -12,6 +12,7 @@ var paused = false;
 var localAction = true;
 var subtitles = [];
 var log = "";
+const socket = io();
 
 Number.prototype.toHHMMSS = function () {
   var hours = Math.floor(this / 3600);
@@ -46,16 +47,37 @@ export default class App extends Component {
   constructor(props) {
     super(props);
 
-    socket = io();
-
     console.log(window.location.pathname.slice(1))
 
 
-    /* peer = new Peer(null, {
-      host: "peerjs-server.ddns.net",
-      port: "9000"
+    socket.on("disconnect", () => {
+      console.log("Connection lost");
+    });
+
+    socket.on("play", () => {
+      localAction = false;
+      this.video.current.play();
+    });
+
+    socket.on("pause", () => {
+      localAction = false;
+      this.video.current.pause();
+    });
+
+    socket.on("seek", time => {
+      this.setState({
+        waiting: true,
+        ready: false,
+      });
+      localAction = false;
+      this.video.current.pause();
+      this.video.current.currentTime = time;
+    });
+
+    /* socket.on("subtitles", subtitles => {
+      subtitles = data.subtitles;
+      this.updateSubtitles();
     }); */
-    peer = null;
 
     this.state = {
       id:window.location.pathname.slice(1),
@@ -72,9 +94,6 @@ export default class App extends Component {
 
     this.video = React.createRef();
 
-    this.connect = this.connect.bind(this);
-    this.connectionHandler = this.connectionHandler.bind(this);
-    this.dataHandler = this.dataHandler.bind(this);
     this.updateUrl = this.updateUrl.bind(this);
     this.copyLink = this.copyLink.bind(this);
     this.toggleUrlPanel = this.toggleUrlPanel.bind(this);
@@ -82,7 +101,6 @@ export default class App extends Component {
     this.toggleSubtitlesPanel = this.toggleSubtitlesPanel.bind(this);
     this.uploadSubtitles = this.uploadSubtitles.bind(this);
     this.updateSubtitles = this.updateSubtitles.bind(this);
-    this.join = this.join.bind(this);
   }
 
   componentDidMount() {
@@ -99,31 +117,15 @@ export default class App extends Component {
       }
     });
 
-
-
-    socket.on("connect", () => {
-      socket.emit("join", window.location.pathname.slice(1));
-    });
-
-    /* peer.on("open", (id) => {
-      this.setState({
-        id: id,
-        urlPanel: true,
-      });
-      if (this.props.match.params.peerid) {
-        this.connect(this.props.match.params.peerid);
-      }
-    });
-    peer.on("connection", this.connectionHandler); */
-
     this.video.current.onplay = () => {
       consoleLog("Event: playing, localAction:", localAction)
       if (this.state.waiting) {
         this.video.current.pause();
       } else {
         paused = false;
-        if (localAction)
-          this.sendEveryone({ type: "play" });
+        if (localAction) {
+          socket.emit("play");
+        }
       }
       localAction = true;
     }
@@ -131,20 +133,22 @@ export default class App extends Component {
       consoleLog("Event: paused, localAction:", localAction)
       if (!this.state.waiting && this.video.current.readyState >= 3) {
         paused = true;
-        if (localAction)
-          this.sendEveryone({ type: "pause" });
+        if (localAction) {
+          socket.emit("pause");
+        }
         localAction = true;
       }
     }
     this.video.current.onseeking = () => {
       this.setState({ waiting: true });
-      if (localAction)
-        this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
+      if (localAction) {
+        socket.emit("seek", this.video.current.currentTime);
+      }
       localAction = true;
       this.setState({ readyCount: 0, ready: false });
     };
     this.video.current.oncanplay = () => {
-      this.sendEveryone({ type: "ready", content: this.video.current.currentTime });
+      socket.emit("ready", this.video.current.currentTime);
       this.setState({
         readyCount: this.state.readyCount + 1,
         ready: true,
@@ -157,7 +161,7 @@ export default class App extends Component {
         consoleLog("Event: buffering");
         this.video.current.pause();
         this.setState({ waiting: true });
-        this.sendEveryone({ type: "seek", content: this.video.current.currentTime });
+        socket.emit("seek", this.video.current.currentTime);
         localAction = true;
         this.setState({ readyCount: 0, ready: false });
       }
@@ -165,47 +169,10 @@ export default class App extends Component {
   }
 
   componentWillUnmount() {
-    for (const id in socket) {
-      try { socket[id].close(); } catch { }
-    }
+    socket.close();
   }
 
-  connect(id) {
-    const connection = peer.connect(id);
-    this.connectionHandler(connection);
-  }
-
-  connectionHandler(connection) {
-    connection.on("open", () => {
-      consoleLog("Received connection from: " + connection);
-      socket[connection.peer] = connection;
-
-      if (this.props.match.params.peerid === connection.peer) {
-        connection.send({ type: "description request" });
-      }
-    });
-
-    connection.on("close", () => {
-      delete socket[connection.peer];
-      this.setState({ description: { ...this.state.description, ...{ people: this.state.description.people - 1 } } });
-      this.sendEveryone({ type: "kick", content: connection.peer });
-      consoleLog("Disconnected from: " + connection.peer);
-      this.testReady();
-      this.connect(connection.peer); // Try to reconnect
-      this.testReady();
-    });
-
-    connection.peerConnection.onconnectionstatechange = event => {
-      if (event.currentTarget.connectionState === 'disconnected') {
-        connection.close();
-      }
-    };
-
-    connection.on("data", (data) => this.dataHandler(connection, data));
-  }
-
-
-  dataHandler(connection, data) {
+  /* dataHandler(connection, data) {
     consoleLog("Received data: " + JSON.stringify(data));
 
     if (!this.state.joined && data.type !== "info")
@@ -288,27 +255,29 @@ export default class App extends Component {
       default:
         break;
     }
-  }
+  } */
 
-  join() {
-    socket[this.props.match.params.peerid].send({ type: "info request" });
+  /* join() {
+    connections[this.props.match.params.peerid].send({ type: "info request" });
     this.setState({ descriptionPanel: false });
-  }
+  } */
 
-  testReady() {
-    if (this.state.url && this.state.readyCount === Object.keys(socket).length + 1) {
+  /* testReady() {
+    if (this.state.url && this.state.readyCount === Object.keys(connections).length + 1) {
       this.setState({ waiting: false });
       if (!paused) {
         localAction = false;
         this.video.current.play();
       }
     }
-  }
+  } */
 
-  sendEveryone(data) {
-    socket.emit(data.type,data.content);
+  /* sendEveryone(data) {
+    for (const id in connections) {
+      connections[id].send(data);
+    }
     consoleLog("Sent data: " + JSON.stringify(data));
-  }
+  } */
 
   updateUrl(url) {
     if (url !== this.state.url) {
@@ -333,7 +302,7 @@ export default class App extends Component {
       }
       subtitles.push(file);
     }
-    this.sendEveryone({ type: "subtitles", content: subtitles });
+    socket.emit("subtitles", subtitles);
     this.updateSubtitles();
   }
 
@@ -352,6 +321,7 @@ export default class App extends Component {
     }
   }
 
+  // TODO
   copyLink() {
     navigator.clipboard.writeText(window.location);
   }
@@ -391,7 +361,7 @@ export default class App extends Component {
         {this.state.urlPanel &&
           <div className="panel" id="url-selector">
             <span className="item-title">Movie URL</span>
-            <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={url => { this.sendEveryone({ type: "url", content: url }); this.updateUrl(url) }} />
+            <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={url => { socket.emit("url", url); this.updateUrl(url); }} />
           </div>
         }
         {this.state.descriptionPanel &&
@@ -415,10 +385,10 @@ export default class App extends Component {
             </label>
           </div>
         }
-        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={this.copyLink} /><span className="tooltip">Copy Link</span></div>}
-        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={this.toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>}
-        {this.state.id && this.state.joined && <div className="top-button" style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={this.toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>}
-        {this.state.id && this.state.joined && this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
+        <div className="top-button" style={{ left: 20, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={this.copyLink} /><span className="tooltip">Copy Link</span></div>
+        <div className="top-button" style={{ left: 60, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={this.toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
+        <div className="top-button" style={{ left: 106.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={this.toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>
+        { this.state.url && <div className="top-button" style={{ left: 146.25, opacity: this.state.controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={this.toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
       </div>
     );
   }

@@ -13,46 +13,49 @@ server.listen(port, () => {
     console.log(`Listening on port ${port}`);
 });
 
+rooms = {};
+
 io.on('connection', (socket) => {
     socket.onAny((...a)=>console.log(a))
     console.log('a user connected');
-    let roomId = () => {
-        for (r of socket.rooms.keys()) {
-            if (r != socket.id) {
-                return r;
-            }
-        }
-        console.log(socket.rooms);
-        throw "No room id";
-    }
+
+    let room;
 
     socket.on('disconnect', () => {
-        console.log('user disconnected, had rooms', socket.rooms);
+        console.log('user disconnected');
+        io.in(room).fetchSockets().then(sockets => io.in(room).emit("people", sockets.length));
     });
 
-    socket.on("join", (roomIdNow) => {
-        socket.join(roomIdNow);
-        console.log("User joined");
+    socket.on("join", (roomId) => {
+        room = roomId;
+        if (rooms[room] == undefined) {
+            rooms[room] = {
+                buffering: 0,
+            };
+        }
+        socket.join(room);
+
+        io.in(room).fetchSockets().then(sockets => io.in(room).emit("people", sockets.length));
     });
 
 
     socket.on("play", () => {
-        socket.to(roomId()).emit("play");
+        socket.to(room).emit("play");
     });
 
     socket.on("pause", () => {
-        socket.to(roomId()).emit("pause");
+        socket.to(room).emit("pause");
     });
 
     socket.on("seek", (timestamp) => {
-        socket.to(roomId()).emit("seek", timestamp);
+        socket.to(room).emit("seek", timestamp);
     });
 
     socket.on("url", (url) => {
-        socket.to(roomId()).emit("url", url);
+        socket.to(room).emit("url", url);
     });
 
-    socket.on("subtitles", (roomIdNow) => {
+    socket.on("subtitles", () => {
         //TODO
     });
 });
