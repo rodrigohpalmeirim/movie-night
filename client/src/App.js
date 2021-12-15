@@ -127,7 +127,7 @@ export default class App extends Component {
         video.current.pause();
       } else {
         if (localAction) {
-          socket.emit("play");
+          socket.emit("play", video.current.currentTime);
         }
       }
       localAction = true;
@@ -136,7 +136,7 @@ export default class App extends Component {
       consoleLog("Event: paused, localAction:", localAction)
       if (!this.state.waiting && video.current.readyState >= 3) {
         if (localAction) {
-          socket.emit("pause");
+          socket.emit("pause", video.current.currentTime);
         }
         localAction = true;
       }
@@ -150,7 +150,7 @@ export default class App extends Component {
       this.setState({ ready: false });
     };
     video.current.oncanplay = () => {
-      socket.emit("ready", video.current.currentTime);
+      socket.emit("ready");
       this.setState({
         ready: true,
       });
