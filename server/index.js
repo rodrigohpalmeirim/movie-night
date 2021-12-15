@@ -44,6 +44,10 @@ io.on('connection', (socket) => {
 
         ((room.playing) ? socket.to(room.id) : socket).emit("pause", time);
 
+        socket.emit("url",room.url);
+        socket.emit("seek",time());
+        socket.emit("buffering",room.buffering);
+
 
         io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
