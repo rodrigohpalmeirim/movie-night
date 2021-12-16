@@ -57,17 +57,23 @@ io.on('connection', (socket) => {
         console.log('user disconnected');
         if (room != undefined) {
             console.log(room);
-            io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
+            // io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
             room.numPeople--;
-            if (!ready)
+            io.in(room.id).emit("people", room.numPeople);
+            if (!ready) {
                 room.buffering--;
+                io.in(room.id).emit("buffering", room.buffering);
+            }
+            if (room.buffering <= 0 && room.playing) {
+                io.in(room.id).emit("play");
+                room.lastServerTime = new Date();
+            }
         }
-        // TODO test if everyone is ready
     });
 
     socket.on("play", () => {
         room.playing = true;
-        if (room.buffering == 0) {
+        if (room.buffering <= 0) {
             socket.to(room.id).emit("play");
             room.lastServerTime = new Date();
         }
