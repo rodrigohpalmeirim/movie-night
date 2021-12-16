@@ -11,7 +11,7 @@ var subtitles = [];
 var log = "";
 const socket = io();
 
-function toHHMMSS() {
+Number.prototype.toHHMMSS = function () { // eslint-disable-line no-extend-native
   var hours = Math.floor(this / 3600);
   var minutes = Math.floor((this - (hours * 3600)) / 60);
   var seconds = Math.floor(this - (hours * 3600) - (minutes * 60));
@@ -271,7 +271,7 @@ export default function App(props) {
             {people !== undefined &&
               <li>People: {people}</li>}
             {video.current != null && video.current.duration > 1 &&
-              <li>Duration: {toHHMMSS(video.current.duration)}</li>}
+              <li>Duration: {video.current.duration.toHHMMSS()}</li>}
           </ul>
           {!joined &&
             <button onClick={join}>Join</button>}
