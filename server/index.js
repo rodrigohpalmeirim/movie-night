@@ -32,12 +32,12 @@ io.on('connection', (socket) => {
                 buffering: 0,
                 url: null,
                 numPeople: 1,
-                time: () => (room.playing ? (new Date() - room.lastServerTime)/1000 : 0) + room.lastKnownSeek,
+                time: () => (room.playing ? (new Date() - room.lastServerTime) / 1000 : 0) + room.lastKnownSeek,
             };
             rooms[room.id] = room;
         } else {
             room = rooms[_roomId];
-            room.numPeople ++;
+            room.numPeople++;
         }
         socket.join(room.id);
 
@@ -46,13 +46,11 @@ io.on('connection', (socket) => {
         socket.emit("buffering", room.buffering);
         socket.emit("people", room.numPeople);
 
-
         io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
         console.log('a user joined');
         console.log("room", room)
     });
-
 
     socket.on('disconnect', () => {
         console.log('user disconnected');
@@ -65,7 +63,6 @@ io.on('connection', (socket) => {
         }
         // TODO test if everyone is ready
     });
-
 
     socket.on("play", () => {
         room.playing = true;
@@ -102,7 +99,6 @@ io.on('connection', (socket) => {
         room.lastServerTime = new Date();
         room.url = url;
     });
-
 
     socket.on("ready", () => {
         ready = true;
