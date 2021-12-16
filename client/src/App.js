@@ -8,7 +8,7 @@ import { srt2webvtt } from "./subtitles";
 
 var localAction = true;
 var subtitles = [];
-var log = "";
+var logs = "";
 const socket = io();
 
 Number.prototype.toHHMMSS = function () { // eslint-disable-line no-extend-native
@@ -36,7 +36,7 @@ function download(text, filename) {
 }
 
 function log(...message) {
-  log += (new Date()).toJSON().slice(11, -1) + " - " + message.join(" ") + "\n";
+  logs += (new Date()).toJSON().slice(11, -1) + " - " + message.join(" ") + "\n";
   console.log(message.join(" "));
 }
 
@@ -122,7 +122,7 @@ export default function App(props) {
 
     document.addEventListener("keypress", event => {
       if (event.key === "l") {
-        download(log, "log.txt");
+        download(logs, "log.txt");
       }
     });
 
