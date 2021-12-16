@@ -7,9 +7,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
 
 var localAction = true;
+var timeout;
 var subtitles = [];
 var logs = "";
 const socket = io();
+
 
 Number.prototype.toHHMMSS = function () { // eslint-disable-line no-extend-native
   var hours = Math.floor(this / 3600);
@@ -115,7 +117,6 @@ export default function App(props) {
     });
 
     // User events
-    let timeout;
     document.addEventListener("mousemove", () => {
       clearTimeout(timeout);
       setControlsShown(true);
@@ -127,14 +128,20 @@ export default function App(props) {
         download(logs, "log.txt");
       }
     });
-
+    
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+  
+  useEffect(() => {
     // Video events
     video.current.onplay = () => {
       log("Event: playing, localAction:", localAction)
-      if (buffering !== 0) {
-        video.current.pause();
-      } else {
-        if (localAction) {
+      if (localAction) {
+        if (buffering !== 0) {
+          video.current.pause();
+        } else {
           socket.emit("play", video.current.currentTime);
         }
       }
@@ -143,12 +150,10 @@ export default function App(props) {
 
     video.current.onpause = () => {
       log("Event: paused, localAction:", localAction)
-      if (buffering === 0 && video.current.readyState >= 3) {
-        if (localAction) {
-          socket.emit("pause", video.current.currentTime);
-        }
-        localAction = true;
+      if (localAction && buffering === 0 && video.current.readyState >= 3) {
+        socket.emit("pause", video.current.currentTime);
       }
+      localAction = true;
     }
 
     video.current.onseeking = () => {
@@ -175,11 +180,7 @@ export default function App(props) {
         setReady(false);
       }
     }
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [buffering, people]);
 
   useEffect(() => {
     if (url) {
