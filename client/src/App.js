@@ -35,7 +35,7 @@ function download(text, filename) {
   }, 0);
 }
 
-function consoleLog(...message) {
+function log(...message) {
   log += (new Date()).toJSON().slice(11, -1) + " - " + message.join(" ") + "\n";
   console.log(message.join(" "));
 }
@@ -74,7 +74,7 @@ export default function App(props) {
     });
   
     socket.on("disconnect", () => {
-      console.log("Connection lost");
+      log("Connection lost");
     });
   
     socket.on("play", () => {
@@ -128,7 +128,7 @@ export default function App(props) {
 
     // Video events
     video.current.onplay = () => {
-      consoleLog("Event: playing, localAction:", localAction)
+      log("Event: playing, localAction:", localAction)
       if (buffering !== 0) {
         video.current.pause();
       } else {
@@ -140,7 +140,7 @@ export default function App(props) {
     }
 
     video.current.onpause = () => {
-      consoleLog("Event: paused, localAction:", localAction)
+      log("Event: paused, localAction:", localAction)
       if (buffering === 0 && video.current.readyState >= 3) {
         if (localAction) {
           socket.emit("pause", video.current.currentTime);
@@ -165,7 +165,7 @@ export default function App(props) {
 
     video.current.onwaiting = () => {
       if (!buffering) {
-        consoleLog("Event: buffering");
+        log("Event: buffering");
         video.current.pause();
         setBuffering(people - 1);
         socket.emit("seek", video.current.currentTime);
