@@ -180,7 +180,9 @@ export default function App(props) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    setUrlPanel(false);
+    if (url) {
+      setUrlPanel(false);
+    }
     setBuffering(people - 1);
     setReady(false);
     subtitles = [];
@@ -191,6 +193,9 @@ export default function App(props) {
     socket.emit("join", window.location.pathname.slice(1));
     setDescriptionPanel(false);
     setJoined(true);
+    if (!url) {
+      setUrlPanel(true);
+    }
   }
 
   async function uploadSubtitles(event) {
