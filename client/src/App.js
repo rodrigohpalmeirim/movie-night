@@ -58,6 +58,8 @@ export default function App(props) {
   useEffect(() => {
     
     // Socket events
+    socket.onAny((...a) => log("Socket:", a));
+
     socket.on("connect", () => {
       if (window.location.pathname.length <= 1) {
         window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
