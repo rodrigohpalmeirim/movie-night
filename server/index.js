@@ -38,6 +38,7 @@ io.on('connection', (socket) => {
         } else {
             room = rooms[_roomId];
             room.numPeople++;
+            room.buffering = room.numPeople;
         }
         socket.join(room.id);
 
@@ -46,7 +47,7 @@ io.on('connection', (socket) => {
         socket.emit("buffering", room.buffering);
         socket.emit("people", room.numPeople);
 
-        io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
+        // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
         console.log('a user joined');
         console.log("room", room)
