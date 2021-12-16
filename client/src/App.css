@@ -156,6 +156,10 @@ video {
   height: 100vh;
 }
 
+video::-webkit-media-controls-fullscreen-button {
+  display: none;
+}
+
 .status {
   position: absolute;
   text-shadow: 0 0 5px black;

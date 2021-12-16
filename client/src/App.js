@@ -1,7 +1,7 @@
 import './App.css';
 import React, { useState, useRef, useEffect } from 'react';
 import io from 'socket.io-client';
-import { faClosedCaptioning, faFileUpload, faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faClosedCaptioning, faCompress, faExpand, faFileUpload, faFilm, faLink, faPlay, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
@@ -51,6 +51,7 @@ export default function App(props) {
   const [descriptionPanel, setDescriptionPanel] = useState(false);
   const [controlsShown, setControlsShown] = useState(true);
   const [subtitlesPanel, setSubtitlesPanel] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   
   const video = useRef();
 
@@ -241,6 +242,15 @@ export default function App(props) {
     setSubtitlesPanel(!subtitlesPanel);
   }
 
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+    setFullscreen(!document.fullscreenElement);
+  }
+
   return (
     <div className="App">
       <video ref={video} src={url} controls style={{ display: url ? "block" : "none" }} />
@@ -279,6 +289,7 @@ export default function App(props) {
       <div className="top-button" style={{ left: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={copyLink} /><span className="tooltip">Copy Link</span></div>
       <div className="top-button" style={{ left: 60, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
       <div className="top-button" style={{ left: 106.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>
+      <div className="top-button" style={{ right: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={fullscreen ? faCompress : faExpand} onClick={toggleFullscreen} /><span className="tooltip">Fullscreen</span></div>
       {url && <div className="top-button" style={{ left: 146.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
     </div>
   );
