@@ -26,7 +26,7 @@ io.on('connection', (socket) => {
         if (rooms[_roomId] == undefined) {
             room = {
                 id: _roomId,
-                playing: false,
+                playing: true,
                 lastKnownSeek: 0,
                 lastServerTime: new Date(),
                 buffering: 0,
