@@ -42,10 +42,10 @@ io.on('connection', (socket) => {
         }
         socket.join(room.id);
 
-        io.in(room.id).emit("seek", room.time());
         socket.emit("url", room.url);
-        socket.emit("buffering", room.buffering);
-        socket.emit("people", room.numPeople);
+        io.in(room.id).emit("people", room.numPeople);
+        io.in(room.id).emit("seek", room.time());
+        io.in(room.id).emit("buffering", room.buffering);
 
         // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
