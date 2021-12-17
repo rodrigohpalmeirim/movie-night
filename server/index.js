@@ -2,12 +2,14 @@ const path = require('path');
 const express = require('express');
 const port = process.env.PORT || 5000;
 const app = express();
+const cors = require('cors');
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server, { pingTimeout: 5000, pingInterval: 5000 });
 
 app.use(express.static(path.resolve(__dirname, '../client/build')));
+app.use(cors());
 
 server.listen(port, () => {
     console.log(`Listening on port ${port}`);
