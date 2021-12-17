@@ -154,8 +154,8 @@ export default function App(props) {
       log("Event: paused, localAction:", localAction)
       if (localAction && buffering === 0 && video.current.readyState >= 3) {
         socket.emit("pause", video.current.currentTime);
+        localAction = true;
       }
-      localAction = true;
     }
 
     video.current.onseeking = () => {
