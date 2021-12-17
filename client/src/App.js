@@ -56,11 +56,11 @@ export default function App(props) {
   const [controlsShown, setControlsShown] = useState(true);
   const [subtitlesPanel, setSubtitlesPanel] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  
+
   const video = useRef();
 
   useEffect(() => {
-    
+
     // Socket events
     socket.onAny((...a) => log("Socket:", a));
 
@@ -68,7 +68,7 @@ export default function App(props) {
       if (window.location.pathname.length <= 1) {
         window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
       }
-  
+
       socket.emit("info", window.location.pathname.slice(1), (response) => {
         setPeople(response.people);
         if (response.people === 0) {
@@ -78,41 +78,41 @@ export default function App(props) {
         }
       });
     });
-  
+
     socket.on("disconnect", () => {
       log("Connection lost");
     });
-  
+
     socket.on("play", () => {
       localAction = false;
       video.current.play();
     });
-  
+
     socket.on("pause", time => {
       localAction = false;
       video.current.pause();
       video.current.currentTime = time;
     });
-  
+
     socket.on("seek", time => {
       setReady(false);
       localAction = false;
       video.current.pause();
       video.current.currentTime = time;
     });
-  
+
     socket.on("buffering", num => {
       setBuffering(num);
     });
-  
+
     socket.on("people", num => {
       setPeople(num);
     });
-  
+
     socket.on("url", newUrl => {
       setUrl(newUrl);
     });
-  
+
     socket.on("subtitles", newSubtitles => {
       subtitles = newSubtitles;
       updateSubtitles();
@@ -130,12 +130,12 @@ export default function App(props) {
         download(logs, "log.txt");
       }
     });
-    
+
     return () => {
       socket.disconnect();
     };
   }, []);
-  
+
   useEffect(() => {
     // Video events
     video.current.onplay = () => {
