@@ -274,8 +274,8 @@ export default function App(props) {
     <div className="App">
       <video ref={video} src={url} controls style={{ display: url ? "block" : "none" }} />
       {url && buffering > 0 && (ready ?
-        <span className="status">Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
-        <span className="status">Loading...</span>
+        <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
+        <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Loading...</span>
       )}
       {urlPanel &&
         <div className="panel" id="url-selector">
