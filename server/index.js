@@ -11,6 +11,10 @@ const io = new Server(server, { pingTimeout: 5000, pingInterval: 5000 });
 app.use(express.static(path.resolve(__dirname, '../client/build')));
 app.use(cors());
 
+app.get('*', (req, res) => {
+    res.sendFile(__dirname + '../client/build/index.html');
+});
+
 server.listen(port, () => {
     console.log(`Listening on port ${port}`);
 });
