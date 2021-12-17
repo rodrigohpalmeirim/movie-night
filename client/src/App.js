@@ -7,7 +7,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
 
 var localAction = true;
-var timeout;
+var controlsTimeout;
+var seekTimeout;
+var readyTimeout;
 var subtitles = [];
 var logs = "";
 const socket = io();
@@ -118,9 +120,9 @@ export default function App(props) {
 
     // User events
     document.addEventListener("mousemove", () => {
-      clearTimeout(timeout);
+      clearTimeout(controlsTimeout);
       setControlsShown(true);
-      timeout = setTimeout(() => setControlsShown(false), 2600);
+      controlsTimeout = setTimeout(() => setControlsShown(false), 2600);
     });
 
     document.addEventListener("keypress", event => {
@@ -159,14 +161,23 @@ export default function App(props) {
     video.current.onseeking = () => {
       setBuffering(people - 1);
       if (localAction) {
-        socket.emit("seek", video.current.currentTime);
+        clearTimeout(seekTimeout);
+        seekTimeout = setTimeout(() => {
+          socket.emit("seek", video.current.currentTime);
+          seekTimeout = null;
+        }, 200);
       }
       localAction = true;
       setReady(false);
     };
 
     video.current.oncanplay = () => {
-      socket.emit("ready");
+      if (seekTimeout) {
+        clearTimeout(readyTimeout);
+        readyTimeout = setTimeout(() => socket.emit("ready"), 200);
+      } else {
+        socket.emit("ready");
+      }
       setReady(true);
     }
 
