@@ -61,7 +61,7 @@ io.on('connection', (socket) => {
             room.numPeople--;
             io.in(room.id).emit("people", room.numPeople);
             if (!ready) {
-                room.buffering--;
+                room.buffering = Math.max(room.buffering - 1, 0);
                 io.in(room.id).emit("buffering", room.buffering);
             }
             if (room.buffering <= 0 && room.playing) {
@@ -109,7 +109,7 @@ io.on('connection', (socket) => {
 
     socket.on("ready", () => {
         ready = true;
-        room.buffering -= 1;
+        room.buffering = Math.max(room.buffering - 1, 0);
         io.in(room.id).emit("buffering", room.buffering);
         if (room.buffering <= 0 && room.playing) {
             io.in(room.id).emit("play");
