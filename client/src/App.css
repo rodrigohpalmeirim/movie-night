@@ -164,7 +164,7 @@ video::-webkit-media-controls-fullscreen-button {
   position: absolute;
   text-shadow: 0 0 5px black;
   top: 20px;
-  right: 20px;
+  right: 60px;
 }
 
 .top-button {

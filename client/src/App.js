@@ -273,7 +273,7 @@ export default function App(props) {
   return (
     <div className="App">
       <video ref={video} src={url} controls style={{ display: url ? "block" : "none" }} />
-      {buffering > 0 && (ready ?
+      {url && buffering > 0 && (ready ?
         <span className="status">Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
         <span className="status">Loading...</span>
       )}
