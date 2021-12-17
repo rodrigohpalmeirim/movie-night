@@ -25,8 +25,8 @@ io.on('connection', (socket) => {
 
     let ready = false;
 
-    try {
-        socket.on("join", (_roomId) => {
+    socket.on("join", (_roomId) => {
+        try {
             if (rooms[_roomId] == undefined) {
                 room = {
                     id: _roomId,
@@ -56,11 +56,15 @@ io.on('connection', (socket) => {
             // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
             console.log('a user joined');
-            console.log("room", room)
-        });
+            console.log("room", room);
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on('disconnect', () => {
-            console.log('user disconnected');
+    socket.on('disconnect', () => {
+        console.log('user disconnected');
+        try {
             if (room != undefined) {
                 console.log(room);
                 // io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
@@ -75,17 +79,25 @@ io.on('connection', (socket) => {
                     room.lastServerTime = new Date();
                 }
             }
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("play", () => {
+    socket.on("play", () => {
+        try {
             room.playing = true;
             if (room.buffering <= 0) {
                 socket.to(room.id).emit("play");
                 room.lastServerTime = new Date();
             }
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("pause", (timestamp) => {
+    socket.on("pause", (timestamp) => {
+        try {
             socket.to(room.id).emit("pause", timestamp);
             room.buffering = room.numPeople - 1;
             room.playing = false;
@@ -93,27 +105,39 @@ io.on('connection', (socket) => {
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
             io.in(room.id).emit("buffering", room.buffering);
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("seek", (timestamp) => {
+    socket.on("seek", (timestamp) => {
+        try {
             ready = false;
             socket.to(room.id).emit("seek", timestamp);
             room.buffering = room.numPeople;
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
             io.in(room.id).emit("buffering", room.buffering);
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("url", (url) => {
+    socket.on("url", (url) => {
+        try {
             ready = false;
             socket.to(room.id).emit("url", url);
             room.buffering = room.numPeople;
             room.lastKnownSeek = 0;
             room.lastServerTime = new Date();
             room.url = url;
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("ready", () => {
+    socket.on("ready", () => {
+        try {
             ready = true;
             room.buffering = Math.max(room.buffering - 1, 0);
             io.in(room.id).emit("buffering", room.buffering);
@@ -121,18 +145,25 @@ io.on('connection', (socket) => {
                 io.in(room.id).emit("play");
                 room.lastServerTime = new Date();
             }
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("subtitles", (subtitles) => {
+    socket.on("subtitles", (subtitles) => {
+        try {
             socket.to(room.id).emit("subtitles", subtitles);
             room.subtitles = subtitles;
-        });
+        } catch (error) {
+            console.log(error);
+        }
+    });
 
-        socket.on("info", (roomId, callback) => {
+    socket.on("info", (roomId, callback) => {
+        try {
             callback({ people: rooms[roomId] !== undefined ? rooms[roomId].numPeople : 0 });
-        });
-        
-    } catch (error) {
-        console.log(error);
-    }
+        } catch (error) {
+            console.log(error);
+        }
+    });
 });
