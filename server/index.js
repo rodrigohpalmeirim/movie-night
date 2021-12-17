@@ -33,6 +33,7 @@ io.on('connection', (socket) => {
                 lastServerTime: new Date(),
                 buffering: 0,
                 url: null,
+                subtitles: [],
                 numPeople: 1,
                 time: () => (room.playing ? (new Date() - room.lastServerTime) / 1000 : 0) + room.lastKnownSeek,
             };
@@ -48,6 +49,7 @@ io.on('connection', (socket) => {
         io.in(room.id).emit("people", room.numPeople);
         io.in(room.id).emit("seek", room.time());
         io.in(room.id).emit("buffering", room.buffering);
+        io.in(room.id).emit("subtitles", room.subtitles);
 
         // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
@@ -121,6 +123,7 @@ io.on('connection', (socket) => {
 
     socket.on("subtitles", (subtitles) => {
         socket.to(room.id).emit("subtitles", subtitles);
+        room.subtitles = subtitles;
     });
 
     socket.on("info", (roomId, callback) => {
