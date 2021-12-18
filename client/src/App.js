@@ -131,6 +131,8 @@ export default function App(props) {
       }
     });
 
+    setInterval(() => fetch(window.location.origin + "/manifest.json"), 600000); // Keep Heroku app alive
+
     return () => {
       socket.disconnect();
     };
