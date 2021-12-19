@@ -35,7 +35,7 @@ io.on('connection', (socket) => {
                     lastKnownSeek: 0,
                     lastServerTime: new Date(),
                     buffering: 0,
-                    url: null,
+                    uri: null,
                     subtitles: [],
                     numPeople: 1,
                     time: () => (room.playing ? (new Date() - room.lastServerTime) / 1000 : 0) + room.lastKnownSeek,
@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
             }
             socket.join(room.id);
 
-            socket.emit("url", room.url);
+            socket.emit("uri", room.uri);
             io.in(room.id).emit("people", room.numPeople);
             io.in(room.id).emit("seek", room.time());
             io.in(room.id).emit("buffering", room.buffering);
@@ -124,14 +124,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on("url", (url) => {
+    socket.on("uri", (uri) => {
         try {
             ready = false;
-            socket.to(room.id).emit("url", url);
+            socket.to(room.id).emit("uri", uri);
             room.buffering = room.numPeople;
             room.lastKnownSeek = 0;
             room.lastServerTime = new Date();
-            room.url = url;
+            room.uri = uri;
         } catch (error) {
             console.log(error);
         }

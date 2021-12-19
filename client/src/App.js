@@ -5,6 +5,7 @@ import { faClosedCaptioning, faCompress, faExpand, faFileUpload, faFilm, faLink,
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
+import WebTorrent from 'webtorrent';
 
 var localAction = true;
 var controlsTimeout;
@@ -13,6 +14,7 @@ var readyTimeout;
 var subtitles = [];
 var logs = "";
 const socket = io();
+const wtClient = new WebTorrent();
 
 
 Number.prototype.toHHMMSS = function () { // eslint-disable-line no-extend-native
@@ -46,12 +48,12 @@ function log(...message) {
 
 export default function App(props) {
 
-  const [url, setUrl] = useState(undefined);
+  const [uri, setUri] = useState(undefined);
   const [joined, setJoined] = useState(false);
   const [people, setPeople] = useState(undefined);
   const [buffering, setBuffering] = useState(0);
   const [ready, setReady] = useState(false);
-  const [urlPanel, setUrlPanel] = useState(false);
+  const [uriPanel, setUriPanel] = useState(false);
   const [descriptionPanel, setDescriptionPanel] = useState(false);
   const [controlsShown, setControlsShown] = useState(true);
   const [subtitlesPanel, setSubtitlesPanel] = useState(false);
@@ -109,8 +111,8 @@ export default function App(props) {
       setPeople(num);
     });
 
-    socket.on("url", newUrl => {
-      setUrl(newUrl);
+    socket.on("uri", newUri => {
+      setUri(newUri);
     });
 
     socket.on("subtitles", newSubtitles => {
@@ -196,21 +198,37 @@ export default function App(props) {
   }, [buffering, people]);
 
   useEffect(() => {
-    if (url) {
-      setUrlPanel(false);
+    if (uri) {
+      setUriPanel(false);
+
+      // Remove old torrents
+      wtClient.torrents.forEach(torrent => {
+        if (torrent.infoHash !== uri)
+          wtClient.remove(torrent.infoHash)
+      });
+
+      // Add torrent
+      if (uri.startsWith("magnet:")) {
+        wtClient.add(uri, torrent => {
+          console.log(torrent.files);
+          var file = torrent.files.find(file => file.name.endsWith('.mp4'));
+          file.renderTo("video");
+        });
+      }
     }
+
     setBuffering(people - 1);
     setReady(false);
     subtitles = [];
     updateSubtitles();
-  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [uri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function join() {
     socket.emit("join", window.location.pathname.slice(1));
     setDescriptionPanel(false);
     setJoined(true);
-    if (!url) {
-      setUrlPanel(true);
+    if (!uri) {
+      setUriPanel(true);
     }
   }
 
@@ -245,20 +263,20 @@ export default function App(props) {
     navigator.clipboard.writeText(window.location);
   }
 
-  function toggleUrlPanel() {
+  function toggleUriPanel() {
     setDescriptionPanel(false);
     setSubtitlesPanel(false);
-    setUrlPanel(!urlPanel);
+    setUriPanel(!uriPanel);
   }
 
   function toggleDescriptionPanel() {
-    setUrlPanel(false);
+    setUriPanel(false);
     setSubtitlesPanel(false);
     setDescriptionPanel(!descriptionPanel);
   }
 
   function toggleSubtitlesPanel() {
-    setUrlPanel(false);
+    setUriPanel(false);
     setDescriptionPanel(false);
     setSubtitlesPanel(!subtitlesPanel);
   }
@@ -274,15 +292,15 @@ export default function App(props) {
 
   return (
     <div className="App">
-      <video ref={video} src={url} controls style={{ display: url ? "block" : "none" }} />
-      {url && buffering > 0 && (ready ?
+      <video ref={video} src={uri} controls style={{ display: uri ? "block" : "none" }} />
+      {(uri) && buffering > 0 && (ready ?
         <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
         <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Loading...</span>
       )}
-      {urlPanel &&
-        <div className="panel" id="url-selector">
-          <span className="item-title">Movie URL</span>
-          <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={url => { socket.emit("url", url); setUrl(url); }} />
+      {uriPanel &&
+        <div className="panel" id="uri-selector">
+          <span className="item-title">Movie URI</span>
+          <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={uri => { socket.emit("uri", uri); setUri(uri); }} />
         </div>
       }
       {descriptionPanel &&
@@ -309,9 +327,9 @@ export default function App(props) {
       }
       <div className="top-button" style={{ left: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={copyLink} /><span className="tooltip">Copy Link</span></div>
       <div className="top-button" style={{ left: 60, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
-      <div className="top-button" style={{ left: 106.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={toggleUrlPanel} /><span className="tooltip">Movie URL</span></div>
+      <div className="top-button" style={{ left: 106.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={toggleUriPanel} /><span className="tooltip">Movie URI</span></div>
       <div className="top-button" style={{ right: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={fullscreen ? faCompress : faExpand} onClick={toggleFullscreen} /><span className="tooltip">Fullscreen</span></div>
-      {url && <div className="top-button" style={{ left: 146.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
+      {uri && <div className="top-button" style={{ left: 146.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
     </div>
   );
 }
