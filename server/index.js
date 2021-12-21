@@ -24,7 +24,7 @@ io.on('connection', (socket) => {
 
     let room;
 
-    let ready = false;
+    let serverTimeWhenReady;
 
     socket.on("join", (_roomId) => {
         try {
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
                 // io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
                 room.numPeople--;
                 io.in(room.id).emit("people", room.numPeople);
-                if (!ready) {
+                if (serverTimeWhenReady !== room.lastServerTime) {
                     room.buffering = Math.max(room.buffering - 1, 0);
                     io.in(room.id).emit("buffering", room.buffering);
                 }
@@ -102,9 +102,9 @@ io.on('connection', (socket) => {
             socket.to(room.id).emit("pause", timestamp);
             room.buffering = room.numPeople - 1;
             room.playing = false;
-            ready = false;
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
+            serverTimeWhenReady = room.lastServerTime;
             io.in(room.id).emit("buffering", room.buffering);
         } catch (error) {
             console.log(error);
@@ -113,7 +113,6 @@ io.on('connection', (socket) => {
 
     socket.on("seek", (timestamp) => {
         try {
-            ready = false;
             socket.to(room.id).emit("seek", timestamp);
             room.buffering = room.numPeople;
             room.lastKnownSeek = timestamp;
@@ -126,7 +125,6 @@ io.on('connection', (socket) => {
 
     socket.on("url", (url) => {
         try {
-            ready = false;
             socket.to(room.id).emit("url", url);
             room.buffering = room.numPeople;
             room.lastKnownSeek = 0;
@@ -139,13 +137,13 @@ io.on('connection', (socket) => {
 
     socket.on("ready", () => {
         try {
-            ready = true;
             room.buffering = Math.max(room.buffering - 1, 0);
             io.in(room.id).emit("buffering", room.buffering);
             if (room.buffering <= 0 && room.playing) {
                 io.in(room.id).emit("play");
                 room.lastServerTime = new Date();
             }
+            serverTimeWhenReady = room.lastServerTime;
         } catch (error) {
             console.log(error);
         }
