@@ -64,23 +64,28 @@ export default function App(props) {
     // Socket events
     socket.onAny((...a) => log("Socket:", a));
 
+    let reconnection = false;
     socket.on("connect", () => {
       if (window.location.pathname.length <= 1) {
         window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
       }
 
-      socket.emit("info", window.location.pathname.slice(1), (response) => {
-        setPeople(response.people);
-        if (response.people === 0) {
-          join();
-        } else {
-          setDescriptionPanel(true);
-        }
-      });
+      if (!reconnection) {
+        socket.emit("info", window.location.pathname.slice(1), (response) => {
+          setPeople(response.people);
+          if (response.people === 0) {
+            join();
+          } else {
+            setDescriptionPanel(true);
+          }
+        });
+      }
+      reconnection = true;
     });
 
     socket.on("disconnect", () => {
       log("Connection lost");
+      join();
     });
 
     socket.on("play", () => {
@@ -196,22 +201,20 @@ export default function App(props) {
   }, [buffering, people]);
 
   useEffect(() => {
-    if (url) {
-      setUrlPanel(false);
-    }
     setBuffering(people - 1);
     setReady(false);
     subtitles = [];
     updateSubtitles();
   }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setUrlPanel(!url && joined);
+  }, [joined, url]);
+
   function join() {
     socket.emit("join", window.location.pathname.slice(1));
     setDescriptionPanel(false);
     setJoined(true);
-    if (!url) {
-      setUrlPanel(true);
-    }
   }
 
   async function uploadSubtitles(event) {

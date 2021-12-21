@@ -54,6 +54,7 @@ io.on('connection', (socket) => {
                 socket.emit("subtitles", room.subtitles);
                 io.in(room.id).emit("seek", room.time());
                 io.in(room.id).emit("buffering", room.buffering);
+                room.lastServerTime = new Date();
             }
 
             // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
