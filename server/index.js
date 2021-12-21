@@ -48,11 +48,13 @@ io.on('connection', (socket) => {
             }
             socket.join(room.id);
 
-            socket.emit("url", room.url);
             io.in(room.id).emit("people", room.numPeople);
-            io.in(room.id).emit("seek", room.time());
-            io.in(room.id).emit("buffering", room.buffering);
-            io.in(room.id).emit("subtitles", room.subtitles);
+            if (room.url != null) {
+                socket.emit("url", room.url);
+                socket.emit("subtitles", room.subtitles);
+                io.in(room.id).emit("seek", room.time());
+                io.in(room.id).emit("buffering", room.buffering);
+            }
 
             // io.in(room.id).fetchSockets().then(sockets => io.in(room.id).emit("people", sockets.length));
 
