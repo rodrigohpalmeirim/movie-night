@@ -198,7 +198,7 @@ export default function App(props) {
   }, [buffering, people]);
 
   useEffect(() => {
-    if (uri) {
+    if (uri && uri !== "local") {
       setUriPanel(false);
 
       // Remove old torrents
@@ -230,6 +230,23 @@ export default function App(props) {
     if (!uri) {
       setUriPanel(true);
     }
+  }
+  
+  function uploadVideo(event) {
+    setUriPanel(false);
+
+    // Remove old torrents
+    wtClient.torrents.forEach(torrent => {
+      if (torrent.infoHash !== uri)
+        wtClient.remove(torrent.infoHash)
+    });
+    
+    wtClient.seed(event.target.files[0], torrent => {
+      setUri("local");
+      torrent.files[0].renderTo("video");
+      console.log(torrent.files);
+      socket.emit("uri", torrent.magnetURI);
+    });
   }
 
   async function uploadSubtitles(event) {
@@ -299,6 +316,12 @@ export default function App(props) {
       )}
       {uriPanel &&
         <div className="panel" id="uri-selector">
+          <span className="item-title">Share file</span>
+          <input type="file" accept="video/*" onChange={uploadVideo} id="upload-button" style={{ position: "absolute", display: "none" }} />
+          <label htmlFor="upload-button" className="big-icon-button" style={{ width: 41, height: 41 }}>
+            <FontAwesomeIcon icon={faFileUpload} />
+          </label>
+          <br />
           <span className="item-title">Movie URI</span>
           <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={uri => { socket.emit("uri", uri); setUri(uri); }} />
         </div>
