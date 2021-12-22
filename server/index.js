@@ -7,6 +7,7 @@ const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server, { pingTimeout: 5000, pingInterval: 5000 });
+const getYoutubeDirectUrl = require('./youtube');
 
 app.use(express.static(path.resolve('client/build')));
 app.use((req, res) => res.sendFile(path.resolve('client/build/index.html')));
@@ -128,11 +129,22 @@ io.on('connection', (socket) => {
 
     socket.on("url", (url) => {
         try {
-            socket.to(room.id).emit("url", url);
-            room.buffering = room.numPeople;
-            room.lastKnownSeek = 0;
-            room.lastServerTime = new Date();
-            room.url = url;
+            if (url.includes("youtube.com") || url.includes("youtu.be")) {
+                getYoutubeDirectUrl(url).then(res => {
+                    console.log("converted to direct url:", res);
+                    io.to(room.id).emit("url", res);
+                    room.url = res;
+                    room.lastServerTime = new Date();
+                    room.buffering = room.numPeople;
+                    room.lastKnownSeek = 0;
+                });
+            } else {
+                socket.to(room.id).emit("url", url);
+                room.buffering = room.numPeople;
+                room.lastKnownSeek = 0;
+                room.lastServerTime = new Date();
+                room.url = url;
+            }
         } catch (error) {
             console.log(error);
         }
