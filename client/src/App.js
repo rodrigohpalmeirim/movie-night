@@ -12,6 +12,7 @@ var localAction = true;
 var controlsTimeout;
 var seekTimeout;
 var readyTimeout;
+var forceBufferTimeout;
 var subtitles = [];
 var logs = "";
 const socket = io();
@@ -175,6 +176,7 @@ export default function App(props) {
       }
       localAction = true;
       setReady(false);
+      forceBuffer();
     };
 
     video.current.oncanplay = () => {
@@ -215,6 +217,7 @@ export default function App(props) {
           console.log(torrent.files);
           var file = torrent.files.find(file => file.name.endsWith('.mp4'));
           file.renderTo("video");
+          forceBuffer();
         });
       }
     }
@@ -233,7 +236,25 @@ export default function App(props) {
       setUriPanel(true);
     }
   }
-  
+
+  // Workaround to force torrent to start buffering
+  function forceBuffer() {
+    clearTimeout(forceBufferTimeout);
+    forceBufferTimeout = setTimeout(() => {
+      let isBuffering = false;
+      for (let i=0; i<video.current.buffered.length; i++) {
+        if (video.current.currentTime >= video.current.buffered.start(i) && video.current.currentTime <= video.current.buffered.end(i)) {
+          isBuffering = true;
+          break;
+        }
+      }
+      if (!isBuffering) {
+        localAction = false;
+        video.current.play();
+      }
+    }, 100);
+  }
+
   function uploadVideo(event) {
     event.preventDefault();
 
@@ -252,6 +273,7 @@ export default function App(props) {
       setUri("local");
       socket.emit("uri", torrent.magnetURI);
       torrent.files[0].renderTo("video");
+      forceBuffer();
     });
   }
 
