@@ -1,15 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import './Spinner.css';
 import reportWebVitals from './reportWebVitals';
-// import { HashRouter, Route } from 'react-router-dom';
 import App from './App';
 
 ReactDOM.render(
   <React.StrictMode>
-    {/* <HashRouter>
-      <Route path={["/:peerid", "/"]} component={App} />
-    </HashRouter> */}
     <App />
   </React.StrictMode>,
   document.getElementById('root')
