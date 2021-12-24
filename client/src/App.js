@@ -5,6 +5,7 @@ import { faClosedCaptioning, faCompress, faExpand, faFileUpload, faFilm, faLink,
 import { ActionInput } from './ActionInput';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { srt2webvtt } from "./subtitles";
+import { Spinner } from './Spinner';
 import WebTorrent from 'webtorrent';
 
 var localAction = true;
@@ -53,6 +54,7 @@ export default function App(props) {
   const [people, setPeople] = useState(undefined);
   const [buffering, setBuffering] = useState(0);
   const [ready, setReady] = useState(false);
+  const [creatingTorrent, setCreatingTorrent] = useState(false);
   const [uriPanel, setUriPanel] = useState(false);
   const [descriptionPanel, setDescriptionPanel] = useState(false);
   const [controlsShown, setControlsShown] = useState(true);
@@ -233,19 +235,23 @@ export default function App(props) {
   }
   
   function uploadVideo(event) {
-    setUriPanel(false);
+    event.preventDefault();
 
     // Remove old torrents
-    wtClient.torrents.forEach(torrent => {
-      if (torrent.infoHash !== uri)
-        wtClient.remove(torrent.infoHash)
-    });
-    
-    wtClient.seed(event.target.files[0], torrent => {
-      setUri("local");
-      torrent.files[0].renderTo("video");
+    wtClient.torrents.forEach(torrent => wtClient.remove(torrent.infoHash));
+
+    let files = event.target.files || event.dataTransfer.files;
+
+    // TODO check file types
+
+    setCreatingTorrent(true);
+    wtClient.seed(files[0], torrent => {
       console.log(torrent.files);
+      setUriPanel(false);
+      setCreatingTorrent(false);
+      setUri("local");
       socket.emit("uri", torrent.magnetURI);
+      torrent.files[0].renderTo("video");
     });
   }
 
@@ -308,19 +314,27 @@ export default function App(props) {
   }
 
   return (
-    <div className="App">
+    <div className="App" onDragOver={e => e.preventDefault()} onDrop={uploadVideo}>
       <video ref={video} src={uri} controls style={{ display: uri ? "block" : "none" }} />
-      {(uri) && buffering > 0 && (ready ?
-        <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
-        <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Loading...</span>
-      )}
+      {creatingTorrent ?
+        <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Creating torrent...</span> :
+        (uri && buffering > 0 && (ready ?
+          <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Waiting for {buffering} {buffering === 1 ? "person" : "people"}'s stream...</span> :
+          <span className="status" style={{ right: controlsShown ? 60 : 20 }}>Loading...</span>
+        ))
+      }
       {uriPanel &&
         <div className="panel" id="uri-selector">
           <span className="item-title">Share file</span>
-          <input type="file" accept="video/*" onChange={uploadVideo} id="upload-button" style={{ position: "absolute", display: "none" }} />
-          <label htmlFor="upload-button" className="big-icon-button" style={{ width: 41, height: 41 }}>
-            <FontAwesomeIcon icon={faFileUpload} />
-          </label>
+          {creatingTorrent ?
+            <Spinner /> :
+            <>
+              <input type="file" accept="video/*" onChange={uploadVideo} id="upload-button" style={{ position: "absolute", display: "none" }} />
+              <label htmlFor="upload-button" className="big-icon-button" style={{ width: 41, height: 41 }}>
+                <FontAwesomeIcon icon={faFileUpload} />
+              </label>
+            </>
+          }
           <br />
           <span className="item-title">Movie URI</span>
           <ActionInput placeholder="https://example.com/movie.mp4" autoFocus={true} icon={faPlay} width={350} action={uri => { socket.emit("uri", uri); setUri(uri); }} />
@@ -350,7 +364,7 @@ export default function App(props) {
       }
       <div className="top-button" style={{ left: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faLink} onClick={copyLink} /><span className="tooltip">Copy Link</span></div>
       <div className="top-button" style={{ left: 60, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faUsers} onClick={toggleDescriptionPanel} /><span className="tooltip">Party Description</span></div>
-      <div className="top-button" style={{ left: 106.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={toggleUriPanel} /><span className="tooltip">Movie URI</span></div>
+      <div className="top-button" style={{ left: 106.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faFilm} onClick={toggleUriPanel} /><span className="tooltip">Movie</span></div>
       <div className="top-button" style={{ right: 20, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={fullscreen ? faCompress : faExpand} onClick={toggleFullscreen} /><span className="tooltip">Fullscreen</span></div>
       {uri && <div className="top-button" style={{ left: 146.25, opacity: controlsShown ? 0.5 : 0 }}><FontAwesomeIcon icon={faClosedCaptioning} onClick={toggleSubtitlesPanel} /><span className="tooltip">Subtitles</span></div>}
     </div>
