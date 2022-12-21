@@ -20,9 +20,11 @@
   },
   "homepage": "https://github.com/rodrigohpalmeirim/movie-night#readme",
   "dependencies": {
+    "@fortawesome/free-solid-svg-icons": "^6.2.1",
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "socket.io": "^4.4.0"
+    "socket.io": "^4.4.0",
+    "svelte-fa": "^3.0.3"
   },
   "engines": {
     "npm": "8.x"

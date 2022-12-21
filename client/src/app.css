@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  user-select: none;
+}
+
+body {
+  overflow: hidden;
+}
+
+@layer components {
+  .video-control {
+    @apply w-8 h-8 flex justify-center items-center hover:bg-slate-800 rounded-full transition-all text-slate-200;
+  }
+}
