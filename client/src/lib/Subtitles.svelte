@@ -1,16 +1,28 @@
 <script>
-    export let video;
+    export let activeTextTrack;
     let cues = [];
+    let previousTextTrack;
+    
+    $: if (activeTextTrack !== previousTextTrack) {
+        if (previousTextTrack) {
+            previousTextTrack.oncuechange = null;
+        }
+        previousTextTrack = activeTextTrack;
+        changeCues();
+        if (activeTextTrack) {
+            activeTextTrack.mode = 'hidden';
+            activeTextTrack.oncuechange = changeCues;
+        }
+    }
 
-    $: if (video?.textTracks[0]) {
-        video.textTracks[0].mode = 'hidden';
-        video.textTracks[0].oncuechange = () => {
-            cues = [];
-            for (let cue of video.textTracks[0].activeCues) {
+    function changeCues() {
+        cues = [];
+        if (activeTextTrack?.activeCues) {
+            for (let cue of activeTextTrack.activeCues) {
                 cues.push(cue.getCueAsHTML().firstChild.outerHTML || cue.getCueAsHTML().firstChild.textContent);
             }
             cues = cues;
-        };
+        }
     }
 </script>
 

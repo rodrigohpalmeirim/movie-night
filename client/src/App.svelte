@@ -8,7 +8,7 @@
   import Subtitles from './lib/Subtitles.svelte';
     import SubtitlesControl from './lib/SubtitlesControl.svelte';
   
-  let paused, buffering, currentTime, duration, muted = true, volume, video, scale;
+  let paused, buffering, currentTime, duration, muted = true, volume, video, scale, activeTextTrack;
 </script>
 
 <video
@@ -26,16 +26,23 @@
   on:waiting={() => (buffering = false)}
 >
   <source
-    src=""
+    src="https://upload.wikimedia.org/wikipedia/commons/7/76/Sprite_Fright_-_Blender_Open_Movie-full_movie.webm"
   />
-  <track kind="subtitles" src="subtitles.vtt" srclang="en" label="English" default />
+  <track kind="subtitles" src="en.srt" srclang="en" label="English" />
+  <track kind="subtitles" src="de.srt" srclang="de" label="German" />
+  <track kind="subtitles" src="es.srt" srclang="es" label="Spanish" />
+  <track kind="subtitles" src="hu.srt" srclang="hu" label="Hungarian" />
+  <track kind="subtitles" src="it.srt" srclang="it" label="Italian" />
+  <track kind="subtitles" src="pt.srt" srclang="pt" label="Portuguese" />
+  <track kind="subtitles" src="ru.srt" srclang="ru" label="Russian" />
 </video>
 
-<Subtitles video={video} />
+<Subtitles activeTextTrack={activeTextTrack} />
 
 <div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent">
   <div class="flex absolute right-[2%] -mr-2 top-2 gap-1">
     <VolumeControl bind:muted bind:volume />
+    <SubtitlesControl video={video} bind:activeTextTrack />
     <CropControl video={video} bind:scale />
     <FullscreenButton />
   </div>
