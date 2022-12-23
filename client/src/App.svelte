@@ -38,13 +38,13 @@
   <source
     src="https://upload.wikimedia.org/wikipedia/commons/7/76/Sprite_Fright_-_Blender_Open_Movie-full_movie.webm"
   />
-  <track kind="subtitles" src="en.srt" srclang="en" label="English" />
-  <track kind="subtitles" src="de.srt" srclang="de" label="German" />
-  <track kind="subtitles" src="es.srt" srclang="es" label="Spanish" />
-  <track kind="subtitles" src="hu.srt" srclang="hu" label="Hungarian" />
-  <track kind="subtitles" src="it.srt" srclang="it" label="Italian" />
-  <track kind="subtitles" src="pt.srt" srclang="pt" label="Portuguese" />
-  <track kind="subtitles" src="ru.srt" srclang="ru" label="Russian" />
+  <track kind="subtitles" src="en.vtt" srclang="en" label="English" />
+  <track kind="subtitles" src="de.vtt" srclang="de" label="German" />
+  <track kind="subtitles" src="es.vtt" srclang="es" label="Spanish" />
+  <track kind="subtitles" src="hu.vtt" srclang="hu" label="Hungarian" />
+  <track kind="subtitles" src="it.vtt" srclang="it" label="Italian" />
+  <track kind="subtitles" src="pt.vtt" srclang="pt" label="Portuguese" />
+  <track kind="subtitles" src="ru.vtt" srclang="ru" label="Russian" />
 </video>
 
 <Subtitles activeTextTrack={activeTextTrack} />
