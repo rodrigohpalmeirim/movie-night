@@ -1,6 +1,7 @@
 <script>
     export let currentTime = 0;
     export let duration = 1;
+    export let onSeek;
     $: progress = currentTime / duration * 100;
 
     let slider;
@@ -11,6 +12,7 @@
         seeking = true;
         const rect = slider.getBoundingClientRect();
         currentTime = Math.max(0, Math.min(duration, (e.clientX - rect.left) / rect.width * duration));
+        onSeek?.(currentTime);
     }
 
     function formatTime(time) {
@@ -39,6 +41,7 @@
         if (seeking) {
             const rect = slider.getBoundingClientRect();
             currentTime = Math.max(0, Math.min(duration, (e.clientX - rect.left) / rect.width * duration));
+            onSeek?.(currentTime);
         }
     }, { passive: true });
 

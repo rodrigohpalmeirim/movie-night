@@ -7,8 +7,9 @@
   import CropControl from './lib/CropControl.svelte';
   import Subtitles from './lib/Subtitles.svelte';
   import SubtitlesControl from './lib/SubtitlesControl.svelte';
+  import { io } from 'socket.io-client';
   
-  let paused, buffering, currentTime, duration, muted = true, volume, video, scale, activeTextTrack, timeout, showControls = true;
+  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack, timeout, showControls = true;
 
   window.addEventListener('mousemove', () => {
     clearTimeout(timeout);
@@ -19,12 +20,33 @@
       document.body.style.cursor = 'none';
     }, 2000);
   });
+
+  const socket = io();
+  socket.onAny((...args) => console.log("Socket:", ...args));
+  socket.on('connect', () => {
+    if (window.location.pathname.length <= 1) {
+      window.history.replaceState({}, "", window.location.origin + "/" + Math.random().toString(36).substring(2, 10));
+    }
+    socket.emit('join', window.location.pathname);
+  });
+  socket.on('disconnect', () => {
+    // TODO
+  });
+  socket.on('play', () => paused = false);
+  socket.on('pause', (time) => { paused = true; currentTime = time; });
+  socket.on('seek', (time) => { paused = true; currentTime = time; });
+  socket.on('buffering', (num) => peopleBuffering = num);
+  socket.on('people', (num) => people = num);
+  socket.on('url', (newUrl) => url = newUrl);
+  socket.on('subtitles', (subtitles) => {
+    // TODO
+  });
 </script>
 
+<!-- svelte-ignore a11y-media-has-caption -->
 <video
   class="w-screen h-screen bg-black pointer-events-none"
   style="transform: scale({scale});"
-  autoplay
   playsinline
   bind:muted
   bind:volume
@@ -32,12 +54,10 @@
   bind:currentTime
   bind:duration
   bind:this={video}
-  on:canplay={() => (buffering = true)}
-  on:waiting={() => (buffering = false)}
+  src={url}
+  on:canplay={() => {if (video.readyState >= 3) {buffering = false; socket.emit('ready')}}}
+  on:waiting={() => {if (!buffering) socket.emit('seek', currentTime); buffering = true}}
 >
-  <source
-    src="https://upload.wikimedia.org/wikipedia/commons/7/76/Sprite_Fright_-_Blender_Open_Movie-full_movie.webm"
-  />
   <track kind="subtitles" src="en.vtt" srclang="en" label="English" />
   <track kind="subtitles" src="de.vtt" srclang="de" label="German" />
   <track kind="subtitles" src="es.vtt" srclang="es" label="Spanish" />
@@ -56,9 +76,11 @@
     <CropControl video={video} bind:scale />
     <FullscreenButton />
   </div>
-  <SeekBar duration={duration} bind:currentTime />
+  <SeekBar duration={duration} bind:currentTime onSeek={() => {paused = true; socket.emit('seek', currentTime)}} />
 </div>
 
-<button class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 video-control {showControls ? 'opacity-50 hover:opacity-90' : 'opacity-0'} text-slate-200 text-[50px] w-[100px] h-[100px]" on:click={() => (paused = !paused)}>
-  <Fa icon={paused ? faPlay : faPause} />
-</button>
+{#if !buffering && !peopleBuffering}
+  <button class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 video-control {showControls ? 'opacity-50 hover:opacity-90' : 'opacity-0'} text-slate-200 text-[50px] w-[100px] h-[100px]" on:click={() => {paused = !paused; socket.emit(paused ? 'pause' : 'play', currentTime)}}>
+    <Fa icon={paused ? faPlay : faPause} />
+  </button>
+{/if}

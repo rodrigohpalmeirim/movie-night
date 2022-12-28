@@ -1,6 +1,6 @@
 const path = require('path');
 const express = require('express');
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5174;
 const app = express();
 const cors = require('cors');
 const http = require('http');
@@ -8,8 +8,8 @@ const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server, { pingTimeout: 5000, pingInterval: 5000 });
 
-app.use(express.static(path.resolve('client/build')));
-app.use((req, res) => res.sendFile(path.resolve('client/build/index.html')));
+app.use(express.static(path.resolve('client/dist')));
+app.use((req, res) => res.sendFile(path.resolve('client/dist/index.html')));
 app.use(cors());
 
 server.listen(port, () => {
@@ -24,9 +24,7 @@ io.on('connection', (socket) => {
 
     let room;
 
-    let serverTimeWhenReady;
-
-    socket.on("join", (_roomId) => {
+    socket.on("join", async (_roomId) => {
         try {
             if (rooms[_roomId] == undefined) {
                 room = {
@@ -34,8 +32,8 @@ io.on('connection', (socket) => {
                     playing: true,
                     lastKnownSeek: 0,
                     lastServerTime: new Date(),
-                    buffering: 0,
-                    url: null,
+                    buffering: [],
+                    url: 'https://upload.wikimedia.org/wikipedia/commons/7/76/Sprite_Fright_-_Blender_Open_Movie-full_movie.webm',
                     subtitles: [],
                     numPeople: 1,
                     time: () => (room.playing ? (new Date() - room.lastServerTime) / 1000 : 0) + room.lastKnownSeek,
@@ -44,7 +42,7 @@ io.on('connection', (socket) => {
             } else {
                 room = rooms[_roomId];
                 room.numPeople++;
-                room.buffering = room.numPeople;
+                room.buffering = (await io.in(room.id).fetchSockets()).map(socket => socket.id);
             }
             socket.join(room.id);
 
@@ -52,8 +50,9 @@ io.on('connection', (socket) => {
             if (room.url != null) {
                 socket.emit("url", room.url);
                 socket.emit("subtitles", room.subtitles);
+                console.log(room.playing, (new Date() - room.lastServerTime) / 1000, room.lastKnownSeek);
                 io.in(room.id).emit("seek", room.time());
-                io.in(room.id).emit("buffering", room.buffering);
+                io.in(room.id).emit("buffering", room.buffering.length);
                 room.lastServerTime = new Date();
             }
 
@@ -70,18 +69,15 @@ io.on('connection', (socket) => {
         console.log('user disconnected');
         try {
             if (room != undefined) {
-                console.log(room);
                 // io.in(room.id).fetchSockets().then(sockets => io.in(room.Id).emit("people", sockets.length));
                 room.numPeople--;
                 io.in(room.id).emit("people", room.numPeople);
-                if (serverTimeWhenReady !== room.lastServerTime) {
-                    room.buffering = Math.max(room.buffering - 1, 0);
-                    io.in(room.id).emit("buffering", room.buffering);
-                }
-                if (room.buffering <= 0 && room.playing) {
+                if (room.buffering.length == 1 && room.buffering.includes(socket.id)) {
                     io.in(room.id).emit("play");
                     room.lastServerTime = new Date();
                 }
+                room.buffering = room.buffering.filter(id => id !== socket.id);
+                io.in(room.id).emit("buffering", room.buffering.length);
             }
         } catch (error) {
             console.log(error);
@@ -91,7 +87,7 @@ io.on('connection', (socket) => {
     socket.on("play", () => {
         try {
             room.playing = true;
-            if (room.buffering <= 0) {
+            if (room.buffering.length <= 0) {
                 socket.to(room.id).emit("play");
                 room.lastServerTime = new Date();
             }
@@ -100,36 +96,35 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on("pause", (timestamp) => {
+    socket.on("pause", async (timestamp) => {
         try {
             socket.to(room.id).emit("pause", timestamp);
-            room.buffering = room.numPeople - 1;
+            room.buffering = (await io.in(room.id).fetchSockets()).map(socket => socket.id);
             room.playing = false;
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
-            serverTimeWhenReady = room.lastServerTime;
-            io.in(room.id).emit("buffering", room.buffering);
+            io.in(room.id).emit("buffering", room.buffering.length);
         } catch (error) {
             console.log(error);
         }
     });
 
-    socket.on("seek", (timestamp) => {
+    socket.on("seek", async (timestamp) => {
         try {
             socket.to(room.id).emit("seek", timestamp);
-            room.buffering = room.numPeople;
+            room.buffering = (await io.in(room.id).fetchSockets()).map(socket => socket.id);
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
-            io.in(room.id).emit("buffering", room.buffering);
+            io.in(room.id).emit("buffering", room.buffering.length);
         } catch (error) {
             console.log(error);
         }
     });
 
-    socket.on("url", (url) => {
+    socket.on("url", async (url) => {
         try {
             socket.to(room.id).emit("url", url);
-            room.buffering = room.numPeople;
+            room.buffering = (await io.in(room.id).fetchSockets()).map(socket => socket.id);
             room.lastKnownSeek = 0;
             room.lastServerTime = new Date();
             room.url = url;
@@ -140,13 +135,12 @@ io.on('connection', (socket) => {
 
     socket.on("ready", () => {
         try {
-            room.buffering = Math.max(room.buffering - 1, 0);
-            io.in(room.id).emit("buffering", room.buffering);
-            if (room.buffering <= 0 && room.playing) {
+            room.buffering = room.buffering.filter(id => id !== socket.id);
+            io.in(room.id).emit("buffering", room.buffering.length);
+            if (room.buffering.length <= 0 && room.playing) {
                 io.in(room.id).emit("play");
                 room.lastServerTime = new Date();
             }
-            serverTimeWhenReady = room.lastServerTime;
         } catch (error) {
             console.log(error);
         }
@@ -156,14 +150,6 @@ io.on('connection', (socket) => {
         try {
             socket.to(room.id).emit("subtitles", subtitles);
             room.subtitles = subtitles;
-        } catch (error) {
-            console.log(error);
-        }
-    });
-
-    socket.on("info", (roomId, callback) => {
-        try {
-            callback({ people: rooms[roomId] !== undefined ? rooms[roomId].numPeople : 0 });
         } catch (error) {
             console.log(error);
         }
