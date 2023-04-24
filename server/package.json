@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server/index.js",
+    "start": "node index.js",
     "build": "cd client && npm install && npm run build"
   },
   "repository": {
@@ -20,11 +20,9 @@
   },
   "homepage": "https://github.com/rodrigohpalmeirim/movie-night#readme",
   "dependencies": {
-    "@fortawesome/free-solid-svg-icons": "^6.2.1",
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "socket.io": "^4.4.0",
-    "svelte-fa": "^3.0.3"
+    "socket.io": "^4.4.0"
   },
   "engines": {
     "npm": "8.x"
