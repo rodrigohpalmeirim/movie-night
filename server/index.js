@@ -18,8 +18,10 @@ server.listen(port, () => {
 
 let rooms = {};
 
+let numClients = 0;
 io.on('connection', (socket) => {
-    socket.onAny((...a) => console.log(a));
+    let client = numClients++;
+    socket.onAny((...a) => console.log(client, a));
     console.log('a user connected');
 
     let room;
@@ -99,7 +101,7 @@ io.on('connection', (socket) => {
     socket.on("pause", async (timestamp) => {
         try {
             socket.to(room.id).emit("pause", timestamp);
-            room.buffering = (await io.in(room.id).fetchSockets()).map(socket => socket.id);
+            room.buffering = (await socket.to(room.id).fetchSockets()).map(socket => socket.id);
             room.playing = false;
             room.lastKnownSeek = timestamp;
             room.lastServerTime = new Date();
