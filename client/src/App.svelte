@@ -7,6 +7,7 @@
   import CropControl from './lib/CropControl.svelte';
   import Subtitles from './lib/Subtitles.svelte';
   import SubtitlesControl from './lib/SubtitlesControl.svelte';
+  import Spinner from './lib/Spinner.svelte';
   import { io } from 'socket.io-client';
   
   let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack, timeout, showControls = true;
@@ -79,8 +80,12 @@
   <SeekBar duration={duration} bind:currentTime onSeek={() => {paused = true; socket.emit('seek', currentTime)}} />
 </div>
 
-{#if !buffering && !peopleBuffering}
-  <button class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 video-control {showControls ? 'opacity-50 hover:opacity-90' : 'opacity-0'} text-slate-200 text-[50px] w-[100px] h-[100px]" on:click={() => {paused = !paused; socket.emit(paused ? 'pause' : 'play', currentTime)}}>
-    <Fa icon={paused ? faPlay : faPause} />
-  </button>
-{/if}
+<div class="absolute left-1/2 top-1/2 rounded-full -translate-x-1/2 -translate-y-1/2">
+  {#if buffering || peopleBuffering > 0}
+    <Spinner people={people} peopleBuffering={peopleBuffering} />
+  {:else}
+    <button class="video-control {showControls ? 'opacity-50 hover:opacity-90' : 'opacity-0'} text-slate-200 text-[50px] w-[100px] h-[100px]" on:click={() => {paused = !paused; socket.emit(paused ? 'pause' : 'play', currentTime)}}>
+      <Fa icon={paused ? faPlay : faPause} />
+    </button>
+  {/if}
+</div>
