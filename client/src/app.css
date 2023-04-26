@@ -12,7 +12,7 @@ body {
 
 @layer components {
   .video-control {
-    @apply w-8 h-8 flex justify-center items-center hover:bg-slate-800 rounded-full transition-all text-slate-200;
+    @apply w-8 h-8 flex justify-center items-center hover:bg-slate-700 rounded-full transition-all text-slate-100;
   }
 }
 
