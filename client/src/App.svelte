@@ -80,20 +80,6 @@
     subEntry.src = URL.createObjectURL(subBlob);
     subtitles = [subEntry,...subtitles]
   });
-  let subtitlesOpen = false, urlOpen = false;
-  $: canOpen = !subtitlesOpen && !urlOpen;
-  function toggleMenu(name){
-    if (name == 'subtitles'){
-      subtitlesOpen = !subtitlesOpen;
-      if(subtitlesOpen)
-        urlOpen = false;
-    }
-    if(name == 'url'){
-      urlOpen = !urlOpen;
-      if(urlOpen)
-        subtitlesOpen = false;
-    }
-  }
 
   let subtitles =[
     {srclang:"en", label:"English",src:"en.vtt"},
