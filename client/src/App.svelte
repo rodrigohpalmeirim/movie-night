@@ -8,16 +8,14 @@
   import Subtitles from './lib/Subtitles.svelte';
   import SubtitlesControl from './lib/SubtitlesControl.svelte';
   import Spinner from './lib/Spinner.svelte';
-  import { io } from 'socket.io-client';
   import UrlControl from './lib/UrlControl.svelte';
+  import { io } from 'socket.io-client';
   import { onMount } from 'svelte';
-    import { writable } from 'svelte/store';
   
-  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true;
-
+  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true, openMenu;
 
   let controls, hoveringControls = false;
-  // Prevent attempting to set window listeners when components arent properly loaded
+
   onMount(() => {
     window.addEventListener('mousemove', () => {
       clearTimeout(timeout);
@@ -28,8 +26,7 @@
         timeout = setTimeout(() => {
           showControls = false;
           document.body.style.cursor = 'none';
-          subtitlesOpen = false;
-          urlOpen = false;
+          openMenu = null;
         }, 2000);
     });
 
@@ -58,11 +55,9 @@
           document.documentElement.requestFullscreen();
         }
       } else if (e.key === "Escape"){
-        subtitlesOpen = false;
-        urlOpen = false;
+        openMenu = null;
       }
     });
-
   });
 
   const socket = io();
@@ -138,10 +133,10 @@
 
 <div bind:this={controls} class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
-    <VolumeControl bind:muted bind:volume {canOpen}/>
-    <SubtitlesControl video={video} sendSubtitles={(subEntry)=>socket.emit('subtitles',subEntry)} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} bind:subtitles />
-    <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:open={urlOpen} toggleOpen={toggleMenu} {url} />
-    <CropControl video={video} bind:scale {canOpen} />
+    <VolumeControl bind:muted bind:volume canOpen={!openMenu} />
+    <SubtitlesControl video={video} sendSubtitles={(subEntry)=>socket.emit('subtitles',subEntry)} bind:activeTextTrack bind:subtitles bind:openMenu />
+    <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:openMenu {url} />
+    <CropControl video={video} bind:scale canOpen={!openMenu} />
     <FullscreenButton />
   </div>
   <SeekBar duration={duration} bind:currentTime onSeek={() => {paused = true; socket.emit('seek', currentTime)}} />
