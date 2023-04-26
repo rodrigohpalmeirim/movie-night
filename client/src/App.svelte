@@ -13,14 +13,20 @@
   
   let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true;
 
+
+  let controls, hoveringControls = false;
   window.addEventListener('mousemove', () => {
     clearTimeout(timeout);
     showControls = true;
     document.body.style.cursor = 'default';
-    timeout = setTimeout(() => {
-      showControls = false;
-      document.body.style.cursor = 'none';
-    }, 2000);
+    hoveringControls = controls.matches(':hover')
+    if (!hoveringControls)
+      timeout = setTimeout(() => {
+        showControls = false;
+        document.body.style.cursor = 'none';
+        subtitlesOpen = false;
+        urlOpen = false;
+      }, 2000);
   });
 
   window.addEventListener('keydown', (e) => {
@@ -115,7 +121,7 @@
 
 <Subtitles activeTextTrack={activeTextTrack} />
 
-<div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} hover:opacity-100 transition-all">
+<div bind:this={controls} class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
     <VolumeControl bind:muted bind:volume {canOpen}/>
     <SubtitlesControl video={video} sendSubtitles={(lang)=>socket.emit('subtitles',lang)} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
