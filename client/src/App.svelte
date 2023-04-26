@@ -47,6 +47,9 @@
       } else {
         document.documentElement.requestFullscreen();
       }
+    } else if (e.key === "Escape"){
+      subtitlesOpen = false;
+      urlOpen = false;
     }
   });
 
@@ -71,6 +74,7 @@
     // TODO
   });
   let subtitlesOpen = false, urlOpen = false;
+  $: canOpen = !subtitlesOpen && !urlOpen;
   function toggleMenu(name){
     if (name == 'subtitles'){
       subtitlesOpen = !subtitlesOpen;
@@ -113,10 +117,10 @@
 
 <div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} hover:opacity-100 transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
-    <VolumeControl bind:muted bind:volume />
+    <VolumeControl bind:muted bind:volume {canOpen}/>
     <SubtitlesControl video={video} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
     <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:open={urlOpen} toggleOpen={toggleMenu} {url} />
-    <CropControl video={video} bind:scale />
+    <CropControl video={video} bind:scale {canOpen} />
     <FullscreenButton />
   </div>
   <SeekBar duration={duration} bind:currentTime onSeek={() => {paused = true; socket.emit('seek', currentTime)}} />
