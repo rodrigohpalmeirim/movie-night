@@ -2,61 +2,67 @@
   import SeekBar from './lib/SeekBar.svelte';
   import FullscreenButton from './lib/FullscreenButton.svelte';
   import Fa from 'svelte-fa'
-  import { faPlay, faPause, faCrop, faCropSimple } from '@fortawesome/free-solid-svg-icons'
+  import { faPlay, faPause } from '@fortawesome/free-solid-svg-icons'
   import VolumeControl from './lib/VolumeControl.svelte';
   import CropControl from './lib/CropControl.svelte';
   import Subtitles from './lib/Subtitles.svelte';
   import SubtitlesControl from './lib/SubtitlesControl.svelte';
   import Spinner from './lib/Spinner.svelte';
   import { io } from 'socket.io-client';
-    import UrlControl from './lib/UrlControl.svelte';
+  import UrlControl from './lib/UrlControl.svelte';
+  import { onMount } from 'svelte';
+    import { writable } from 'svelte/store';
   
   let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true;
 
 
   let controls, hoveringControls = false;
-  window.addEventListener('mousemove', () => {
-    clearTimeout(timeout);
-    showControls = true;
-    document.body.style.cursor = 'default';
-    hoveringControls = controls.matches(':hover')
-    if (!hoveringControls)
-      timeout = setTimeout(() => {
-        showControls = false;
-        document.body.style.cursor = 'none';
+  // Prevent attempting to set window listeners when components arent properly loaded
+  onMount(() => {
+    window.addEventListener('mousemove', () => {
+      clearTimeout(timeout);
+      showControls = true;
+      document.body.style.cursor = 'default';
+      hoveringControls = controls.matches(':hover')
+      if (!hoveringControls)
+        timeout = setTimeout(() => {
+          showControls = false;
+          document.body.style.cursor = 'none';
+          subtitlesOpen = false;
+          urlOpen = false;
+        }, 2000);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === ' ') {
+        if (!buffering && peopleBuffering == 0) {
+          paused = !paused;
+          socket.emit(paused ? 'pause' : 'play', currentTime);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        currentTime -= 5;
+        socket.emit('seek', currentTime);
+      } else if (e.key === 'ArrowRight') {
+        currentTime += 5;
+        socket.emit('seek', currentTime);
+      } else if (e.key === 'ArrowUp') {
+        volume = Math.min(volume + 0.05, 1);
+      } else if (e.key === 'ArrowDown') {
+        volume = Math.max(volume - 0.05, 0);
+      } else if (e.key === 'm') {
+        muted = !muted;
+      } else if (e.key === 'f') {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen();
+        }
+      } else if (e.key === "Escape"){
         subtitlesOpen = false;
         urlOpen = false;
-      }, 2000);
-  });
+      }
+    });
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key === ' ') {
-      if (!buffering && peopleBuffering == 0) {
-        paused = !paused;
-        socket.emit(paused ? 'pause' : 'play', currentTime);
-      }
-    } else if (e.key === 'ArrowLeft') {
-      currentTime -= 5;
-      socket.emit('seek', currentTime);
-    } else if (e.key === 'ArrowRight') {
-      currentTime += 5;
-      socket.emit('seek', currentTime);
-    } else if (e.key === 'ArrowUp') {
-      volume = Math.min(volume + 0.05, 1);
-    } else if (e.key === 'ArrowDown') {
-      volume = Math.max(volume - 0.05, 0);
-    } else if (e.key === 'm') {
-      muted = !muted;
-    } else if (e.key === 'f') {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        document.documentElement.requestFullscreen();
-      }
-    } else if (e.key === "Escape"){
-      subtitlesOpen = false;
-      urlOpen = false;
-    }
   });
 
   const socket = io();
@@ -76,8 +82,11 @@
   socket.on('buffering', (num) => peopleBuffering = num);
   socket.on('people', (num) => people = num);
   socket.on('url', (newUrl) => url = newUrl);
-  socket.on('subtitles', (lang) => {
-    activeTextTrack = Object.values(video.textTracks).find(track => track.language === lang) || null;
+  socket.on('subtitles', (subEntry) => {
+    if (!subEntry) return;
+    let subBlob = new Blob([subEntry.text], {type: "text/vtt"});
+    subEntry.src = URL.createObjectURL(subBlob);
+    subtitles = [subEntry,...subtitles]
   });
   let subtitlesOpen = false, urlOpen = false;
   $: canOpen = !subtitlesOpen && !urlOpen;
@@ -93,6 +102,16 @@
         subtitlesOpen = false;
     }
   }
+
+  let subtitles =[
+    {srclang:"en", label:"English",src:"en.vtt"},
+    {srclang:"de", label:"German",src:"de.vtt"},
+    {srclang:"es", label:"Spanish",src:"es.vtt"},
+    {srclang:"hu", label:"Hungarian",src:"hu.vtt"},
+    {srclang:"it", label:"Italian",src:"it.vtt"},
+    {srclang:"pt", label:"Portuguese",src:"pt.vtt"},
+    {srclang:"ru", label:"Russian",src:"ru.vtt"}
+  ]
 </script>
 
 <!-- svelte-ignore a11y-media-has-caption -->
@@ -110,13 +129,9 @@
   on:canplay={() => {if (video.readyState >= 3) {buffering = false; socket.emit('ready')}}}
   on:waiting={() => {if (!buffering) socket.emit('seek', currentTime); buffering = true}}
 >
-  <track kind="subtitles" src="en.vtt" srclang="en" label="English" />
-  <track kind="subtitles" src="de.vtt" srclang="de" label="German" />
-  <track kind="subtitles" src="es.vtt" srclang="es" label="Spanish" />
-  <track kind="subtitles" src="hu.vtt" srclang="hu" label="Hungarian" />
-  <track kind="subtitles" src="it.vtt" srclang="it" label="Italian" />
-  <track kind="subtitles" src="pt.vtt" srclang="pt" label="Portuguese" />
-  <track kind="subtitles" src="ru.vtt" srclang="ru" label="Russian" />
+  {#each subtitles as subtitle}
+    <track kind="subtitles" src={subtitle.src} srclang={subtitle.srclang} label={subtitle.label} />
+  {/each}
 </video>
 
 <Subtitles activeTextTrack={activeTextTrack} />
@@ -124,7 +139,7 @@
 <div bind:this={controls} class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
     <VolumeControl bind:muted bind:volume {canOpen}/>
-    <SubtitlesControl video={video} sendSubtitles={(lang)=>socket.emit('subtitles',lang)} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
+    <SubtitlesControl video={video} sendSubtitles={(subEntry)=>socket.emit('subtitles',subEntry)} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} bind:subtitles />
     <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:open={urlOpen} toggleOpen={toggleMenu} {url} />
     <CropControl video={video} bind:scale {canOpen} />
     <FullscreenButton />
