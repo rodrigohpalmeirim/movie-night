@@ -2,14 +2,14 @@
     import Fa from 'svelte-fa';
     import { faLink, faPlay } from '@fortawesome/free-solid-svg-icons'
 
-    export let open=false, toggleOpen, setUrl, url = "";
+    export let openMenu, setUrl, url = "";
 
     let input;
     function checkAndSetUrl() {
         if (input.checkValidity()) {
             setUrl(input.value);
-            toggleOpen("url")
-        }else{
+            openMenu = "url";
+        } else {
             input.focus();
         }
     }
@@ -19,20 +19,18 @@
 </script>
 
 <div class="relative w-8 group transition-all">
-    <div class="{open?"opacity-100 scale-100":"opacity-0 scale-75"} flex gap-1 absolute -right-10 bottom-10 w-48 h-10 bg-slate-800 rounded-2xl transition-all overflow-hidden p-1">
-        
+    <div class="{openMenu == "url" ? "opacity-100 scale-100":"opacity-0 scale-75"} flex gap-1 absolute -right-10 bottom-10 w-48 h-10 bg-slate-800 rounded-2xl transition-all overflow-hidden p-1">
         <input 
-        pattern="https?://.+\.(mp4|webm|ogg)(\?.*)?$"
-        placeholder={url}
-        bind:this={input} on:keydown={(e)=>{if (e.key === "Enter") checkAndSetUrl()}} type="text"
-        class="w-full bg-slate-900 text-slate-200 p-2 rounded-xl outline-slate-600 outline-2 focus:outline
-        invalid:outline-rose-300" />
-
+            pattern="https?://.+\.(mp4|webm|ogg)(\?.*)?$"
+            placeholder={url}
+            bind:this={input} on:keydown={(e)=>{if (e.key === "Enter") checkAndSetUrl()}} type="text"
+            class="w-full bg-slate-900 text-slate-200 p-2 rounded-xl outline-slate-600 outline-2 focus:outline invalid:outline-rose-300"
+        />
         <button on:click={checkAndSetUrl} class="video-control" >
             <Fa icon={faPlay} class="w-8 h-8" />
         </button>
     </div>
-    <button on:click={()=>{if (!open) input.focus(); toggleOpen("url")}} class="video-control absolute right-0 bottom-0 border-none" >
+    <button on:click={() => {if (!open) input.focus(); openMenu = openMenu == "url" ? null : "url"}} class="video-control absolute right-0 bottom-0 border-none" >
         <Fa icon={faLink} />
     </button>
 </div>
