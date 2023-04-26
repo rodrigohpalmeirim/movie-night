@@ -13,7 +13,6 @@
     window.addEventListener('click', (e) => {
         if (openMenu == "subtitles" && menu && !menu.contains(e.target)) openMenu = null;
     });
-    $:console.log(openMenu)
 </script>
 
 {#if video}
@@ -26,7 +25,7 @@
                 {#key subtitles}
                     {#each video.textTracks as track}
                         <button class="{track == activeTextTrack ? "bg-slate-600 font-semibold" : "hover:bg-slate-700"}  min-h-[40px] border-slate-700 w-full transition-all text-slate-200 p-2 text-left pl-3"
-                        on:click={() => {activeTextTrack = track; sendSubtitles(activeTextTrack.language)}}>
+                        on:click={() => activeTextTrack = track}>
                             {track.label}
                         </button>
                     {/each}
