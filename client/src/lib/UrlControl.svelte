@@ -3,6 +3,7 @@
     import { faLink, faPlay } from '@fortawesome/free-solid-svg-icons'
 
     export let openMenu, setUrl, url = "";
+    let menu;
 
     let input;
     function checkAndSetUrl() {
@@ -14,11 +15,14 @@
         }
     }
 
-
+    window.addEventListener('click', (e) => {
+        if (openMenu == "url" && menu && !menu.contains(e.target)) openMenu = null;
+    });
+    
 // TODO remember to change the pattern to match the webtorrent urls
 </script>
 
-<div class="relative w-8 group transition-all">
+<div bind:this={menu} class="relative w-8 group transition-all">
     <div class="{openMenu == "url" ? "opacity-100 scale-100":"opacity-0 scale-75"} flex gap-1 absolute -right-10 bottom-10 w-48 h-10 bg-slate-800 rounded-2xl transition-all overflow-hidden p-1">
         <input 
             pattern="https?://.+\.(mp4|webm|ogg)(\?.*)?$"

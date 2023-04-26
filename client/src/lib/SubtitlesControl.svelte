@@ -3,15 +3,19 @@
     import { faClosedCaptioning } from '@fortawesome/free-solid-svg-icons'
 
     export let video, activeTextTrack, sendSubtitles, openMenu;
-    let lastTextTrack;
+    let lastTextTrack, menu;
 
     $: if (activeTextTrack) {
         lastTextTrack = activeTextTrack;
     }
+
+    window.addEventListener('click', (e) => {
+        if (openMenu == "subtitles" && menu && !menu.contains(e.target)) openMenu = null;
+    });
 </script>
 
 {#if video}
-    <div class="relative w-8 group transition-all">
+    <div bind:this={menu} class="relative w-8 group transition-all">
         <div class="absolute -right-4 bottom-10 {openMenu == "subtitles" ? "w-32 h-44 bg-slate-800":"w-8 h-8"} rounded-2xl transition-all overflow-hidden">
             <div class="flex flex-col divide-y overflow-y-scroll h-full no-scrollbar">
                 <button class="{activeTextTrack == null ? "bg-slate-600 font-semibold" : "hover:bg-slate-700"} {openMenu == "subtitles" ? "opacity-100":"opacity-0"} min-h-[40px] border-slate-700 w-full transition-all text-slate-200 p-2 text-left pl-3" on:click={() => {activeTextTrack = null;sendSubtitles(null)}}>
