@@ -3,23 +3,23 @@
 @tailwind utilities;
 
 * {
-  user-select: none;
+	user-select: none;
 }
 
 body {
-  overflow: hidden;
+	overflow: hidden;
 }
 
 @layer components {
-  .video-control {
-    @apply w-8 h-8 flex justify-center items-center hover:bg-slate-700 rounded-full transition-all text-slate-100;
-  }
+	.video-control {
+		@apply w-8 h-8 flex justify-center items-center hover:bg-slate-700 rounded-full transition-all text-slate-100;
+	}
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none;  /* Internet Explorer 10+ */
-  scrollbar-width: none;  /* Firefox */
+	-ms-overflow-style: none;  /* Internet Explorer 10+ */
+	scrollbar-width: none;  /* Firefox */
 }
 .no-scrollbar::-webkit-scrollbar { 
-  display: none;  /* Safari and Chrome */
+	display: none;  /* Safari and Chrome */
 }
