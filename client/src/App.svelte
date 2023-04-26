@@ -2,15 +2,16 @@
   import SeekBar from './lib/SeekBar.svelte';
   import FullscreenButton from './lib/FullscreenButton.svelte';
   import Fa from 'svelte-fa'
-  import { faPlay, faPause } from '@fortawesome/free-solid-svg-icons'
+  import { faPlay, faPause, faCrop, faCropSimple } from '@fortawesome/free-solid-svg-icons'
   import VolumeControl from './lib/VolumeControl.svelte';
   import CropControl from './lib/CropControl.svelte';
   import Subtitles from './lib/Subtitles.svelte';
   import SubtitlesControl from './lib/SubtitlesControl.svelte';
   import Spinner from './lib/Spinner.svelte';
   import { io } from 'socket.io-client';
+    import UrlControl from './lib/UrlControl.svelte';
   
-  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack, timeout, showControls = true;
+  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true;
 
   window.addEventListener('mousemove', () => {
     clearTimeout(timeout);
@@ -42,12 +43,25 @@
   socket.on('subtitles', (subtitles) => {
     // TODO
   });
+  let subtitlesOpen = false, urlOpen = false;
+  function toggleMenu(name){
+    if (name == 'subtitles'){
+      subtitlesOpen = !subtitlesOpen;
+      if(subtitlesOpen)
+        urlOpen = false;
+    }
+    if(name == 'url'){
+      urlOpen = !urlOpen;
+      if(urlOpen)
+        subtitlesOpen = false;
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <video
   class="w-screen h-screen bg-black pointer-events-none"
-  style="transform: scale({scale});"
+  style:transform="scale({scale})"
   playsinline
   bind:muted
   bind:volume
@@ -70,10 +84,11 @@
 
 <Subtitles activeTextTrack={activeTextTrack} />
 
-<div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
-  <div class="flex absolute right-[2%] -mr-2 top-2 gap-1">
+<div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} hover:opacity-100 transition-all">
+  <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
     <VolumeControl bind:muted bind:volume />
-    <SubtitlesControl video={video} bind:activeTextTrack />
+    <SubtitlesControl video={video} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
+    <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:open={urlOpen} toggleOpen={toggleMenu} {url} />
     <CropControl video={video} bind:scale />
     <FullscreenButton />
   </div>
