@@ -11,7 +11,7 @@
     }
 
     window.addEventListener('click', (e) => {
-        if (openMenu == "subtitles" && menu && !menu.contains(e.target)) openMenu = null;
+        if (openMenu == "subtitles" && !menu?.contains(e.target)) openMenu = null;
     });
 </script>
 

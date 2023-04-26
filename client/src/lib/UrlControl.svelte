@@ -18,7 +18,7 @@
     }
 
     window.addEventListener('click', (e) => {
-        if (openMenu == "url" && menu && !menu.contains(e.target)) openMenu = null;
+        if (openMenu == "url" && !menu?.contains(e.target)) openMenu = null;
     });
 
     function fadeScale (
@@ -48,7 +48,7 @@
             <input 
                 pattern="^https?://.+\.(mp4|webm|ogg)(\?.*)?$"
                 placeholder={url}
-                bind:this={input} on:keydown={(e)=>{if (e.key === "Enter") checkAndSetUrl()}} type="text"
+                bind:this={input} on:keydown={e => {if (e.key === "Enter") checkAndSetUrl()}} type="text"
                 class="w-full bg-slate-900 text-slate-200 p-2 rounded-xl outline-slate-600 outline-2 focus:outline invalid:outline-rose-300"
             />
             <button on:click={checkAndSetUrl} class="video-control" >

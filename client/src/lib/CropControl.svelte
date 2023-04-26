@@ -33,7 +33,6 @@
     window.addEventListener('mouseup', () => {
         controlingCrop = false;
     });
-    $:console.log(canOpen)
 </script>
 
 <div class="group hover:bg-slate-800 active:bg-slate-800 transition-colors rounded-full {!canOpen?"pointer-events-none":""}">

@@ -12,17 +12,14 @@
   import { io } from 'socket.io-client';
   import { onMount } from 'svelte';
   
-  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true, openMenu;
-
-  let controls, hoveringControls = false;
+  let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true, openMenu, controls;
 
   onMount(() => {
     window.addEventListener('mousemove', () => {
       clearTimeout(timeout);
       showControls = true;
       document.body.style.cursor = 'default';
-      hoveringControls = controls.matches(':hover')
-      if (!hoveringControls)
+      if (!controls.matches(':hover'))
         timeout = setTimeout(() => {
           showControls = false;
           document.body.style.cursor = 'none';
@@ -134,8 +131,8 @@
 <div bind:this={controls} class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
     <VolumeControl bind:muted bind:volume canOpen={!openMenu} />
-    <SubtitlesControl video={video} sendSubtitles={(subEntry)=>socket.emit('subtitles',subEntry)} bind:activeTextTrack bind:subtitles bind:openMenu />
-    <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:openMenu {url} />
+    <SubtitlesControl video={video} sendSubtitles={(subEntry) => socket.emit('subtitles',subEntry)} bind:activeTextTrack bind:subtitles bind:openMenu />
+    <UrlControl setUrl={(link) => {socket.emit("url",link); url = link}} bind:openMenu {url} />
     <CropControl video={video} bind:scale canOpen={!openMenu} />
     <FullscreenButton />
   </div>
