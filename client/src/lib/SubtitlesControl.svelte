@@ -12,7 +12,7 @@
 
 {#if video}
     <div class="relative w-8 group transition-all">
-        <div class="absolute right-0 bottom-10 {open? "w-32 h-44 bg-slate-800":"w-8 h-8"} rounded-2xl transition-all overflow-hidden">
+        <div class="absolute -right-4 bottom-10 {open? "w-32 h-44 bg-slate-800":"w-8 h-8"} rounded-2xl transition-all overflow-hidden">
             <div class="flex flex-col divide-y overflow-y-scroll h-full no-scrollbar">
                 <button class="{activeTextTrack == null ? "bg-slate-600 font-semibold" : "hover:bg-slate-700"} {open?"opacity-100":"opacity-0"} min-h-[40px] border-slate-700 w-full transition-all text-slate-200 p-2 text-left pl-3" on:click={() => activeTextTrack = null}>
                     Disabled
