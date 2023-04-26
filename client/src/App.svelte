@@ -70,8 +70,8 @@
   socket.on('buffering', (num) => peopleBuffering = num);
   socket.on('people', (num) => people = num);
   socket.on('url', (newUrl) => url = newUrl);
-  socket.on('subtitles', (subtitles) => {
-    // TODO
+  socket.on('subtitles', (lang) => {
+    activeTextTrack = Object.values(video.textTracks).find(track => track.language === lang) || null;
   });
   let subtitlesOpen = false, urlOpen = false;
   $: canOpen = !subtitlesOpen && !urlOpen;
@@ -118,7 +118,7 @@
 <div class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} hover:opacity-100 transition-all">
   <div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
     <VolumeControl bind:muted bind:volume {canOpen}/>
-    <SubtitlesControl video={video} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
+    <SubtitlesControl video={video} sendSubtitles={(lang)=>socket.emit('subtitles',lang)} bind:activeTextTrack bind:open={subtitlesOpen} toggleOpen={toggleMenu} />
     <UrlControl setUrl={(link)=>{socket.emit("url",link);url = link}} bind:open={urlOpen} toggleOpen={toggleMenu} {url} />
     <CropControl video={video} bind:scale {canOpen} />
     <FullscreenButton />
