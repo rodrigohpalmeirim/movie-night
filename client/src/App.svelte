@@ -22,6 +22,33 @@
     }, 2000);
   });
 
+  window.addEventListener('keydown', (e) => {
+    if (e.key === ' ') {
+      if (!buffering && peopleBuffering == 0) {
+        paused = !paused;
+        socket.emit(paused ? 'pause' : 'play', currentTime);
+      }
+    } else if (e.key === 'ArrowLeft') {
+      currentTime -= 5;
+      socket.emit('seek', currentTime);
+    } else if (e.key === 'ArrowRight') {
+      currentTime += 5;
+      socket.emit('seek', currentTime);
+    } else if (e.key === 'ArrowUp') {
+      volume = Math.min(volume + 0.05, 1);
+    } else if (e.key === 'ArrowDown') {
+      volume = Math.max(volume - 0.05, 0);
+    } else if (e.key === 'm') {
+      muted = !muted;
+    } else if (e.key === 'f') {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        document.documentElement.requestFullscreen();
+      }
+    }
+  });
+
   const socket = io();
   socket.onAny((...args) => console.log("Socket:", ...args));
   socket.on('connect', () => {
