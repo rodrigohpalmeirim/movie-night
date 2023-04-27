@@ -73,11 +73,13 @@
 	socket.on('buffering', num => peopleBuffering = num);
 	socket.on('people', num => people = num);
 	socket.on('url', newUrl => url = newUrl);
-	socket.on('subtitles', subEntry => {
-		if (!subEntry) return;
-		let subBlob = new Blob([subEntry.text], { type: 'text/vtt' });
-		subEntry.src = URL.createObjectURL(subBlob);
-		subtitles = [subEntry, ...subtitles];
+	socket.on('subtitles', subs => {
+		subtitles = [];
+		console.log(subs);
+		for (let sub of subs) {
+			sub.src = URL.createObjectURL(new Blob([sub.text], { type: 'text/vtt' }));
+			subtitles = [sub, ...subtitles];
+		}
 	});
 
 	let subtitles = [

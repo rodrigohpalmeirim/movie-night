@@ -150,8 +150,8 @@ io.on('connection', socket => {
 
 	socket.on('subtitles', subtitles => {
 		try {
-			socket.to(room.id).emit('subtitles', subtitles);
-			room.subtitles = subtitles;
+			room.subtitles = [subtitles, ...room.subtitles];
+			socket.to(room.id).emit('subtitles', room.subtitles);
 		} catch (error) {
 			console.log(error);
 		}

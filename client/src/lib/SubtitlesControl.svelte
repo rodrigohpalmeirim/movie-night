@@ -1,7 +1,6 @@
 <script>
 	import Fa from 'svelte-fa';
 	import { faClosedCaptioning, faUpload } from '@fortawesome/free-solid-svg-icons';
-	import { tick } from 'svelte';
 
 	export let video, activeTextTrack, sendSubtitles, openMenu, subtitles;
 	let lastTextTrack, menu;
@@ -39,22 +38,14 @@
 				hover:bg-slate-600 bg-slate-700">
 					<Fa icon={faUpload} class="text-slate-200 m-auto" />
 				</label>
-				<input type="file" accept=".vtt" class="hidden" id="subtitles" on:change={e => {
-					const file = e.target.files[0];
-					const reader = new FileReader;
-					reader.onload = e => {
-						const text = e.target.result;
-						let subBlob = new Blob([text], { type: 'text/vtt' });
-						let url = URL.createObjectURL(subBlob);
-						let sub = { srclang: file.name.split('.')[0], label: file.name.split('.')[0], text: text };
+				<input type="file" multiple accept=".vtt" class="hidden" id="subtitles" on:change={async e => {
+					for (let file of e.target.files) {
+						const text = await file.text();
+						const sub = { srclang: file.name.split('.')[0], label: file.name.split('.')[0], text: text };
 						sendSubtitles(sub);
-						sub.src = url;
+						sub.src = URL.createObjectURL(new Blob([text], { type: 'text/vtt' }));
 						subtitles = [sub, ...subtitles];
-						tick().then(() => {
-							activeTextTrack = video.textTracks[0];
-						});
-					};
-					reader.readAsText(file);
+					}
 				}} />
 			</div>
 		</div>
