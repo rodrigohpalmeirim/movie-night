@@ -36,7 +36,7 @@
 </script>
 
 <div class="group hover:bg-slate-800 active:bg-slate-800 transition-colors rounded-full {!canOpen ? 'pointer-events-none' : ''}">
-	<div class="flex items-center opacity-0 group-hover:opacity-100 group-active:opacity-100 w-full h-0 group-hover:h-20 group-active:h-20 transition-all">
+	<div class="flex items-center opacity-0 group-hover:opacity-100 group-active:opacity-100 w-full h-0 group-hover:h-20 group-active:h-20 transition-all overflow-hidden">
 		<div bind:this={slider} class="flex justify-center w-full cursor-pointer h-16 mt-2" on:mousedown={setCrop}>
 			<div class="bg-slate-900 w-2 h-full rounded-full flex items-end">
 				<div class="bg-slate-200 w-2 rounded-full pointer-events-none" style:height="{crop * 100}%"></div>
