@@ -29,8 +29,8 @@
 	svg {
 		width: calc(var(--size) * 1px);
 		height: calc(var(--size) * 1px);
-		stroke-dasharray: calc(((var(--size) / 2 - var(--thickness)) * 2 + var(--thickness)) * 3.14);
-		stroke-dashoffset: calc(((var(--size) / 2 - var(--thickness)) * 2 + var(--thickness)) * 3.14 * (1 - var(--value) / 100));
+		stroke-dasharray: calc(((var(--size) / 2 - var(--thickness)) * 2 + var(--thickness)) * 3.14 * 1px);
+		stroke-dashoffset: calc(((var(--size) / 2 - var(--thickness)) * 2 + var(--thickness)) * 3.14 * (1 - var(--value) / 100) * 1px);
 		transition: all 0.5s;
 	}
 	.end, .start {
