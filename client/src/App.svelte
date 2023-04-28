@@ -12,14 +12,14 @@
 	import { io } from 'socket.io-client';
 	import { onMount } from 'svelte';
 
-	let paused, url, buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, activeTextTrack = null, timeout, showControls = true, openMenu, controls;
+	let paused, url, subtitles = [], buffering, peopleBuffering, people, currentTime, duration, muted = true, volume, video, scale, subtitlesSize, activeTextTrack = null, timeout, showControls = true, openMenu, controls;
 
 	onMount(() => {
 		window.addEventListener('mousemove', () => {
 			clearTimeout(timeout);
 			showControls = true;
 			document.body.style.cursor = 'default';
-			if (!controls.matches(':hover')) timeout = setTimeout(() => {
+			if (!controls?.matches(':hover')) timeout = setTimeout(() => {
 				showControls = false;
 				document.body.style.cursor = 'none';
 				openMenu = null;
@@ -75,22 +75,11 @@
 	socket.on('url', newUrl => url = newUrl);
 	socket.on('subtitles', subs => {
 		subtitles = [];
-		console.log(subs);
 		for (let sub of subs) {
 			sub.src = URL.createObjectURL(new Blob([sub.text], { type: 'text/vtt' }));
 			subtitles = [sub, ...subtitles];
 		}
 	});
-
-	let subtitles = [
-		{ srclang: 'en', label: 'English', src: 'en.vtt' },
-		{ srclang: 'de', label: 'German', src: 'de.vtt' },
-		{ srclang: 'es', label: 'Spanish', src: 'es.vtt' },
-		{ srclang: 'hu', label: 'Hungarian', src: 'hu.vtt' },
-		{ srclang: 'it', label: 'Italian', src: 'it.vtt' },
-		{ srclang: 'pt', label: 'Portuguese', src: 'pt.vtt' },
-		{ srclang: 'ru', label: 'Russian', src: 'ru.vtt' },
-	];
 </script>
 
 <!-- svelte-ignore a11y-media-has-caption -->
@@ -113,12 +102,12 @@
 	{/each}
 </video>
 
-<Subtitles activeTextTrack={activeTextTrack} />
+<Subtitles {activeTextTrack} {subtitlesSize} />
 
 <div bind:this={controls} class="absolute w-screen h-20 bottom-0 bg-gradient-to-t from-[#000000CC] to-transparent {showControls ? 'opacity-100' : 'opacity-0'} transition-all">
 	<div class="flex items-end absolute right-[2%] -mr-2 bottom-10 gap-1">
 		<VolumeControl bind:muted bind:volume canOpen={!openMenu} />
-		<SubtitlesControl video={video} sendSubtitles={subEntry => socket.emit('subtitles', subEntry)} bind:activeTextTrack bind:subtitles bind:openMenu />
+		<SubtitlesControl video={video} sendSubtitles={subEntry => socket.emit('subtitles', subEntry)} bind:activeTextTrack bind:subtitles bind:subtitlesSize bind:openMenu />
 		<UrlControl setUrl={link => { socket.emit('url', link); url = link; }} bind:openMenu {url} />
 		<CropControl video={video} bind:scale canOpen={!openMenu} />
 		<FullscreenButton />
