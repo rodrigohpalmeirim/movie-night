@@ -2,8 +2,10 @@
 	import Fa from 'svelte-fa';
 	import { faClosedCaptioning, faTextHeight, faUpload } from '@fortawesome/free-solid-svg-icons';
 
-	export let video, activeTextTrack, sendSubtitles, openMenu, subtitles, subtitlesSize = 0.5;
+	export let video, activeTextTrack, sendSubtitles, openMenu, subtitles, subtitlesSize = localStorage.getItem('subtitlesSize') ? Number(localStorage.getItem('subtitlesSize')) : 0.5;
 	let lastTextTrack, menu, slider, controllingSize = false;
+
+	$: localStorage.setItem('subtitlesSize', JSON.stringify(subtitlesSize));
 
 	$: if (activeTextTrack) {
 		lastTextTrack = activeTextTrack;
