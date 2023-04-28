@@ -3,25 +3,25 @@
 	import { faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeMute } from '@fortawesome/free-solid-svg-icons';
 
 	export let muted, volume = 1, canOpen = true;
-	let controlingVolume = false;
+	let controllingVolume = false;
 	let slider;
 
 	function setVolume(e) {
-		controlingVolume = true;
+		controllingVolume = true;
 		muted = false;
 		const rect = slider.getBoundingClientRect();
 		volume = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
 	}
 
 	window.addEventListener('mousemove', e => {
-		if (controlingVolume) {
+		if (controllingVolume) {
 			const rect = slider.getBoundingClientRect();
 			volume = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
 		}
 	});
 
 	window.addEventListener('mouseup', () => {
-		controlingVolume = false;
+		controllingVolume = false;
 	});
 </script>
 

@@ -4,7 +4,7 @@
 
 	export let video, scale, canOpen = true;
 	let crop = 0;
-	let controlingCrop = false;
+	let controllingCrop = false;
 	let slider;
 
 	window.addEventListener('resize', setScale);
@@ -16,14 +16,14 @@
 	}
 
 	function setCrop(e) {
-		controlingCrop = true;
+		controllingCrop = true;
 		const rect = slider.getBoundingClientRect();
 		crop = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
 		setScale();
 	}
 
 	window.addEventListener('mousemove', e => {
-		if (controlingCrop) {
+		if (controllingCrop) {
 			const rect = slider.getBoundingClientRect();
 			crop = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
 			setScale();
@@ -31,7 +31,7 @@
 	});
 
 	window.addEventListener('mouseup', () => {
-		controlingCrop = false;
+		controllingCrop = false;
 	});
 </script>
 
