@@ -1,52 +1,61 @@
 <!--
 	History tab: "Past nights, newest first: winner poster, date, suggested-by;
 	expandable to the round's full revealed tally."
+
+	Each night is a played-and-filed ticket stub: the winner's artwork on the left,
+	the facts on the right, and the scorepad folded up underneath.
 -->
 <script lang="ts">
 	import Poster from '$lib/components/Poster.svelte';
 	import RevealTally from '$lib/components/RevealTally.svelte';
+	import Stamp from '$lib/components/Stamp.svelte';
+	import ChevronRight from '$lib/icons/ChevronRight.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate, movieMeta } from '$lib/images.js';
 	import type { PageServerData } from './$types';
 
 	let { data }: { data: PageServerData } = $props();
 </script>
 
-<div class="space-y-5">
-	<h2 class="text-xl font-bold tracking-tight">Past nights</h2>
+<div class="space-y-4">
+	<div>
+		<p class="eyebrow text-brass">The record</p>
+		<h2 class="display mt-1 text-[1.6rem] text-board">Past nights</h2>
+	</div>
 
 	{#if data.entries.length === 0}
-		<p class="py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
+		<p class="tile-slot px-4 py-8 text-center text-sm text-chalk-dim">
 			No nights yet. Once a round is revealed it lands here, tally and all.
 		</p>
 	{:else}
-		<ul class="space-y-3">
+		<ul class="space-y-4">
 			{#each data.entries as entry (entry.roundId)}
-				<li class="rounded-xl border border-neutral-200 dark:border-neutral-800">
+				<li class="tile overflow-hidden">
 					<div class="flex gap-3 p-3">
-						<div class="h-24 w-16 shrink-0 overflow-hidden rounded-lg">
-							{#if entry.winner}
-								<Poster path={entry.winner.posterPath} title={entry.winner.title} size="w185" />
-							{:else}
-								<div
-									class="flex h-full w-full items-center justify-center bg-neutral-200 text-2xl dark:bg-neutral-800"
-									aria-hidden="true"
-								>
-									🤷
-								</div>
-							{/if}
+						<div class="w-16 shrink-0">
+							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border-2 border-ink">
+								{#if entry.winner}
+									<Poster path={entry.winner.posterPath} title={entry.winner.title} size="w185" />
+								{:else}
+									<div class="flex h-full w-full items-center justify-center bg-felt-deep p-1">
+										<Stamp word="No pick" tone="cherry" size="0.6rem" rotate={-8} />
+									</div>
+								{/if}
+							</div>
 						</div>
-						<div class="min-w-0 flex-1 space-y-1">
-							<p class="text-sm font-semibold">
-								{entry.winner?.title ?? 'No clear favourite'}
-							</p>
-							<p class="text-xs text-neutral-500 dark:text-neutral-400">
+						<div class="min-w-0 flex-1">
+							<p class="stencil text-[0.7rem] text-ink-soft uppercase">
 								{formatDate(entry.watchedAt ?? entry.decidedAt)}
 								{#if entry.state === 'watched'}· watched{:else}· decided, not watched yet{/if}
 							</p>
+							<p class="mt-0.5 text-[0.95rem] leading-snug font-semibold text-ink">
+								{entry.winner?.title ?? 'No clear favourite'}
+							</p>
 							{#if entry.winner}
-								<p class="text-xs text-neutral-500 dark:text-neutral-400">
+								<p class="mt-1 text-xs text-ink-soft">
 									{movieMeta(entry.winner.year, entry.winner.runtimeMin)}
-									{#if entry.winner.suggestedBy}· suggested by {entry.winner.suggestedBy.displayName}{/if}
+									{#if entry.winner.suggestedBy}· suggested by {entry.winner.suggestedBy
+											.displayName}{/if}
 								</p>
 							{/if}
 							{#if entry.reveal.veto.vetoesIgnored}
@@ -56,21 +65,25 @@
 									surfaced prominently, so it rides on the row itself.
 								-->
 								<p
-									class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+									class="stencil mt-2 inline-flex items-start gap-1.5 rounded border-2 border-cherry bg-cherry-deep px-1.5 py-1 text-[0.68rem] leading-snug font-semibold text-board uppercase"
 								>
-									<span aria-hidden="true">⚠</span> Vetoes set aside — they would have left
-									fewer than two films
+									<TriangleAlert size={13} class="mt-px shrink-0" />
+									Vetoes set aside — they would have left fewer than two films
 								</p>
 							{/if}
 						</div>
 					</div>
-					<details class="border-t border-neutral-200 dark:border-neutral-800">
+					<details class="group/tally border-t-2 border-dashed border-board-shade">
 						<summary
-							class="cursor-pointer px-3 py-2 text-xs font-semibold text-neutral-600 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-neutral-300"
+							class="eyebrow flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-ink-soft select-none hover:text-ink focus-visible:outline-offset-[-3px]"
 						>
+							<ChevronRight
+								size={14}
+								class="transition-transform group-open/tally:rotate-90 motion-reduce:transition-none"
+							/>
 							How the vote went
 						</summary>
-						<div class="border-t border-neutral-200 p-3 dark:border-neutral-800">
+						<div class="border-t-2 border-dashed border-board-shade p-3">
 							<RevealTally reveal={entry.reveal} />
 						</div>
 					</details>

@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Poster from '$lib/components/Poster.svelte';
+	import Stamp from '$lib/components/Stamp.svelte';
 	import { formatRuntime } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -65,7 +66,7 @@
 
 	{#if !pair || !left || !right}
 		<div class="space-y-4 py-10 text-center">
-			<p class="text-5xl" aria-hidden="true">🎉</p>
+			<Stamp word="Done" tone="jade" size="1.35rem" rotate={-7} slam class="mb-1" />
 			<h2 class="text-xl font-bold tracking-tight">All done</h2>
 			<p class="text-sm text-neutral-600 dark:text-neutral-300">
 				Your picks are in. Nothing is revealed until someone hits reveal on the round screen.

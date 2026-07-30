@@ -15,6 +15,10 @@
 	There is exactly one submitter in the markup and no click handler on it, so
 	the enhanced path (use:enhance on the parent form) submits once and once only.
 	`name`/`value` ride along as the submitter entry, natively and under enhance.
+
+	Visually: the closed face is a chunky token; the question is a board-stock
+	card with a torn (dashed) edge, so the second stage is unmistakably a
+	different object rather than a colour change.
 -->
 <script lang="ts">
 	let {
@@ -35,37 +39,30 @@
 		variant?: 'primary' | 'danger' | 'quiet';
 	} = $props();
 
-	const base =
-		'w-full rounded-xl px-4 py-3 text-base font-semibold transition disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2';
 	const styles = {
-		primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-indigo-400',
-		danger: 'bg-rose-600 text-white hover:bg-rose-500 focus-visible:outline-rose-400',
-		quiet:
-			'border border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800'
+		primary: 'token-brass',
+		danger: 'token-cherry',
+		quiet: ''
 	};
 </script>
 
 {#if disabled}
 	<!-- Nothing to confirm: the action isn't available, so show it plainly inert. -->
-	<button type="submit" {name} {value} disabled class="{base} {styles[variant]}">
+	<button type="submit" {name} {value} disabled class="token token-lg w-full {styles[variant]}">
 		{label}
 	</button>
 {:else}
 	<!-- Named group: this component is used inside Menu's own <details>, so the
 	     open-state styling must key off *this* disclosure, not any ancestor. -->
 	<details class="group/confirm">
-		<summary
-			class="block cursor-pointer list-none rounded-xl select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-		>
+		<summary class="block cursor-pointer list-none rounded-md select-none">
 			<!-- Closed face: the action. Open face: the way back out. -->
-			<span class="{base} {styles[variant]} block text-center group-open/confirm:hidden">{label}</span>
-			<span class="{base} {styles.quiet} hidden text-center group-open/confirm:block">Cancel</span>
+			<span class="token token-lg w-full {styles[variant]} group-open/confirm:hidden">{label}</span>
+			<span class="token token-lg hidden w-full group-open/confirm:flex">Cancel</span>
 		</summary>
-		<div
-			class="mt-2 space-y-2 rounded-xl border border-amber-400/60 bg-amber-50 p-3 dark:bg-amber-950/30"
-		>
-			<p class="text-sm text-amber-900 dark:text-amber-200">{question}</p>
-			<button type="submit" {name} {value} class="{base} {styles[variant]}">
+		<div class="mt-3 space-y-3 rounded-md border-2 border-dashed border-ink bg-board p-3">
+			<p class="text-sm leading-snug text-ink">{question}</p>
+			<button type="submit" {name} {value} class="token w-full {styles[variant]}">
 				{confirmLabel}
 			</button>
 		</div>

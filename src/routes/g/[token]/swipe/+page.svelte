@@ -26,6 +26,13 @@
 	import { enhance } from '$app/forms';
 	import { flushSync } from 'svelte';
 	import Poster from '$lib/components/Poster.svelte';
+	import Stamp from '$lib/components/Stamp.svelte';
+	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
+	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import Check from '$lib/icons/Check.svelte';
+	import StampIcon from '$lib/icons/Stamp.svelte';
+	import Undo2 from '$lib/icons/Undo2.svelte';
+	import X from '$lib/icons/X.svelte';
 	import { movieMeta, posterUrl } from '$lib/images.js';
 	import {
 		EXIT_EASE,
@@ -271,44 +278,67 @@
 {#snippet face(card: Card, yes: number, no: number)}
 	<Poster path={card.posterPath} title={card.title} size="w500" eager />
 
-	<!-- Direction hint: a wash of colour plus the stamp that names the vote. -->
+	<!-- Direction hint: a wash of ink plus the seal that names the vote. Same
+	     stamp component the reveal slams onto the winner — dragging the card is
+	     literally inking it. -->
 	<div
-		class="pointer-events-none absolute inset-0 bg-emerald-500"
-		style="opacity:{(yes * 0.32).toFixed(3)}"
+		class="pointer-events-none absolute inset-0 bg-jade"
+		style="opacity:{(yes * 0.3).toFixed(3)}"
 		aria-hidden="true"
 	></div>
 	<div
-		class="pointer-events-none absolute inset-0 bg-rose-500"
-		style="opacity:{(no * 0.32).toFixed(3)}"
+		class="pointer-events-none absolute inset-0 bg-cherry"
+		style="opacity:{(no * 0.3).toFixed(3)}"
 		aria-hidden="true"
 	></div>
-	<div
-		class="pointer-events-none absolute top-5 left-4 rounded-xl border-4 border-emerald-400 px-3 py-1 text-3xl font-black tracking-widest text-emerald-300 uppercase"
-		style="opacity:{yes.toFixed(3)};transform:rotate(-12deg) scale({(0.85 + 0.15 * yes).toFixed(3)})"
-		aria-hidden="true"
-	>
-		Yes
+	<div class="pointer-events-none absolute top-4 left-3">
+		<Stamp
+			word="Yes"
+			tone="jade"
+			size="1.85rem"
+			rotate={-13}
+			opacity={yes}
+			scale={0.82 + 0.18 * yes}
+		/>
 	</div>
-	<div
-		class="pointer-events-none absolute top-5 right-4 rounded-xl border-4 border-rose-400 px-3 py-1 text-3xl font-black tracking-widest text-rose-300 uppercase"
-		style="opacity:{no.toFixed(3)};transform:rotate(12deg) scale({(0.85 + 0.15 * no).toFixed(3)})"
-		aria-hidden="true"
-	>
-		Nope
+	<div class="pointer-events-none absolute top-4 right-3">
+		<Stamp
+			word="Nope"
+			tone="cherry"
+			size="1.85rem"
+			rotate={12}
+			opacity={no}
+			scale={0.82 + 0.18 * no}
+		/>
 	</div>
 {/snippet}
 
 <div class="space-y-4">
-	<div class="flex items-center justify-between">
-		<a
-			href="/g/{data.token}/pool"
-			class="text-sm text-neutral-500 underline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-neutral-400"
-			>Back to the pool</a
-		>
+	<div class="space-y-2">
+		<div class="flex items-baseline justify-between gap-3">
+			<a
+				href="/g/{data.token}/pool"
+				class="stencil flex items-center gap-1.5 text-xs text-chalk-dim uppercase hover:text-brass"
+			>
+				<ArrowLeft size={14} /> Back to the pool
+			</a>
+			{#if total > 0}
+				<p class="eyebrow text-brass" aria-live="polite">
+					Card {position} <span class="text-chalk-dim">of {total}</span>
+				</p>
+			{/if}
+		</div>
 		{#if total > 0}
-			<p class="text-sm font-medium tabular-nums" aria-live="polite">
-				{position} of {total}
-			</p>
+			<!-- The deck you have got through: a punched rail filling with brass. -->
+			<div
+				class="h-2.5 overflow-hidden rounded-full border-2 border-board-shade bg-felt-deep"
+				role="presentation"
+			>
+				<div
+					class="h-full rounded-full bg-brass transition-[width] duration-200"
+					style="width:{total === 0 ? 0 : (answered.length / total) * 100}%"
+				></div>
+			</div>
 		{/if}
 	</div>
 
@@ -333,25 +363,24 @@
 	</form>
 
 	{#if !current && exits.length === 0}
-		<div class="space-y-4 py-10 text-center">
-			<p class="text-5xl" aria-hidden="true">✅</p>
-			<h2 class="text-xl font-bold tracking-tight">
+		<div class="tile-slot space-y-3.5 px-4 py-8 text-center">
+			<StampIcon size={38} class="mx-auto text-brass" />
+			<h2 class="display text-[1.6rem] text-board">
 				{total === 0 ? 'Nothing to swipe' : "That's the lot"}
 			</h2>
-			<p class="text-sm text-neutral-600 dark:text-neutral-300">
-				You've answered every film in the pool. New suggestions will show up here as a short top-up
-				— never the whole pool again.
+			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
+				You've answered every film in the pool. New suggestions will show up here as a short top-up —
+				never the whole pool again.
 			</p>
-			<a
-				href="/g/{data.token}"
-				class="inline-block rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-				>Back to the round</a
-			>
+			<a href="/g/{data.token}" class="token token-brass mx-auto mt-1 w-auto px-5">
+				Back to the round
+				<ArrowRight size={17} />
+			</a>
 		</div>
 	{:else}
 		<!-- One block, so the card/title/button rhythm is set by the margins below. -->
 		<div>
-			<div class="relative mx-auto aspect-[2/3] w-full max-w-72" bind:clientWidth={cardWidth}>
+			<div class="relative mx-auto aspect-[2/3] w-full max-w-[16.5rem]" bind:clientWidth={cardWidth}>
 				{#each entries as entry (entry.card.id)}
 					{@const hint = hints(entry)}
 					<div class="absolute inset-0" style={layerStyle(entry)}>
@@ -360,8 +389,14 @@
 							keys are handled on the window. It carries the drag gesture only,
 							hence the presentation role and no keyboard handler.
 						-->
+						<!--
+							Board stock, ink edge, artwork inset in its own frame: the card in
+							your hand is the same component as everything else on the table,
+							but it is the one thing lifted off it — hence the single soft
+							shadow under the hard two-ply edge.
+						-->
 						<div
-							class="swipe-card relative h-full w-full overflow-hidden rounded-2xl bg-neutral-800 shadow-xl select-none {entry.exit ||
+							class="swipe-card relative h-full w-full rounded-md border-2 border-ink bg-board p-2 shadow-[0_6px_0_0_var(--color-board-shade),0_6px_0_2px_var(--color-ink),0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
 							entry.depth > 0
 								? 'pointer-events-none'
 								: 'touch-pan-y'}"
@@ -374,53 +409,54 @@
 							aria-hidden={entry.exit !== null || entry.depth > 0}
 							role="presentation"
 						>
-							{@render face(entry.card, hint.yes, hint.no)}
+							<div
+								class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep"
+							>
+								{@render face(entry.card, hint.yes, hint.no)}
+							</div>
 						</div>
 					</div>
 				{/each}
 			</div>
 
 			{#if current}
-				<div class="mt-4 space-y-1 text-center">
-					<h2 class="text-lg font-bold tracking-tight">{current.title}</h2>
-					<p class="text-sm text-neutral-500 dark:text-neutral-400">
+				<div class="mt-4 text-center">
+					<h2 class="display text-[1.3rem] text-board">{current.title}</h2>
+					<p class="stencil mt-1 text-[0.72rem] text-chalk-dim uppercase">
 						{movieMeta(current.year, current.runtimeMin)}
 						{#if current.suggestedBy}· suggested by {current.suggestedBy.displayName}{/if}
 					</p>
 				</div>
 
-				<!-- Always-visible buttons: the accessible and desktop path. -->
-				<div class="mt-5 flex gap-3">
-					<button
-						type="button"
-						onclick={() => commit('no')}
-						class="flex-1 rounded-xl bg-rose-600 px-4 py-4 text-base font-semibold text-white hover:bg-rose-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400"
-					>
+				<!-- Always-visible tokens: the accessible and desktop path. -->
+				<div class="mt-4 flex gap-3">
+					<button type="button" onclick={() => commit('no')} class="token token-lg token-cherry flex-1">
+						<X size={18} />
 						No<span class="sr-only"> — I wouldn't watch {current.title}</span>
 					</button>
-					<button
-						type="button"
-						onclick={() => commit('yes')}
-						class="flex-1 rounded-xl bg-emerald-600 px-4 py-4 text-base font-semibold text-white hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
-					>
+					<button type="button" onclick={() => commit('yes')} class="token token-lg token-jade flex-1">
+						<Check size={18} />
 						Yes<span class="sr-only"> — I'd happily watch {current.title}</span>
 					</button>
 				</div>
 			{/if}
 		</div>
 
-		<div class="flex items-center justify-between text-sm">
+		<div class="flex items-center justify-between gap-3 pt-1">
 			<button
 				type="button"
 				onclick={undo}
 				disabled={answered.length === 0}
-				class="rounded-lg px-3 py-2 font-medium text-neutral-600 underline disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:text-neutral-300"
+				class="token token-sm token-slot"
 			>
+				<Undo2 size={14} />
 				Undo last<span class="sr-only"> answer (keyboard: U)</span>
 			</button>
-			<p class="max-w-44 text-right text-xs text-neutral-500 dark:text-neutral-400">
-				Swipe right for yes, left for no — <span aria-hidden="true">←&nbsp;/&nbsp;→</span
-				><span class="sr-only">the left and right arrow keys</span> work too
+			<p class="max-w-44 text-right text-[0.7rem] leading-snug text-chalk-dim">
+				Swipe right for yes, left for no —
+				<span class="inline-flex items-center gap-0.5 align-[-2px]" aria-hidden="true">
+					<ArrowLeft size={12} /> / <ArrowRight size={12} />
+				</span><span class="sr-only">the left and right arrow keys</span> work too
 			</p>
 		</div>
 	{/if}

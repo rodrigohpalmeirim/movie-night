@@ -6,8 +6,10 @@
 	and bounces back to the page you were on. One browser can therefore RSVP, veto
 	and vote as all five members of a round.
 
-	It is deliberately ugly: amber, block capitals, hard borders. Nobody should be
-	able to look at a screenshot and wonder whether this is part of the app.
+	It is deliberately ugly, and deliberately *not* built from the game-night
+	component set: raw amber, hazard stripes, block capitals, square corners.
+	Nobody should be able to look at a screenshot and wonder whether this is part
+	of the app.
 
 	Mounted only when the server says DEV_MODE is on, so with the flag unset none
 	of this markup is ever rendered — see the group layout.
@@ -35,14 +37,15 @@
 
 <div
 	data-dev-bar
-	class="fixed inset-x-0 bottom-[calc(3.25rem+env(safe-area-inset-bottom))] z-30 border-y-2 border-amber-600 bg-amber-300 text-amber-950"
+	class="fixed inset-x-0 bottom-[calc(3.65rem+env(safe-area-inset-bottom))] z-30 border-y-4 border-[#111] bg-[#f5c518] text-[#1a1400]"
+	style="background-image:repeating-linear-gradient(135deg,rgb(0 0 0 / 12%) 0 6px,transparent 6px 12px)"
 >
 	<form
 		method="POST"
 		action="/g/{token}/dev/switch"
 		class="mx-auto flex max-w-lg items-center gap-1 overflow-x-auto px-2 py-1"
 	>
-		<span class="shrink-0 pr-1 text-[10px] leading-none font-black tracking-widest uppercase">
+		<span class="shrink-0 pr-1 font-mono text-[10px] leading-none font-black tracking-widest uppercase">
 			dev<span class="sr-only"> — switch member</span>
 		</span>
 		<input type="hidden" name="return_to" value={returnTo} />
@@ -53,9 +56,9 @@
 				name="member_id"
 				value={member.id}
 				aria-current={active ? 'true' : undefined}
-				class="shrink-0 rounded border border-amber-700 px-2 py-0.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-900 {active
-					? 'bg-amber-900 text-amber-50'
-					: 'bg-amber-100 hover:bg-amber-50'}"
+				class="shrink-0 border-2 border-[#111] px-2 py-0.5 font-mono text-xs font-bold uppercase focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#111] {active
+					? 'bg-[#111] text-[#f5c518]'
+					: 'bg-[#fff3c4] hover:bg-white'}"
 			>
 				{member.displayName}
 			</button>

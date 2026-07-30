@@ -1,22 +1,433 @@
 @import 'tailwindcss';
 
 /*
- * Mobile-first, dark-friendly, no third-party fonts (the invite token is in every
- * URL, so no cross-origin asset requests). The system stack is the fast, safe
- * default; posters do the visual work anyway.
+ * ── GAME NIGHT ───────────────────────────────────────────────────────────
+ *
+ * The whole app is a published tabletop game: a dark spruce felt table with
+ * die-cut chipboard components laid on it. Panels, tickets and buttons are
+ * two-ply board with a hard ink edge — never a blurred drop shadow. Three
+ * printing inks with fixed jobs: brass = go forward, jade = yes, cherry =
+ * no / veto / danger.
+ *
+ * Committed to a single dark theme. A movie night happens at night, and one
+ * well-tuned palette beats two half-tuned ones — so there is no light mode
+ * and `dark:` is redefined below to always match, which also drags the
+ * screens outside this restyle onto the same table.
+ *
+ * Fonts are self-hosted @fontsource packages (the invite token is in every
+ * URL, so nothing may be requested from a third-party origin).
  */
+
+@import '@fontsource/alfa-slab-one/index.css';
+@import '@fontsource-variable/rubik/index.css';
+@import '@fontsource-variable/oswald/index.css';
+
+/* One theme, always on. Every `dark:` utility in the app applies unconditionally. */
+@custom-variant dark (&);
+
 @theme {
-	--font-sans:
-		system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+	/* ── Type ─────────────────────────────────────────────────────────
+	   Display: Alfa Slab One — wood-type slab, the game-box lid. Four uses
+	   per screen, maximum.
+	   Body/UI: Rubik Variable — rounded grotesque, tactile but quiet.
+	   Stencil: Oswald Variable — condensed caps for the printed-on-a-
+	   component voice: eyebrows, counters, scoresheet headers, button faces. */
+	--font-sans: 'Rubik Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--font-display: 'Alfa Slab One', Rockwell, Georgia, serif;
+	--font-stencil: 'Oswald Variable', 'Arial Narrow', system-ui, sans-serif;
+
+	/* ── The table ────────────────────────────────────────────────── */
+	--color-felt: #0f2e2b;
+	--color-felt-deep: #08201e;
+	--color-felt-line: #23544d;
+
+	/* ── The components ──────────────────────────────────────────── */
+	--color-board: #efe0bf;
+	--color-board-shade: #cdb283;
+	--color-ink: #1a1512;
+	--color-ink-soft: #6b5b48;
+
+	/* ── The inks ────────────────────────────────────────────────── */
+	--color-brass: #efae43;
+	--color-brass-deep: #a5711a;
+	--color-jade: #2e9c7e;
+	--color-jade-deep: #17614e;
+	--color-cherry: #e04a32;
+	--color-cherry-deep: #a32717;
+
+	/* ── Chalk: type that sits directly on the felt ─────────────── */
+	--color-chalk: #dce9e2;
+	--color-chalk-dim: #9cbbb1;
+
+	/* ── Legacy scale remap ───────────────────────────────────────
+	   Screens outside this restyle still reference Tailwind's default
+	   palettes. Re-pointing the scales keeps them on the same table
+	   instead of leaving indigo-and-white islands, without touching a
+	   line of their markup. */
+	--color-indigo-50: #17403a;
+	--color-indigo-300: #efae43;
+	--color-indigo-400: #efae43;
+	--color-indigo-500: #efae43;
+	--color-indigo-600: #8a5b12;
+	--color-indigo-700: #6b460e;
+	--color-indigo-800: #5a3a0b;
+	--color-indigo-950: #2b1c05;
+
+	--color-emerald-50: #123c33;
+	--color-emerald-300: #4cbf9d;
+	--color-emerald-400: #4cbf9d;
+	--color-emerald-500: #2e9c7e;
+	--color-emerald-600: #17614e;
+	--color-emerald-700: #2e9c7e;
+	--color-emerald-800: #4cbf9d;
+	--color-emerald-950: #0d2b24;
+
+	--color-rose-50: #3a1410;
+	--color-rose-300: #f08a76;
+	--color-rose-400: #f08a76;
+	--color-rose-500: #c9331f;
+	--color-rose-600: #a32717;
+	--color-rose-700: #e04a32;
+	--color-rose-950: #2a0f0a;
+
+	--color-neutral-100: #dfeae4;
+	--color-neutral-200: #e6efe9;
+	--color-neutral-300: #d6e4dd;
+	--color-neutral-400: #9cbbb1;
+	--color-neutral-500: #9cbbb1;
+	--color-neutral-600: #47756c;
+	--color-neutral-700: #2a5a53;
+	--color-neutral-800: #1c4b45;
+	--color-neutral-900: #0c2725;
+	--color-neutral-950: #08201e;
 }
 
-/* Respect the "prefers less motion" setting for the swipe card and progress bars. */
+@layer base {
+	:root {
+		color-scheme: dark;
+	}
+
+	html {
+		background-color: var(--color-felt);
+	}
+
+	body {
+		background-color: var(--color-felt);
+		/* Felt weave: two crossed hatches at near-nothing opacity. Reads as
+		   texture, never as pattern. */
+		background-image:
+			repeating-linear-gradient(45deg, rgb(255 255 255 / 1.6%) 0 2px, transparent 2px 4px),
+			repeating-linear-gradient(-45deg, rgb(0 0 0 / 5%) 0 2px, transparent 2px 4px);
+		background-attachment: fixed;
+		color: var(--color-chalk);
+		font-family: var(--font-sans);
+		font-variant-numeric: tabular-nums;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	::selection {
+		background: var(--color-brass);
+		color: var(--color-ink);
+	}
+
+	/* One focus treatment everywhere: a brass ring, clear of any ink edge. */
+	:focus-visible {
+		outline: 3px solid var(--color-brass);
+		outline-offset: 2px;
+	}
+}
+
+@layer components {
+	/* ── Board stock ──────────────────────────────────────────────────
+	   A die-cut two-ply component: ink outline, a lower ply showing as a
+	   hard offset edge, and the table's shadow under that. No blur — a
+	   blurred shadow is a screen, an offset one is an object. */
+	.tile {
+		--tile-lift: 4px;
+		border: 2px solid var(--color-ink);
+		border-radius: 6px;
+		background-color: var(--color-board);
+		color: var(--color-ink);
+		box-shadow:
+			0 var(--tile-lift) 0 0 var(--color-board-shade),
+			0 var(--tile-lift) 0 2px var(--color-ink);
+	}
+
+	/* Same object, cut from the table instead: an empty slot. */
+	.tile-slot {
+		border: 2px dashed var(--color-felt-line);
+		border-radius: 6px;
+		background-color: rgb(8 32 30 / 55%);
+		color: var(--color-chalk);
+	}
+
+	/* ── Chunky press-able token ───────────────────────────────────────
+	   The button is a stack of two board plies. Pressing it drives the top
+	   ply down onto the table and the edge disappears — the travel is the
+	   feedback, so it is a state change and stays honest under
+	   prefers-reduced-motion. */
+	.token {
+		--token-fill: var(--color-board);
+		--token-edge: var(--color-board-shade);
+		--token-text: var(--color-ink);
+		--token-lift: 5px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		border: 2px solid var(--color-ink);
+		border-radius: 6px;
+		padding: 0.7rem 1rem;
+		background-color: var(--token-fill);
+		color: var(--token-text);
+		font-family: var(--font-stencil);
+		font-size: 0.9375rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		line-height: 1.15;
+		text-align: center;
+		text-transform: uppercase;
+		box-shadow:
+			0 var(--token-lift) 0 0 var(--token-edge),
+			0 var(--token-lift) 0 2px var(--color-ink);
+		transition:
+			transform 90ms ease-out,
+			box-shadow 90ms ease-out;
+	}
+
+	.token:active:not(:disabled) {
+		transform: translateY(var(--token-lift));
+		box-shadow:
+			0 0 0 0 var(--token-edge),
+			0 0 0 2px var(--color-ink);
+	}
+
+	.token:disabled {
+		opacity: 0.45;
+	}
+
+	.token-brass {
+		--token-fill: var(--color-brass);
+		--token-edge: var(--color-brass-deep);
+	}
+
+	.token-jade {
+		--token-fill: var(--color-jade-deep);
+		--token-edge: #0c3b2f;
+		--token-text: var(--color-board);
+	}
+
+	.token-cherry {
+		--token-fill: var(--color-cherry-deep);
+		--token-edge: #5e1409;
+		--token-text: var(--color-board);
+	}
+
+	/* Unfilled token on the felt: a slot waiting to be claimed. */
+	.token-slot {
+		--token-fill: transparent;
+		--token-edge: transparent;
+		--token-text: var(--color-chalk);
+		border-color: var(--color-board-shade);
+		box-shadow:
+			0 var(--token-lift) 0 0 transparent,
+			0 var(--token-lift) 0 2px var(--color-board-shade);
+	}
+
+	.token-slot:active:not(:disabled) {
+		box-shadow:
+			0 0 0 0 transparent,
+			0 0 0 2px var(--color-board-shade);
+	}
+
+	.token-sm {
+		--token-lift: 3px;
+		padding: 0.3rem 0.55rem;
+		font-size: 0.75rem;
+		letter-spacing: 0.06em;
+	}
+
+	.token-lg {
+		--token-lift: 6px;
+		padding: 0.95rem 1rem;
+		font-size: 1.0625rem;
+	}
+
+	/* ── Printed labels ──────────────────────────────────────────────── */
+	.eyebrow {
+		font-family: var(--font-stencil);
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+	}
+
+	.stencil {
+		font-family: var(--font-stencil);
+		font-weight: 500;
+		letter-spacing: 0.05em;
+	}
+
+	.display {
+		font-family: var(--font-display);
+		font-weight: 400;
+		letter-spacing: -0.015em;
+		line-height: 1.02;
+	}
+
+	/* Perforation: a tear line across a ticket, punched through at both ends. */
+	.perf {
+		position: relative;
+		border-top: 2px dashed var(--color-board-shade);
+	}
+
+	.perf::before,
+	.perf::after {
+		content: '';
+		position: absolute;
+		top: -9px;
+		width: 16px;
+		height: 16px;
+		border: 2px solid var(--color-ink);
+		border-radius: 9999px;
+		background-color: var(--color-felt);
+	}
+
+	.perf::before {
+		left: -10px;
+	}
+
+	.perf::after {
+		right: -10px;
+	}
+
+	/* Marquee band: ink plate, brass type, double rule. Announces a result. */
+	.marquee {
+		border: 2px solid var(--color-brass);
+		border-radius: 6px;
+		outline: 2px solid var(--color-brass);
+		outline-offset: 3px;
+		background-color: var(--color-ink);
+		color: var(--color-brass);
+	}
+
+	/* ── SIGNATURE: the ink seal ──────────────────────────────────────
+	   One stamp grammar for every mark a person makes: yes and nope on the
+	   swipe card, veto on a disqualified film, and PICKED slammed across
+	   the winner's stub. Double-ruled box, rotated, set in the slab. */
+	.seal {
+		--seal-plate: var(--color-brass);
+		--seal-on: var(--color-ink);
+		display: inline-block;
+		/* Everything below is in em, so one prop (the word's size) scales the whole
+		   stamp: rules, plate, inset and shadow. */
+		font-size: var(--seal-size, 1.5rem);
+		padding: 0.12em;
+		border: 0.12em solid var(--color-ink);
+		border-radius: 0.18em;
+		background-color: var(--seal-plate);
+		color: var(--seal-on);
+		box-shadow: 0 0.1em 0 0 rgb(26 21 18 / 40%);
+		transform: rotate(var(--seal-rot, -8deg));
+	}
+
+	.seal-face {
+		display: block;
+		border: 0.09em solid currentColor;
+		border-radius: 0.1em;
+		padding: 0.2em 0.5em 0.26em;
+		font-family: var(--font-display);
+		font-size: 1em;
+		letter-spacing: 0.04em;
+		line-height: 1;
+		text-transform: uppercase;
+		text-align: center;
+	}
+
+	.seal-note {
+		display: block;
+		margin-top: 0.22em;
+		border-top: 0.09em solid currentColor;
+		padding-top: 0.18em;
+		font-family: var(--font-stencil);
+		font-size: 0.34em;
+		font-weight: 600;
+		letter-spacing: 0.16em;
+	}
+
+	/* The plate carries the ink, so a stamp is legible over a poster, over board
+	   stock and over the felt alike — and the three inks use exactly the fills
+	   their matching buttons use, so a stamped YES and the YES token are visibly
+	   the same thing. */
+	.seal-brass {
+		--seal-plate: var(--color-brass);
+		--seal-on: var(--color-ink);
+	}
+
+	.seal-jade {
+		--seal-plate: var(--color-jade-deep);
+		--seal-on: var(--color-board);
+	}
+
+	.seal-cherry {
+		--seal-plate: var(--color-cherry-deep);
+		--seal-on: var(--color-board);
+	}
+
+	/* The celebration: the seal is slammed down once, hard, and overshoots. */
+	.seal-slam {
+		animation: seal-slam 420ms cubic-bezier(0.16, 0.9, 0.28, 1) both;
+	}
+
+	@keyframes seal-slam {
+		0% {
+			transform: rotate(calc(var(--seal-rot, -8deg) - 14deg)) scale(2.6);
+			opacity: 0;
+		}
+		55% {
+			transform: rotate(calc(var(--seal-rot, -8deg) - 5deg)) scale(0.93);
+			opacity: 1;
+		}
+		78% {
+			transform: rotate(var(--seal-rot, -8deg)) scale(1.05);
+		}
+		100% {
+			transform: rotate(var(--seal-rot, -8deg)) scale(1);
+		}
+	}
+
+	/* ── Scoresheet: the reveal's tables, ruled like a pad ───────────── */
+	.scoresheet th,
+	.scoresheet td {
+		border-bottom: 1px solid rgb(26 21 18 / 18%);
+	}
+
+	.scoresheet thead th {
+		border-bottom: 2px solid var(--color-ink);
+		font-family: var(--font-stencil);
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+}
+
+/*
+ * "Prefers less motion" means no motion: the swipe fly-out, the promote
+ * spring and the seal slam are all cut outright rather than sped up.
+ */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	.seal-slam {
+		animation: none;
 	}
 }
 

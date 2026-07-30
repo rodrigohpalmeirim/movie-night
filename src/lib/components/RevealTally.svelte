@@ -5,19 +5,25 @@
 	vetoes, and which tiebreak rule (if any) decided it, including the
 	seeded-random proof."
 
+	Drawn as the scorepad that comes with the game: ink on board stock, ruled
+	rows, condensed stencil headers, numbers right-aligned and tabular. It is
+	always rendered inside a board component (the round page's disclosure, or a
+	history row), so it styles for ink-on-board and never carries its own surface.
+
 	Rendered only where `reveal` is non-null, which the server populates for
 	`decided`/`watched` rounds and nothing else — so this component cannot leak
 	anything early even if it were mounted by mistake.
 -->
 <script lang="ts">
+	import Stamp from '$lib/components/Stamp.svelte';
+	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatPercent, TIEBREAK_LABELS } from '$lib/images.js';
 	import type { RevealView } from '$lib/server/services/views.js';
 
 	let { reveal }: { reveal: RevealView } = $props();
 
-	const titleOf = $derived(
-		new Map(reveal.finalists.map((movie) => [movie.id, movie.title]))
-	);
+	const titleOf = $derived(new Map(reveal.finalists.map((movie) => [movie.id, movie.title])));
 	const ids = $derived(reveal.finalists.map((movie) => movie.id));
 
 	/**
@@ -58,13 +64,14 @@
 
 	function pairWinner(row: string, col: string): string | null {
 		for (const head of reveal.matrix) {
-			if ((head.a === row && head.b === col) || (head.b === row && head.a === col)) return head.winner;
+			if ((head.a === row && head.b === col) || (head.b === row && head.a === col))
+				return head.winner;
 		}
 		return null;
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5 text-ink">
 	<!--
 		voting-spec: "if vetoes leave fewer than two finalists, ignore them for
 		ranking but surface them prominently in the UI." First thing in the reveal,
@@ -73,41 +80,39 @@
 	{#if vetoesSetAside}
 		<!-- No id/aria-labelledby: the history tab renders one tally per past night,
 		     and a duplicated id would be worse than an unnamed region. -->
-		<section
-			class="rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-amber-900 dark:border-amber-400/70 dark:bg-amber-950/50 dark:text-amber-100"
-		>
-			<h3 class="text-sm font-bold">
-				<span aria-hidden="true">⚠️</span> Vetoes were set aside tonight
+		<section class="rounded border-2 border-cherry bg-cherry-deep p-3 text-board">
+			<h3 class="eyebrow flex items-center gap-1.5">
+				<TriangleAlert size={15} /> Vetoes were set aside tonight
 			</h3>
-			<p class="mt-1 text-sm">
+			<p class="mt-1.5 text-sm leading-relaxed">
 				{vetoTotal === 1 ? 'One veto was' : `${vetoTotal} vetoes were`} cast{#if vetoedOut.length > 0}, and
 					{joinTitles(vetoedOut)} reached the veto threshold{/if}. Honouring
-				{vetoedOut.length === 1 ? 'that' : 'those'} would have left fewer than two films to compare,
-				so the rules kept the options on the table: nothing was disqualified, and every finalist went
-				into the head-to-head below. The vetoes are listed in full further down.
+				{vetoedOut.length === 1 ? 'that' : 'those'} would have left fewer than two films to compare, so
+				the rules kept the options on the table: nothing was disqualified, and every finalist went into
+				the head-to-head below. The vetoes are listed in full further down.
 			</p>
 		</section>
 	{/if}
 
 	<!-- Approvals -->
-	<section class="space-y-2">
-		<h3 class="text-sm font-semibold">Approval</h3>
-		<p class="text-xs text-neutral-500 dark:text-neutral-400">
-			Approval counts only attendees who had swiped the card; coverage is how many
-			attendees had seen it at all.
+	<section>
+		<h3 class="eyebrow border-b-2 border-ink pb-1.5">Approval</h3>
+		<p class="mt-2 text-xs leading-relaxed text-ink-soft">
+			Approval counts only attendees who had swiped the card; coverage is how many attendees had seen
+			it at all.
 		</p>
-		<div class="overflow-x-auto">
-			<table class="w-full text-sm">
-				<thead class="text-left text-xs text-neutral-500 dark:text-neutral-400">
+		<div class="mt-2 overflow-x-auto">
+			<table class="scoresheet w-full text-sm">
+				<thead>
 					<tr>
-						<th scope="col" class="py-1 pr-2 font-medium">Film</th>
-						<th scope="col" class="py-1 pr-2 text-right font-medium">Yes</th>
-						<th scope="col" class="py-1 pr-2 text-right font-medium">Swiped</th>
-						<th scope="col" class="py-1 pr-2 text-right font-medium">Approval</th>
-						<th scope="col" class="py-1 text-right font-medium">Coverage</th>
+						<th scope="col" class="py-1.5 pr-2 text-left">Film</th>
+						<th scope="col" class="py-1.5 pr-2 text-right">Yes</th>
+						<th scope="col" class="py-1.5 pr-2 text-right">Swiped</th>
+						<th scope="col" class="py-1.5 pr-2 text-right">Approval</th>
+						<th scope="col" class="py-1.5 text-right">Coverage</th>
 					</tr>
 				</thead>
-				<tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
+				<tbody>
 					{#each reveal.tallies as tally (tally.movieId)}
 						<tr>
 							<th scope="row" class="py-1.5 pr-2 text-left font-medium"
@@ -115,8 +120,12 @@
 							>
 							<td class="py-1.5 pr-2 text-right tabular-nums">{tally.yesVotes}</td>
 							<td class="py-1.5 pr-2 text-right tabular-nums">{tally.attendeeVotes}</td>
-							<td class="py-1.5 pr-2 text-right tabular-nums">{formatPercent(tally.approval)}</td>
-							<td class="py-1.5 text-right tabular-nums">{formatPercent(tally.coverage)}</td>
+							<td class="py-1.5 pr-2 text-right font-semibold tabular-nums"
+								>{formatPercent(tally.approval)}</td
+							>
+							<td class="py-1.5 text-right tabular-nums text-ink-soft"
+								>{formatPercent(tally.coverage)}</td
+							>
 						</tr>
 					{/each}
 				</tbody>
@@ -126,26 +135,30 @@
 
 	<!-- Head-to-head grid -->
 	{#if reveal.matrix.length > 0}
-		<section class="space-y-2">
-			<h3 class="text-sm font-semibold">Head to head</h3>
-			<p class="text-xs text-neutral-500 dark:text-neutral-400">
-				How many attendees preferred the row film over the column film. Blank cells were
-				not compared.
+		<section>
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5">Head to head</h3>
+			<p class="mt-2 text-xs leading-relaxed text-ink-soft">
+				How many attendees preferred the row film over the column film. Blank cells were not
+				compared.
 			</p>
-			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
+			<!-- A matrix squeezed to fit is a matrix nobody can read: it scrolls
+			     sideways instead, with every film's name intact. -->
+			<div class="mt-2 overflow-x-auto">
+				<table class="scoresheet w-auto min-w-full text-sm whitespace-nowrap">
 					<caption class="sr-only">Pairwise preference counts between surviving finalists</caption>
-					<thead class="text-xs text-neutral-500 dark:text-neutral-400">
+					<thead>
 						<tr>
-							<th scope="col" class="py-1 pr-2 text-left font-medium">over →</th>
+							<th scope="col" class="py-1.5 pr-2 text-left">
+								<span class="inline-flex items-center gap-1">over <ArrowRight size={12} /></span>
+							</th>
 							{#each ids as id (id)}
 								{#if reveal.veto.survivingIds.includes(id)}
-									<th scope="col" class="px-2 py-1 text-right font-medium">{titleOf.get(id)}</th>
+									<th scope="col" class="px-2 py-1.5 text-right">{titleOf.get(id)}</th>
 								{/if}
 							{/each}
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-neutral-200 dark:divide-neutral-800">
+					<tbody>
 						{#each ids as row (row)}
 							{#if reveal.veto.survivingIds.includes(row)}
 								<tr>
@@ -154,10 +167,14 @@
 										{#if reveal.veto.survivingIds.includes(col)}
 											<td class="px-2 py-1.5 text-right tabular-nums">
 												{#if row === col}
-													<span class="text-neutral-300 dark:text-neutral-700" aria-hidden="true">—</span>
+													<span class="text-board-shade" aria-hidden="true">—</span>
 												{:else}
 													{@const count = preferredCount(row, col)}
-													<span class={pairWinner(row, col) === row ? 'font-bold text-emerald-600 dark:text-emerald-400' : ''}>
+													<span
+														class={pairWinner(row, col) === row
+															? 'rounded bg-jade px-1.5 py-0.5 font-bold text-ink'
+															: 'text-ink-soft'}
+													>
 														{count ?? '·'}
 													</span>
 												{/if}
@@ -170,54 +187,54 @@
 					</tbody>
 				</table>
 			</div>
-			<dl class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+			<dl class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-soft">
 				{#each ids as id (id)}
 					{#if id in reveal.copeland}
 						<div class="flex gap-1">
-							<dt>{titleOf.get(id)} pairwise wins:</dt>
-							<dd class="font-semibold tabular-nums">{reveal.copeland[id]}</dd>
+							<dt class="stencil uppercase">{titleOf.get(id)} pairwise wins:</dt>
+							<dd class="font-semibold tabular-nums text-ink">{reveal.copeland[id]}</dd>
 						</div>
 					{/if}
 				{/each}
 			</dl>
 			{#if reveal.condorcetWinnerId}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">
-					{titleOf.get(reveal.condorcetWinnerId)} beat every other survivor, so no tiebreak was needed.
+				<p class="mt-1.5 text-xs text-ink-soft">
+					{titleOf.get(reveal.condorcetWinnerId)} beat every other survivor, so no tiebreak was
+					needed.
 				</p>
 			{/if}
 		</section>
 	{/if}
 
 	<!-- Vetoes -->
-	<section class="space-y-2">
-		<h3 class="text-sm font-semibold">Vetoes</h3>
+	<section>
+		<h3 class="eyebrow border-b-2 border-ink pb-1.5">Vetoes</h3>
 		<!--
 			Counts per film only. Who vetoed what is never published: the specs
 			authorise the veto count as a tally, not individual veto ballots.
 		-->
 		{#if vetoTotal === 0}
-			<p class="text-sm text-neutral-500 dark:text-neutral-400">Nobody vetoed anything.</p>
+			<p class="mt-2 text-sm text-ink-soft">Nobody vetoed anything.</p>
 		{:else}
-			<ul class="space-y-1 text-sm">
+			<ul class="mt-2 space-y-1.5 text-sm">
 				{#each reveal.finalists as movie (movie.id)}
 					{@const count = reveal.veto.counts[movie.id] ?? 0}
 					{#if count > 0}
 						<li class="flex items-center justify-between gap-2">
-							<span>{movie.title}</span>
+							<span class="font-medium">{movie.title}</span>
 							<span class="flex items-center gap-2">
-								<span class="tabular-nums text-neutral-500 dark:text-neutral-400"
+								<span class="stencil text-xs text-ink-soft uppercase"
 									>{count} veto{count === 1 ? '' : 'es'}</span
 								>
 								{#if reveal.veto.disqualifiedIds.includes(movie.id)}
 									{#if vetoesSetAside}
-										<span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300"
-											>veto set aside</span
-										>
+										<Stamp word="Set aside" tone="brass" size="0.72rem" rotate={-5} />
 									{:else}
-										<span class="rounded-full bg-rose-600/15 px-2 py-0.5 text-xs font-semibold text-rose-700 dark:text-rose-400"
-											>disqualified</span
-										>
+										<Stamp word="Out" tone="cherry" size="0.72rem" rotate={-5} />
 									{/if}
+									<span class="sr-only"
+										>{vetoesSetAside ? 'veto set aside' : 'disqualified by veto'}</span
+									>
 								{/if}
 							</span>
 						</li>
@@ -225,31 +242,36 @@
 				{/each}
 			</ul>
 			{#if vetoesSetAside}
-				<p class="text-xs text-amber-800 dark:text-amber-300">
-					Nothing was actually removed from the comparison — see “Vetoes were set aside tonight”
-					at the top.
+				<p class="mt-2 text-xs text-ink-soft">
+					Nothing was actually removed from the comparison — see “Vetoes were set aside tonight” at
+					the top.
 				</p>
 			{/if}
 		{/if}
 	</section>
 
 	<!-- Tiebreak + audit trail -->
-	<section class="space-y-1">
-		<h3 class="text-sm font-semibold">How it was decided</h3>
-		<p class="text-sm">
+	<section>
+		<h3 class="eyebrow border-b-2 border-ink pb-1.5">How it was decided</h3>
+		<p class="mt-2 text-sm leading-relaxed">
 			{#if reveal.outcome === 'no_clear_favourite'}
 				No film cleared the approval floor.
 			{:else if reveal.tiebreakRuleUsed}
-				Decided by <strong>{TIEBREAK_LABELS[reveal.tiebreakRuleUsed] ?? reveal.tiebreakRuleUsed}</strong>.
+				Decided by <strong class="font-semibold"
+					>{TIEBREAK_LABELS[reveal.tiebreakRuleUsed] ?? reveal.tiebreakRuleUsed}</strong
+				>.
 			{:else if reveal.matrix.length > 0}
 				A clear head-to-head winner — no tiebreak rule was consulted.
 			{:else}
 				Only one film cleared the approval floor, so it won outright.
 			{/if}
 		</p>
-		<p class="text-xs text-neutral-500 dark:text-neutral-400">
-			Random seed for this round: <code class="tabular-nums">{reveal.randomSeed}</code> — kept so any
-			seeded tiebreak can be reproduced and checked.
+		<p class="mt-1.5 text-xs leading-relaxed text-ink-soft">
+			Random seed for this round:
+			<code class="rounded bg-ink px-1.5 py-0.5 font-mono text-[0.7rem] tabular-nums text-board"
+				>{reveal.randomSeed}</code
+			>
+			— kept so any seeded tiebreak can be reproduced and checked.
 		</p>
 	</section>
 </div>

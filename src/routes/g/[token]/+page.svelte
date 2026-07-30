@@ -2,6 +2,11 @@
 	Round screen (home tab) — state-dependent, per app-spec's phase-by-phase
 	behaviour. Every transition is a single labelled button with a confirm step,
 	because transitions are one-way.
+
+	Visually this is the board itself: the state headline is printed straight on
+	the felt, and each thing you can do is a separate die-cut component laid on
+	top — a ticket for your seat, a chunky token for every move, the roster pad,
+	and at the end the winner's stub with the seal slammed across it.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -10,7 +15,14 @@
 	import Menu from '$lib/components/Menu.svelte';
 	import Poster from '$lib/components/Poster.svelte';
 	import RevealTally from '$lib/components/RevealTally.svelte';
-	import { formatDate, movieMeta } from '$lib/images.js';
+	import Stamp from '$lib/components/Stamp.svelte';
+	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import Ban from '$lib/icons/Ban.svelte';
+	import Check from '$lib/icons/Check.svelte';
+	import ChevronRight from '$lib/icons/ChevronRight.svelte';
+	import Dice5 from '$lib/icons/Dice5.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
+	import { formatDate, formatStampDate, movieMeta } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
@@ -29,40 +41,41 @@
 {#if form?.message}
 	<p
 		role="alert"
-		class="mb-4 rounded-xl bg-rose-50 p-3 text-sm font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+		class="mb-5 flex items-start gap-2 rounded-md border-2 border-cherry bg-cherry-deep px-3 py-2.5 text-sm font-medium text-board"
 	>
+		<TriangleAlert size={18} class="mt-px shrink-0" />
 		{form.message}
 	</p>
 {/if}
 
 {#if !round || round.state === 'abandoned'}
-	<!-- ── No active round ─────────────────────────────────────────── -->
-	<div class="space-y-6 py-6 text-center">
-		<div class="space-y-2">
-			<p class="text-5xl" aria-hidden="true">🍿</p>
-			<h2 class="text-xl font-bold tracking-tight">
+	<!-- ── No active round: an empty slot on the board ──────────────── -->
+	<div class="space-y-5">
+		<div class="tile-slot space-y-3 px-4 py-8 text-center">
+			<Dice5 size={40} class="mx-auto text-brass" />
+			<h2 class="display text-[1.6rem] text-board">
 				{round?.state === 'abandoned' ? 'That night got cancelled' : 'No movie night yet'}
 			</h2>
-			<p class="text-sm text-neutral-600 dark:text-neutral-300">
+			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
 				Start one when you know you're watching something. Suggestions and swipes carry over —
 				nothing is lost between nights.
 			</p>
 		</div>
 		<form method="POST" action="?/createRound" use:enhance>
-			<button
-				class="w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-			>
+			<button class="token token-lg token-brass w-full">
 				Start a movie night
+				<ArrowRight size={18} />
 			</button>
 		</form>
 	</div>
 {:else if round.state === 'open'}
 	<!-- ── OPEN: RSVP, suggest, swipe ───────────────────────────────── -->
-	<div class="space-y-6">
+	<div class="space-y-5">
 		<div class="flex items-start justify-between gap-2">
-			<div>
-				<h2 class="text-xl font-bold tracking-tight">Tonight's the night</h2>
-				<p class="text-sm text-neutral-500 dark:text-neutral-400">
+			<div class="min-w-0">
+				<p class="eyebrow text-brass">Round open</p>
+				<h2 class="display mt-1 text-[1.75rem] text-board">Tonight's the night</h2>
+				<p class="stencil mt-1.5 text-xs text-chalk-dim uppercase">
 					Started {formatDate(round.createdAt)} by {round.createdBy?.displayName ?? 'someone'}
 				</p>
 			</div>
@@ -79,37 +92,34 @@
 			</Menu>
 		</div>
 
-		<!-- My own RSVP, front and centre; default is out. -->
-		<section class="space-y-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
-			<h3 class="text-sm font-semibold">Are you in?</h3>
-			<form method="POST" action="?/rsvp" use:enhance class="flex gap-2">
+		<!-- My own RSVP, as a ticket you tear one half off. Default is out. -->
+		<section class="tile px-3 pt-2.5 pb-3">
+			<h3 class="eyebrow text-ink-soft">Your seat</h3>
+			<div class="perf -mx-3 mt-2.5 mb-3"></div>
+			<p class="mb-2.5 text-base font-semibold text-ink">Are you in?</p>
+			<form method="POST" action="?/rsvp" use:enhance class="flex gap-2.5">
 				<input type="hidden" name="round_id" value={round.id} />
 				<input type="hidden" name="member_id" value={me?.memberId} />
 				<button
 					name="attending"
 					value="true"
 					aria-pressed={me?.attending === true}
-					class="flex-1 rounded-xl px-4 py-3 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 {me?.attending ===
-					true
-						? 'bg-emerald-600 text-white'
-						: 'border border-neutral-300 dark:border-neutral-700'}"
+					class="token flex-1 {me?.attending === true ? 'token-jade' : ''}"
 				>
+					{#if me?.attending === true}<Check size={16} />{/if}
 					I'm in
 				</button>
 				<button
 					name="attending"
 					value="false"
 					aria-pressed={me?.attending === false}
-					class="flex-1 rounded-xl px-4 py-3 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 {me?.attending ===
-					false
-						? 'bg-neutral-600 text-white'
-						: 'border border-neutral-300 dark:border-neutral-700'}"
+					class="token flex-1 {me?.attending === false ? 'token-cherry' : ''}"
 				>
 					Can't make it
 				</button>
 			</form>
 			{#if me?.attending === null}
-				<p class="text-xs text-neutral-500 dark:text-neutral-400">
+				<p class="mt-2.5 text-xs leading-relaxed text-ink-soft">
 					Nobody is counted as attending until they say so — your swipes only shape the night if
 					you're in.
 				</p>
@@ -117,12 +127,16 @@
 		</section>
 
 		{#if me && me.unswipedMovieIds.length > 0}
-			<a
-				href="/g/{token}/swipe"
-				class="flex items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-			>
-				<span>{me.unswipedMovieIds.length} to swipe</span>
-				<span aria-hidden="true">→</span>
+			<!-- Your own stack, as a numbered ticket: the count is the stub. -->
+			<a href="/g/{token}/swipe" class="token token-lg token-brass w-full justify-between">
+				<span class="flex items-center gap-2.5">
+					<span
+						class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
+						aria-hidden="true">{me.unswipedMovieIds.length}</span
+					>
+					{me.unswipedMovieIds.length === 1 ? 'card to swipe' : 'cards to swipe'}
+				</span>
+				<ArrowRight size={20} />
 			</a>
 		{/if}
 
@@ -134,11 +148,13 @@
 			editable
 		/>
 
-		<section class="space-y-2">
-			<p class="text-sm text-neutral-600 dark:text-neutral-300">
+		<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
+			<p class="text-sm leading-relaxed text-chalk-dim">
 				{#if round.readiness.attendeesWithGaps > 0}
-					{round.readiness.attendeesWithGaps} of {round.readiness.attendeeCount} attendees still have
-					unswiped films. You can close anyway — films nobody has seen simply wait for next time.
+					<span class="font-semibold text-chalk"
+						>{round.readiness.attendeesWithGaps} of {round.readiness.attendeeCount} attendees</span
+					> still have unswiped films. You can close anyway — films nobody has seen simply wait for next
+					time.
 				{:else if round.readiness.attendeeCount > 0}
 					Everyone attending has swiped the whole pool.
 				{/if}
@@ -153,8 +169,9 @@
 					/>
 				{:else}
 					<p
-						class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+						class="flex items-start gap-2 rounded-md border-2 border-dashed border-brass bg-felt-deep px-3 py-2.5 text-sm text-brass"
 					>
+						<TriangleAlert size={17} class="mt-px shrink-0" />
 						{round.transitions.advanceBlockedReason}
 					</p>
 				{/if}
@@ -163,11 +180,12 @@
 	</div>
 {:else if round.state === 'runoff'}
 	<!-- ── RUNOFF: veto, then pairs ─────────────────────────────────── -->
-	<div class="space-y-6">
+	<div class="space-y-5">
 		<div class="flex items-start justify-between gap-2">
-			<div>
-				<h2 class="text-xl font-bold tracking-tight">The finalists are in</h2>
-				<p class="text-sm text-neutral-500 dark:text-neutral-400">
+			<div class="min-w-0">
+				<p class="eyebrow text-brass">Runoff</p>
+				<h2 class="display mt-1 text-[1.75rem] text-board">The finalists are in</h2>
+				<p class="mt-1.5 text-xs leading-relaxed text-chalk-dim">
 					{round.finalists?.length ?? 0} films. Results stay hidden until someone reveals them.
 				</p>
 			</div>
@@ -185,13 +203,16 @@
 		</div>
 
 		{#if round.finalists}
-			<ul class="flex gap-2 overflow-x-auto pb-1">
+			<!-- The finalists racked up like cards in a holder. -->
+			<ul class="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2">
 				{#each round.finalists as movie (movie.id)}
-					<li class="w-20 shrink-0">
-						<div class="aspect-[2/3] overflow-hidden rounded-lg">
-							<Poster path={movie.posterPath} title={movie.title} size="w185" />
+					<li class="w-[4.75rem] shrink-0">
+						<div class="tile p-1" style="--tile-lift:3px">
+							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border border-ink">
+								<Poster path={movie.posterPath} title={movie.title} size="w185" />
+							</div>
 						</div>
-						<p class="mt-1 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+						<p class="stencil mt-2.5 truncate text-[0.7rem] text-chalk-dim uppercase">
 							{movie.title}
 						</p>
 					</li>
@@ -201,35 +222,37 @@
 
 		{#if me?.attending !== true}
 			<p
-				class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+				class="flex items-start gap-2 rounded-md border-2 border-dashed border-brass bg-felt-deep px-3 py-2.5 text-sm text-brass"
 			>
-				You're not marked as attending, so you can't vote in the runoff. Ask someone to mark you
-				in — your standing swipes already count.
+				<TriangleAlert size={17} class="mt-px shrink-0" />
+				<span
+					>You're not marked as attending, so you can't vote in the runoff. Ask someone to mark you
+					in — your standing swipes already count.</span
+				>
 			</p>
 		{:else if myRunoffStep === 'veto'}
-			<a
-				href="/g/{token}/veto"
-				class="flex items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-4 text-base font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-			>
-				<span>Veto a film — or skip</span>
-				<span aria-hidden="true">→</span>
+			<a href="/g/{token}/veto" class="token token-lg token-cherry w-full justify-between">
+				<span class="flex items-center gap-2"><Ban size={18} /> Veto a film — or skip</span>
+				<ArrowRight size={20} />
 			</a>
 		{:else if myRunoffStep === 'pairs'}
-			<a
-				href="/g/{token}/pairs"
-				class="flex items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-4 text-base font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-			>
+			<a href="/g/{token}/pairs" class="token token-lg token-brass w-full justify-between">
 				<span>Compare the films ({me?.pairsDone} of {me?.pairsTotal})</span>
-				<span aria-hidden="true">→</span>
+				<ArrowRight size={20} />
 			</a>
 		{:else}
-			<div class="space-y-2 rounded-xl border border-emerald-300 p-3 dark:border-emerald-800">
-				<p class="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-					You're done — thanks.
-				</p>
-				<div class="flex gap-3 text-sm">
-					<a href="/g/{token}/veto" class="underline">Change your veto</a>
-					<a href="/g/{token}/pairs" class="underline">Change your picks</a>
+			<div class="tile flex items-center gap-3 px-3 py-3">
+				<Stamp word="Done" tone="jade" size="0.95rem" rotate={-7} />
+				<div class="min-w-0 flex-1">
+					<p class="text-sm font-semibold text-ink">You're done — thanks.</p>
+					<div class="mt-0.5 flex gap-3 text-xs">
+						<a href="/g/{token}/veto" class="font-semibold text-ink-soft underline"
+							>Change your veto</a
+						>
+						<a href="/g/{token}/pairs" class="font-semibold text-ink-soft underline"
+							>Change your picks</a
+						>
+					</div>
 				</div>
 			</div>
 		{/if}
@@ -243,56 +266,74 @@
 			showProgress
 		/>
 
-		<form method="POST" action="?/advance" use:enhance>
-			<input type="hidden" name="round_id" value={round.id} />
-			<Confirm
-				label="Reveal the winner"
-				confirmLabel="Reveal it"
-				question={waitingCount > 0
-					? `${waitingCount} attendee${waitingCount === 1 ? " hasn't" : "s haven't"} voted — reveal anyway?`
-					: 'Everyone has voted. Ready?'}
-			/>
-		</form>
+		<div class="border-t-2 border-dashed border-felt-line pt-4">
+			<form method="POST" action="?/advance" use:enhance>
+				<input type="hidden" name="round_id" value={round.id} />
+				<Confirm
+					label="Reveal the winner"
+					confirmLabel="Reveal it"
+					question={waitingCount > 0
+						? `${waitingCount} attendee${waitingCount === 1 ? " hasn't" : "s haven't"} voted — reveal anyway?`
+						: 'Everyone has voted. Ready?'}
+				/>
+			</form>
+		</div>
 	</div>
 {:else if revealed}
 	<!-- ── DECIDED / WATCHED: the reveal ────────────────────────────── -->
-	<div class="space-y-6">
+	<div class="space-y-5">
 		{#if revealed.outcome === 'no_clear_favourite'}
-			<div class="space-y-3 py-4 text-center">
-				<p class="text-5xl" aria-hidden="true">🤷</p>
-				<h2 class="text-xl font-bold tracking-tight">No clear favourite</h2>
-				<p class="text-sm text-neutral-600 dark:text-neutral-300">
-					Nothing in the pool cleared the approval bar tonight. That's a real answer, not a
-					failure — the pool needs fresh blood.
+			<div class="tile-slot space-y-3 px-4 py-7 text-center">
+				<Stamp word="No pick" tone="cherry" size="1.35rem" rotate={-6} slam class="mb-1" />
+				<h2 class="display text-[1.6rem] text-board">No clear favourite</h2>
+				<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
+					Nothing in the pool cleared the approval bar tonight. That's a real answer, not a failure —
+					the pool needs fresh blood.
 				</p>
-				<a
-					href="/g/{token}/pool"
-					class="inline-block rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-				>
+				<a href="/g/{token}/pool" class="token token-brass mx-auto mt-1 w-auto px-5">
 					Add some suggestions
+					<ArrowRight size={17} />
 				</a>
 			</div>
 		{:else if revealed.winner}
-			<!-- The winner moment: poster first, big. -->
-			<div class="space-y-3 text-center">
-				<p
-					class="text-sm font-semibold tracking-wide text-indigo-600 uppercase dark:text-indigo-400"
-				>
-					Tonight you're watching
-				</p>
-				<div class="mx-auto w-full max-w-64 overflow-hidden rounded-2xl shadow-lg">
-					<div class="aspect-[2/3]">
-						<Poster
-							path={revealed.winner.posterPath}
-							title={revealed.winner.title}
-							size="w500"
-							eager
-						/>
+			<!--
+				The winner moment. A marquee plate announces it, and the film arrives
+				as a ticket stub with the round's seal slammed across the artwork —
+				the same stamp the swipe screen uses, in brass, once.
+			-->
+			<div class="marquee px-4 py-2.5 text-center">
+				<p class="eyebrow text-[0.72rem] tracking-[0.26em]">Tonight you're watching</p>
+			</div>
+
+			<div class="mx-auto max-w-[18.5rem] pt-1">
+				<div class="tile p-2.5" style="--tile-lift:7px">
+					<!-- The seal straddles the artwork's corner and the tear line, which is
+					     where a ticket actually gets stamped. -->
+					<div class="relative">
+						<div class="aspect-[2/3] overflow-hidden rounded-[3px] border-2 border-ink">
+							<Poster
+								path={revealed.winner.posterPath}
+								title={revealed.winner.title}
+								size="w500"
+								eager
+							/>
+						</div>
+						<div class="pointer-events-none absolute -right-2 -bottom-5">
+							<Stamp
+								word="Picked"
+								note={formatStampDate(revealed.decidedAt)}
+								tone="brass"
+								size="1.35rem"
+								rotate={-9}
+								slam
+							/>
+						</div>
 					</div>
-				</div>
-				<div>
-					<h2 class="text-2xl font-bold tracking-tight">{revealed.winner.title}</h2>
-					<p class="text-sm text-neutral-500 dark:text-neutral-400">
+					<div class="perf -mx-2.5 mt-2.5 mb-3"></div>
+					<h2 class="display px-0.5 text-[1.5rem] leading-[1.05] text-ink">
+						{revealed.winner.title}
+					</h2>
+					<p class="stencil mt-1.5 px-0.5 text-[0.72rem] text-ink-soft uppercase">
 						{movieMeta(revealed.winner.year, revealed.winner.runtimeMin)}
 						{#if revealed.winner.suggestedBy}
 							· suggested by {revealed.winner.suggestedBy.displayName}
@@ -305,37 +346,39 @@
 		{#if round.state === 'decided' && round.transitions.canMarkWatched}
 			<form method="POST" action="?/watched" use:enhance>
 				<input type="hidden" name="round_id" value={round.id} />
+				<!-- Bookkeeping after the fact, not part of the celebration: board stock,
+				     so the marquee and the seal keep the brass to themselves. -->
 				<Confirm
-					label="We watched it 🎬"
+					label="We watched it"
 					confirmLabel="Yes, we watched it"
 					question="This retires the film and gives its suggester their turn. Do it after the night, not before."
+					variant="quiet"
 				/>
 			</form>
 		{:else if round.state === 'watched'}
-			<p
-				class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-			>
+			<p class="tile flex items-center gap-2 px-3 py-2.5 text-sm font-medium">
+				<Check size={17} class="shrink-0 text-jade-deep" />
 				Watched {formatDate(revealed.watchedAt)}. It's in your history now.
 			</p>
 		{/if}
 
-		<details class="rounded-xl border border-neutral-200 dark:border-neutral-800" open>
+		<details class="tile group/tally overflow-hidden" open>
 			<summary
-				class="cursor-pointer px-3 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500"
+				class="eyebrow flex cursor-pointer list-none items-center gap-1.5 px-3 py-3 text-ink select-none focus-visible:outline-offset-[-3px]"
 			>
+				<ChevronRight
+					size={14}
+					class="transition-transform group-open/tally:rotate-90 motion-reduce:transition-none"
+				/>
 				How the vote went
 			</summary>
-			<div class="border-t border-neutral-200 p-3 dark:border-neutral-800">
+			<div class="border-t-2 border-dashed border-board-shade p-3">
 				<RevealTally reveal={revealed} />
 			</div>
 		</details>
 
 		<form method="POST" action="?/createRound" use:enhance>
-			<button
-				class="w-full rounded-xl border border-neutral-300 px-4 py-3 font-semibold hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:hover:bg-neutral-800"
-			>
-				Start the next night
-			</button>
+			<button class="token token-slot w-full">Start the next night</button>
 		</form>
 	</div>
 {/if}

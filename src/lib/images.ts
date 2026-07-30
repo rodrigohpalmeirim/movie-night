@@ -41,6 +41,16 @@ export function formatDate(iso: string | null): string {
 	});
 }
 
+/** "30 Jul 26" — short enough to fit on the second line of a stamp. */
+export function formatStampDate(iso: string | null): string {
+	if (!iso) return '';
+	return new Date(iso).toLocaleDateString(undefined, {
+		day: 'numeric',
+		month: 'short',
+		year: '2-digit'
+	});
+}
+
 export function formatPercent(value: number): string {
 	return `${Math.round(value * 100)}%`;
 }

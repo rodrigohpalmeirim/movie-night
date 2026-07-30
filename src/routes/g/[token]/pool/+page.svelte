@@ -9,6 +9,7 @@
 	import { enhance } from '$app/forms';
 	import Poster from '$lib/components/Poster.svelte';
 	import VoteBadge from '$lib/components/VoteBadge.svelte';
+	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import { movieMeta } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -169,7 +170,7 @@
 			class="flex items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
 		>
 			<span>{data.pool.unswipedCount} to swipe</span>
-			<span aria-hidden="true">→</span>
+			<ArrowRight size={18} />
 		</a>
 	{/if}
 

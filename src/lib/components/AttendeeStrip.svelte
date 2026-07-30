@@ -6,11 +6,16 @@
 	... Proxy RSVPs record who set them ('in — marked by Ana') so mistakes are
 	visible and reversible."
 
+	Drawn as the game's player roster: a board-stock pad with one ruled line per
+	person, their standing stamped at the end of the line, and the two small
+	tokens that change it.
+
 	Everything shown here is *participation*, never a tally: who is coming, and in
 	RUNOFF who has finished. Nothing about how anyone voted.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Check from '$lib/icons/Check.svelte';
 	import type { ParticipantView } from '$lib/server/services/views.js';
 
 	let {
@@ -44,16 +49,19 @@
 	const waitingOn = $derived(
 		participants.filter((p) => p.attending === true && !p.submitted).map((p) => p.displayName)
 	);
+
+	const chip =
+		'stencil shrink-0 rounded border-2 px-1.5 py-px text-[0.68rem] font-semibold uppercase tracking-[0.08em]';
 </script>
 
-<section class="space-y-3">
-	<h2 class="flex items-baseline justify-between text-sm font-semibold">
-		<span>Who's coming</span>
-		<span class="text-neutral-500 dark:text-neutral-400">{summary}</span>
+<section class="space-y-2.5">
+	<h2 class="flex items-baseline justify-between gap-2">
+		<span class="eyebrow text-chalk">Who's coming</span>
+		<span class="stencil text-xs text-brass uppercase">{summary}</span>
 	</h2>
 
 	{#if showProgress}
-		<p class="text-sm text-neutral-500 dark:text-neutral-400">
+		<p class="text-xs text-chalk-dim">
 			{#if waitingOn.length === 0}
 				Everyone attending has finished voting.
 			{:else}
@@ -62,43 +70,55 @@
 		</p>
 	{/if}
 
-	<ul class="divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+	<ul class="tile divide-y-2 divide-dashed divide-board-shade">
 		{#each participants as person (person.memberId)}
-			<li class="flex items-center gap-3 px-3 py-2">
+			{@const proxied = !!person.markedBy && person.markedBy.id !== person.memberId}
+			<li class="flex items-center gap-2 px-3 py-2.5">
 				<div class="min-w-0 flex-1">
-					<p class="truncate text-sm font-medium">
+					<p class="truncate text-sm font-medium text-ink">
 						{person.displayName}{#if person.memberId === meId}<span
-								class="ml-1 text-xs font-normal text-neutral-500">(you)</span
+								class="stencil ml-1 text-[0.65rem] tracking-[0.1em] text-ink-soft uppercase"
+								>(you)</span
 							>{/if}
 					</p>
-					<p class="text-xs text-neutral-500 dark:text-neutral-400">
-						{#if person.attending === null}
-							No answer yet
-						{:else if person.attending}
-							In{#if person.markedBy && person.markedBy.id !== person.memberId}
-								— marked by {person.markedBy.displayName}{/if}
-						{:else}
-							Out{#if person.markedBy && person.markedBy.id !== person.memberId}
-								— marked by {person.markedBy.displayName}{/if}
-						{/if}
-						{#if showProgress && person.attending}
-							· {person.submitted ? 'voted' : 'not voted yet'}
-						{/if}
-					</p>
+					<!--
+						The pressed token already says in-or-out, so the line under the name
+						only appears when it has something the token cannot carry: no answer
+						yet, who set a proxy RSVP, or the runoff progress.
+					-->
+					{#if !editable || person.attending === null || proxied || (showProgress && person.attending)}
+						<p class="stencil text-[0.7rem] tracking-[0.02em] text-ink-soft">
+							{#if person.attending === null}
+								No answer yet
+							{:else if person.attending}
+								In{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+							{:else}
+								Out{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+							{/if}
+							{#if showProgress && person.attending}
+								· {person.submitted ? 'voted' : 'not voted yet'}
+							{/if}
+						</p>
+					{/if}
 				</div>
 
+				{#if showProgress && person.submitted && person.attending}
+					<!-- A finished ballot gets stamped. Nothing marks an unfinished one —
+					     the absence is the state, and the line under the name spells it out. -->
+					<span class="{chip} border-ink bg-jade text-ink" aria-hidden="true">
+						<Check size={12} class="inline align-[-1px]" /> voted
+					</span>
+				{/if}
+
 				{#if editable}
-					<form method="POST" action="?/rsvp" use:enhance class="flex shrink-0 gap-1">
+					<form method="POST" action="?/rsvp" use:enhance class="flex shrink-0 gap-1.5">
 						<input type="hidden" name="round_id" value={roundId} />
 						<input type="hidden" name="member_id" value={person.memberId} />
 						<button
 							name="attending"
 							value="true"
 							aria-pressed={person.attending === true}
-							class="rounded-lg px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500 {person.attending ===
-							true
-								? 'bg-emerald-600 text-white'
-								: 'border border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300'}"
+							class="token token-sm {person.attending === true ? 'token-jade' : ''}"
 						>
 							In<span class="sr-only"> — mark {person.displayName} as attending</span>
 						</button>
@@ -106,14 +126,23 @@
 							name="attending"
 							value="false"
 							aria-pressed={person.attending === false}
-							class="rounded-lg px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500 {person.attending ===
-							false
-								? 'bg-neutral-600 text-white'
-								: 'border border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300'}"
+							class="token token-sm {person.attending === false ? 'token-cherry' : ''}"
 						>
 							Out<span class="sr-only"> — mark {person.displayName} as not attending</span>
 						</button>
 					</form>
+				{:else}
+					<!-- RSVPs are closed: the standing is a stamp, not a control. -->
+					<span
+						class="{chip} {person.attending === true
+							? 'border-ink bg-jade text-ink'
+							: person.attending === false
+								? 'border-ink bg-ink text-board'
+								: 'border-dashed border-ink-soft text-ink-soft'}"
+						aria-hidden="true"
+					>
+						{person.attending === true ? 'in' : person.attending === false ? 'out' : 'no answer'}
+					</span>
 				{/if}
 			</li>
 		{/each}

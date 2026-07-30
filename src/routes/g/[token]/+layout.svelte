@@ -1,6 +1,10 @@
 <!--
 	Group shell: header, bottom tab bar, and the live-update stream.
 
+	The header is the game-box lid: the group's name set in the slab face, the
+	member you're currently playing as on a board-stock chip, and a brass rule
+	closing the lid off from the table below.
+
 	The picker renders inside this shell too, and it is reachable before an
 	identity is claimed, so `data.group` may be null — the tab bar is hidden until
 	there is a member to be.
@@ -24,26 +28,28 @@
 </svelte:head>
 
 <div class="mx-auto flex min-h-dvh max-w-lg flex-col">
-	<header class="flex items-baseline justify-between px-4 pt-4 pb-2">
-		<h1 class="truncate text-lg font-bold tracking-tight">{data.groupName}</h1>
-		{#if data.group}
-			<p class="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
-				{data.group.me.displayName}
-			</p>
-		{/if}
+	<header class="px-4 pt-4">
+		<div class="flex items-center justify-between gap-3">
+			<h1 class="display truncate text-[1.35rem] text-board">{data.groupName}</h1>
+			{#if data.group}
+				<p
+					class="stencil shrink-0 rounded-full border-2 border-board-shade px-2.5 py-0.5 text-[0.7rem] tracking-[0.08em] text-chalk uppercase"
+				>
+					<span class="text-chalk-dim">playing as</span>&nbsp;{data.group.me.displayName}
+				</p>
+			{/if}
+		</div>
+		<div class="mt-2.5 h-[3px] rounded-full bg-brass"></div>
+		<div class="mt-[3px] border-t-2 border-dashed border-felt-line"></div>
 	</header>
 
-	<main class="flex-1 px-4 {data.devMode ? 'pb-36' : 'pb-24'}">
+	<main class="flex-1 px-4 pt-5 {data.devMode ? 'pb-36' : 'pb-24'}">
 		{@render children?.()}
 	</main>
 
 	{#if data.group}
 		{#if data.devMode}
-			<DevBar
-				token={data.inviteToken}
-				members={data.group.members}
-				meId={data.group.me.id}
-			/>
+			<DevBar token={data.inviteToken} members={data.group.members} meId={data.group.me.id} />
 		{/if}
 		<TabBar token={data.inviteToken} swipeCount={data.swipeCount ?? 0} />
 	{/if}
