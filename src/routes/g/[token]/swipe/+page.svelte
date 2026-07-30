@@ -67,6 +67,14 @@
 	let restored = $state<Card[]>([]);
 	/** Committed cards still animating away. Keyed by id, never overlapping the queue. */
 	let exits = $state<Array<{ card: Card; dir: SwipeChoice }>>([]);
+	/**
+	 * Ink left on the stack by a card that has already gone: the seal stays put
+	 * for SEAL_RESIDUE_MS while the card flies off, so somebody swiping fast sees
+	 * their marks land and pile up instead of watching cards vanish silently.
+	 * Purely presentational — nothing here reaches the vote.
+	 */
+	let residue = $state<Array<{ id: number; dir: SwipeChoice }>>([]);
+	let residueSeq = 0;
 
 	let dragX = $state(0);
 	let dragging = $state(false);
@@ -81,6 +89,9 @@
 	let startX = 0;
 	const velocity = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
+
+	/** How long a committed card's seal stays inked on the stack. */
+	const SEAL_RESIDUE_MS = 200;
 
 	const answeredIds = $derived(new Set(answered.map((a) => a.card.id)));
 	const restoredIds = $derived(new Set(restored.map((c) => c.id)));
@@ -151,6 +162,17 @@
 				exits = exits.filter((exit) => exit.card.id !== card.id);
 			}, EXIT_MS + 60);
 			exitTimers.add(timer);
+
+			// The seal the card was carrying stays behind on the stack for a beat.
+			// Under prefers-reduced-motion there is no fly-out at all, so there is
+			// nothing for the ink to lag behind and none of this runs.
+			const mark = { id: ++residueSeq, dir: value };
+			residue = [...residue, mark];
+			const inkTimer = setTimeout(() => {
+				exitTimers.delete(inkTimer);
+				residue = residue.filter((entry) => entry.id !== mark.id);
+			}, SEAL_RESIDUE_MS);
+			exitTimers.add(inkTimer);
 		}
 		restored = restored.filter((c) => c.id !== card.id);
 		answered = [...answered, { card, value }];
@@ -174,6 +196,7 @@
 		// the node survives and slides back in.
 		cancelExitTimers();
 		exits = [];
+		residue = [];
 	}
 
 	/* ── pointer gesture (enhancement only) ───────────────────────── */
@@ -313,7 +336,14 @@
 	</div>
 {/snippet}
 
-<div class="space-y-4">
+<!--
+	`overflow-x: clip` and not `hidden`: a committed card flies a full viewport
+	past the stack's right edge, which grows the document and lets the page be
+	dragged sideways for the length of the animation. Clipping contains it without
+	making this a scroll container, so nothing inside gains a scrollbar and the
+	fixed tab bar is unaffected.
+-->
+<div class="space-y-4 overflow-x-clip">
 	<div class="space-y-2">
 		<div class="flex items-baseline justify-between gap-3">
 			<a
@@ -417,6 +447,30 @@
 						</div>
 					</div>
 				{/each}
+
+				<!--
+					Ink left on the stack. A committed card carries its seal off screen with
+					it, so a copy stays pressed onto the stack for a beat and then fades:
+					swipe fast and you watch your marks accumulate instead of watching cards
+					vanish. Decorative — the card counter above is what actually reports
+					progress, and none of this runs under prefers-reduced-motion, where there
+					is no fly-out for the ink to lag behind.
+				-->
+				{#each residue as mark (mark.id)}
+					<div
+						class="seal-residue pointer-events-none absolute z-40 {mark.dir === 'yes'
+							? 'top-6 left-5'
+							: 'top-6 right-5'}"
+						aria-hidden="true"
+					>
+						<Stamp
+							word={mark.dir === 'yes' ? 'Yes' : 'Nope'}
+							tone={mark.dir === 'yes' ? 'jade' : 'cherry'}
+							size="1.85rem"
+							rotate={mark.dir === 'yes' ? -13 : 12}
+						/>
+					</div>
+				{/each}
 			</div>
 
 			{#if current}
@@ -467,5 +521,22 @@
 	.swipe-card :global(img) {
 		-webkit-user-drag: none;
 		user-select: none;
+	}
+
+	/* The mark a departed card leaves behind: it holds for most of its short life,
+	   then lifts off cleanly. Slightly translucent, because this is ink on the
+	   stack rather than a stamp on a card. */
+	.seal-residue {
+		animation: seal-residue 200ms linear both;
+	}
+
+	@keyframes seal-residue {
+		0%,
+		45% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
 	}
 </style>

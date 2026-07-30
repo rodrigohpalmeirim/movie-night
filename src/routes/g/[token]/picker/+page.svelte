@@ -2,75 +2,94 @@
 	Member picker — "A list of existing member names — tap yours to claim it" plus
 	"I'm new here".
 
+	Taking a name is taking a seat at the table, so each name is a whole-row
+	control: raised board stock that presses down when tapped. Adding yourself is
+	the empty seat next to them — a slot, not a component, until you fill it in.
+
 	Big tap targets, one form, no JavaScript required. There is deliberately no
 	credential: app-spec lists "a friend can pick someone else's name" as an
 	accepted risk in exchange for zero-friction entry.
 -->
 <script lang="ts">
+	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
 	let addingNew = $state(false);
 </script>
 
-<div class="space-y-6">
-	<div class="space-y-1">
-		<h2 class="text-xl font-bold tracking-tight">Who are you?</h2>
-		<p class="text-sm text-neutral-600 dark:text-neutral-300">
+<div class="space-y-5">
+	<div>
+		<p class="eyebrow text-brass">Take a seat</p>
+		<h2 class="display mt-1 text-[1.75rem] text-board">Who are you?</h2>
+		<p class="mt-1.5 text-sm leading-relaxed text-chalk-dim">
 			Tap your name to sign in on this device. It'll remember you.
 		</p>
 	</div>
 
 	{#if form?.message}
-		<p role="alert" class="text-sm font-medium text-rose-600 dark:text-rose-400">{form.message}</p>
+		<p role="alert" class="notice notice-cherry">
+			<TriangleAlert size={17} class="mt-px shrink-0" />
+			{form.message}
+		</p>
 	{/if}
 
-	<form method="POST" action="?/claim" class="space-y-3">
+	<form method="POST" action="?/claim" class="space-y-2.5">
 		{#if data.members.length > 0}
-			<ul class="space-y-2">
+			<ul class="space-y-2.5">
 				{#each data.members as member (member.id)}
 					<li>
 						<button
 							name="member_id"
 							value={member.id}
-							class="w-full rounded-xl border border-neutral-300 px-4 py-4 text-left text-lg font-semibold hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:hover:bg-neutral-800"
+							class="tile tile-press flex w-full items-center gap-2 px-3.5 py-3.5 text-left"
 						>
-							{member.displayName}
-							{#if member.id === data.currentMemberId}
-								<span class="ml-1 text-xs font-normal text-neutral-500">· currently signed in</span>
-							{/if}
+							<span class="min-w-0 flex-1">
+								<span class="display block truncate text-[1.15rem] text-ink">
+									{member.displayName}
+								</span>
+								{#if member.id === data.currentMemberId}
+									<span class="stencil block text-[0.7rem] tracking-[0.06em] text-ink-soft uppercase">
+										Signed in on this device
+									</span>
+								{/if}
+							</span>
+							<ArrowRight size={18} class="shrink-0 text-ink-soft" />
 						</button>
 					</li>
 				{/each}
 			</ul>
 		{:else}
-			<p class="text-sm text-neutral-500 dark:text-neutral-400">
-				Nobody has joined yet — you're first.
+			<p class="tile-slot px-4 py-7 text-center text-sm text-chalk-dim">
+				Nobody has joined yet — you're first. Put your name in below.
 			</p>
 		{/if}
 
 		{#if addingNew || data.members.length === 0}
-			<div class="space-y-2 rounded-xl border border-indigo-300 p-3 dark:border-indigo-800">
-				<label for="new-name" class="block text-sm font-medium">Your name</label>
-				<input
-					id="new-name"
-					name="name"
-					required
-					maxlength="80"
-					autocomplete="nickname"
-					class="w-full rounded-xl border border-neutral-300 px-3 py-3 text-base focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
-				/>
-				<button
-					class="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-				>
+			<div class="tile space-y-3 px-3.5 py-3.5">
+				<div>
+					<label for="new-name" class="field-label text-ink">Your name</label>
+					<input
+						id="new-name"
+						name="name"
+						required
+						maxlength="80"
+						autocomplete="nickname"
+						placeholder="Ana"
+						class="field"
+					/>
+				</div>
+				<button class="token token-lg token-brass w-full">
 					Join the group
+					<ArrowRight size={18} />
 				</button>
 			</div>
 		{:else}
 			<button
 				type="button"
 				onclick={() => (addingNew = true)}
-				class="w-full rounded-xl border border-dashed border-neutral-400 px-4 py-4 text-base font-medium text-neutral-600 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+				class="token token-lg token-slot w-full"
 			>
 				I'm new here
 			</button>

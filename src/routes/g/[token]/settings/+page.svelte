@@ -1,11 +1,19 @@
 <!--
 	Settings — any member can edit everything here (app-spec design principle 1).
 
-	Includes the TMDB attribution line, which is a condition of their free API.
+	The rules insert that ships in the box: four flat pads, each with a stencilled
+	header ruled off in ink, holding punched blanks you write into. Nothing here is
+	raised except the buttons, because nothing here is pressable except the
+	buttons — this screen is where the old lift-everything treatment read worst.
+
+	Includes the TMDB attribution line, which is a condition of their free API
+	(app-wide footer, so it is on every screen rather than only this one).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import Check from '$lib/icons/Check.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -44,40 +52,43 @@
 	};
 </script>
 
-<div class="space-y-8">
-	<h2 class="text-xl font-bold tracking-tight">Settings</h2>
+<div class="space-y-5">
+	<div>
+		<p class="eyebrow text-brass">House rules</p>
+		<h2 class="display mt-1 text-[1.75rem] text-board">Settings</h2>
+	</div>
 
 	{#if form?.message}
-		<p role="alert" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+		<p role="alert" class="notice notice-cherry">
+			<TriangleAlert size={17} class="mt-px shrink-0" />
 			{form.message}
 		</p>
 	{/if}
 	{#if form && 'saved' in form && form.saved}
-		<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+		<p role="status" class="notice notice-jade">
+			<Check size={17} class="mt-px shrink-0" />
 			Saved. Changes apply from the next time finalists are picked — never to a round already in
 			progress.
 		</p>
 	{/if}
 
 	<!-- ── Invite link ───────────────────────────────────────────────── -->
-	<section class="space-y-2">
-		<h3 class="text-sm font-semibold">Invite link</h3>
-		<p class="text-xs text-neutral-500 dark:text-neutral-400">
-			Anyone with this link can join and vote. It is the only credential — share it in the group
-			chat, not in public.
-		</p>
+	<section class="tile space-y-3 px-3 py-3">
+		<div>
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Invite link</h3>
+			<p class="mt-2 text-xs leading-relaxed text-ink-soft">
+				Anyone with this link can join and vote. It is the only credential — share it in the group
+				chat, not in public.
+			</p>
+		</div>
 		<div class="flex gap-2">
 			<input
 				readonly
 				value={inviteUrl}
 				aria-label="Invite link"
-				class="min-w-0 flex-1 rounded-xl border border-neutral-300 px-3 py-2.5 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
+				class="field min-w-0 flex-1 font-mono text-xs"
 			/>
-			<button
-				type="button"
-				onclick={copyLink}
-				class="shrink-0 rounded-xl border border-neutral-300 px-3 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700"
-			>
+			<button type="button" onclick={copyLink} class="token shrink-0">
 				{copied ? 'Copied' : 'Copy'}
 			</button>
 		</div>
@@ -87,28 +98,32 @@
 				confirmLabel="Yes, replace the link"
 				question="The old link stops working immediately. Everyone will need the new one — but devices already signed in stay signed in."
 				variant="quiet"
+			size="md"
 			/>
 		</form>
 	</section>
 
 	<!-- ── Group name + knobs ────────────────────────────────────────── -->
 	<form method="POST" action="?/save" use:enhance class="space-y-5">
-		<section class="space-y-2">
-			<label for="group-name" class="block text-sm font-semibold">Group name</label>
-			<input
-				id="group-name"
-				name="name"
-				value={data.settings.name}
-				maxlength="80"
-				class="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
-			/>
+		<section class="tile space-y-3 px-3 py-3">
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">The group</h3>
+			<div>
+				<label for="group-name" class="field-label text-ink">Group name</label>
+				<input
+					id="group-name"
+					name="name"
+					value={data.settings.name}
+					maxlength="80"
+					class="field"
+				/>
+			</div>
 		</section>
 
-		<section class="space-y-3">
-			<h3 class="text-sm font-semibold">Voting knobs</h3>
+		<section class="tile space-y-3.5 px-3 py-3">
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Voting knobs</h3>
 			{#each Object.entries(data.knobRanges) as [knob, range] (knob)}
-				<div class="space-y-1">
-					<label for="knob-{knob}" class="block text-sm font-medium">{KNOB_LABELS[knob]}</label>
+				<div>
+					<label for="knob-{knob}" class="field-label text-ink">{KNOB_LABELS[knob]}</label>
 					<input
 						id="knob-{knob}"
 						name={knob}
@@ -119,73 +134,66 @@
 						step={range.integer ? 1 : 0.05}
 						value={data.settings.config[knob as keyof typeof data.settings.config] ?? ''}
 						aria-describedby="help-{knob}"
-						class="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-base tabular-nums focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
+						class="field tabular-nums"
 					/>
-					<p id="help-{knob}" class="text-xs text-neutral-500 dark:text-neutral-400">
+					<p id="help-{knob}" class="mt-1 text-xs leading-relaxed text-ink-soft">
 						{KNOB_HELP[knob]} Allowed: {range.min}–{range.max}{range.nullable ? ', or blank' : ''}.
 					</p>
 				</div>
 			{/each}
+			<button class="token token-lg token-brass w-full">Save settings</button>
 		</section>
-
-		<button
-			class="w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-		>
-			Save settings
-		</button>
 	</form>
 
 	<!-- ── Members ───────────────────────────────────────────────────── -->
-	<section class="space-y-3">
-		<h3 class="text-sm font-semibold">Members</h3>
-		<ul class="divide-y divide-neutral-200 rounded-xl border border-neutral-200 text-sm dark:divide-neutral-800 dark:border-neutral-800">
+	<section class="tile space-y-3 px-3 py-3">
+		<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Members</h3>
+		<!-- The roster, ruled like the round screen's: same pad, same tear lines. -->
+		<ul class="divide-y-2 divide-dashed divide-board-shade border-y-2 border-dashed border-board-shade">
 			{#each data.settings.members as member (member.id)}
-				<li class="flex items-center justify-between gap-2 px-3 py-2">
-					<span class="truncate">{member.displayName}</span>
-					<span class="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
+				<li class="flex items-baseline justify-between gap-2 py-2">
+					<span class="truncate text-sm font-medium text-ink">{member.displayName}</span>
+					<span class="stencil shrink-0 text-[0.7rem] text-ink-soft uppercase">
 						joined {formatDate(member.joinedAt)}
 					</span>
 				</li>
 			{/each}
 		</ul>
-		<p class="text-xs text-neutral-500 dark:text-neutral-400">
+		<p class="text-xs leading-relaxed text-ink-soft">
 			Members are never deleted — history refers to them.
 		</p>
 
-		<form method="POST" action="?/renameSelf" use:enhance class="space-y-2">
-			<label for="display-name" class="block text-sm font-medium">Your display name</label>
+		<form method="POST" action="?/renameSelf" use:enhance>
+			<label for="display-name" class="field-label text-ink">Your display name</label>
 			<div class="flex gap-2">
 				<input
 					id="display-name"
 					name="display_name"
 					value={data.settings.me.displayName}
 					maxlength="80"
-					class="min-w-0 flex-1 rounded-xl border border-neutral-300 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
+					class="field min-w-0 flex-1"
 				/>
-				<button
-					class="shrink-0 rounded-xl border border-neutral-300 px-3 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700"
-					>Rename</button
-				>
+				<button class="token shrink-0">Rename</button>
 			</div>
 		</form>
 	</section>
 
 	<!-- ── This device ───────────────────────────────────────────────── -->
-	<section class="space-y-2">
-		<h3 class="text-sm font-semibold">This device</h3>
-		<p class="text-xs text-neutral-500 dark:text-neutral-400">
-			Signed in as {data.settings.me.displayName}.
-		</p>
+	<section class="tile space-y-3 px-3 py-3">
+		<div>
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">This device</h3>
+			<p class="mt-2 text-xs leading-relaxed text-ink-soft">
+				Signed in as {data.settings.me.displayName}.
+			</p>
+		</div>
 		<form method="POST" action="?/forget">
 			<Confirm
 				label="Not you?"
 				confirmLabel="Sign out on this device"
 				question="This forgets who you are on this device and returns to the name picker. Your votes stay."
 				variant="quiet"
+			size="md"
 			/>
 		</form>
 	</section>
-
-	<!-- TMDB attribution lives in the app-wide footer (src/routes/+layout.svelte),
-	     so it is on every screen rather than only this one. -->
 </div>

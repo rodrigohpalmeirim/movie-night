@@ -2,6 +2,11 @@
 	Pool tab: browsable pool, my own three-state vote badge, the swipe-stack entry,
 	and the TMDB suggest sheet.
 
+	Drawn as the deck box: every film is a card lying face up on the table, and
+	because tapping one opens it, every card is raised and presses down. The
+	suggest sheet is the opposite — a flat pad you write on, holding punched
+	blanks and the results it finds.
+
 	Aggregate counts never appear here — not before a reveal and not after, because
 	standing votes outlive rounds.
 -->
@@ -10,6 +15,10 @@
 	import Poster from '$lib/components/Poster.svelte';
 	import VoteBadge from '$lib/components/VoteBadge.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import ChevronRight from '$lib/icons/ChevronRight.svelte';
+	import Layers2 from '$lib/icons/Layers2.svelte';
+	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
+	import X from '$lib/icons/X.svelte';
 	import { movieMeta } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -65,23 +74,28 @@
 </script>
 
 <div class="space-y-5">
-	<div class="flex items-center justify-between gap-2">
-		<h2 class="text-xl font-bold tracking-tight">The pool</h2>
+	<div class="flex items-end justify-between gap-3">
+		<div class="min-w-0">
+			<p class="eyebrow text-brass">The deck</p>
+			<h2 class="display mt-1 text-[1.75rem] text-board">The pool</h2>
+			<p class="stencil mt-1.5 text-xs text-chalk-dim uppercase">
+				{shown.length}
+				{shown.length === 1 ? 'film on the table' : 'films on the table'}
+			</p>
+		</div>
 		<button
 			type="button"
 			onclick={() => (sheetOpen = !sheetOpen)}
 			aria-expanded={sheetOpen}
-			class="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+			class="token token-brass shrink-0"
 		>
-			+ Suggest a film
+			{#if sheetOpen}<X size={15} /> Close{:else}+ Suggest{/if}
+			<span class="sr-only"> a film</span>
 		</button>
 	</div>
 
 	{#if form && 'added' in form && form.added}
-		<p
-			class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-			role="status"
-		>
+		<p class="notice notice-jade" role="status">
 			{#if form.added === 'restored'}
 				Brought "{form.title}" back — everyone's old swipes are intact.
 			{:else if form.added === 'rewatch'}
@@ -92,25 +106,29 @@
 		</p>
 	{/if}
 	{#if form?.message}
-		<p role="alert" class="rounded-xl bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+		<p role="alert" class="notice notice-cherry">
+			<TriangleAlert size={17} class="mt-px shrink-0" />
 			{form.message}
 		</p>
 	{/if}
 
-	<!-- ── Suggest sheet ─────────────────────────────────────────────── -->
+	<!-- ── Suggest sheet ───────────────────────────────────────────────
+	     A flat pad: you write on it, so nothing here is raised except the
+	     controls themselves. -->
 	{#if sheetOpen}
-		<section
-			class="space-y-3 rounded-xl border border-indigo-300 p-3 dark:border-indigo-800"
-			aria-label="Suggest a film"
-		>
+		<section class="tile space-y-3 px-3 py-3" aria-label="Suggest a film">
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Add to the pool</h3>
+
 			{#if !data.searchAvailable}
-				<p class="text-sm text-amber-800 dark:text-amber-300">
-					Film search isn't configured on this server yet (no TMDB key), so suggestions are
-					unavailable.
+				<p class="notice notice-cherry">
+					<TriangleAlert size={17} class="mt-px shrink-0" />
+					Film search isn't set up on this server yet, so nothing can be added. Whoever runs it needs
+					to add a TMDB key.
 				</p>
 			{/if}
+
 			<form method="POST" action="?/search" use:enhance class="space-y-2">
-				<label for="q" class="block text-sm font-medium">Search TMDB</label>
+				<label for="q" class="field-label text-ink">Search for a film</label>
 				<div class="flex gap-2">
 					<input
 						id="q"
@@ -119,41 +137,42 @@
 						oninput={onInput}
 						autocomplete="off"
 						placeholder="Alien, Brazil, Casino…"
-						class="min-w-0 flex-1 rounded-xl border border-neutral-300 px-3 py-2.5 text-base focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700 dark:bg-neutral-900"
+						class="field min-w-0 flex-1"
 					/>
-					<button
-						class="rounded-xl border border-neutral-300 px-3 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-neutral-700"
-						>Search</button
-					>
+					<button class="token shrink-0">Search</button>
 				</div>
 			</form>
 
 			{#if searching}
-				<p class="text-sm text-neutral-500 dark:text-neutral-400">Searching…</p>
+				<p class="stencil text-xs text-ink-soft uppercase">Searching…</p>
 			{/if}
 			{#if searchError}
-				<p role="alert" class="text-sm text-rose-600 dark:text-rose-400">{searchError}</p>
+				<p role="alert" class="notice notice-cherry">
+					<TriangleAlert size={17} class="mt-px shrink-0" />
+					{searchError}
+				</p>
 			{/if}
 
 			{#if suggestions.length > 0}
-				<ul class="space-y-2">
+				<ul class="space-y-2.5 border-t-2 border-dashed border-board-shade pt-3">
 					{#each suggestions as result (result.tmdbId)}
 						<li>
 							<form method="POST" action="?/suggest" use:enhance>
 								<input type="hidden" name="tmdb_id" value={result.tmdbId} />
-								<button
-									class="flex w-full items-center gap-3 rounded-xl border border-neutral-200 p-2 text-left hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-neutral-800 dark:hover:bg-neutral-800"
-								>
-									<div class="h-16 w-11 shrink-0 overflow-hidden rounded">
+								<button class="tile tile-press flex w-full items-center gap-2.5 p-2 text-left">
+									<span class="block h-16 w-11 shrink-0 overflow-hidden rounded-[3px] border-2 border-ink">
 										<Poster path={result.posterPath} title={result.title} size="w92" />
-									</div>
+									</span>
 									<span class="min-w-0 flex-1">
-										<span class="block truncate text-sm font-semibold">{result.title}</span>
-										<span class="block text-xs text-neutral-500 dark:text-neutral-400"
+										<span class="block truncate text-sm font-semibold text-ink">{result.title}</span>
+										<span class="stencil block text-[0.7rem] text-ink-soft uppercase"
 											>{result.year ?? 'year unknown'}</span
 										>
 									</span>
-									<span aria-hidden="true" class="shrink-0 text-lg text-indigo-600">+</span>
+									<span
+										class="display flex size-7 shrink-0 items-center justify-center rounded-sm border-2 border-ink bg-brass text-base leading-none text-ink"
+										aria-hidden="true">+</span
+									>
 								</button>
 							</form>
 						</li>
@@ -165,48 +184,55 @@
 
 	<!-- ── My swipe stack ────────────────────────────────────────────── -->
 	{#if data.pool.unswipedCount > 0}
-		<a
-			href="/g/{data.token}/swipe"
-			class="flex items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-		>
-			<span>{data.pool.unswipedCount} to swipe</span>
-			<ArrowRight size={18} />
+		<a href="/g/{data.token}/swipe" class="token token-lg token-brass w-full justify-between">
+			<span class="flex items-center gap-2.5">
+				<span
+					class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
+					aria-hidden="true">{data.pool.unswipedCount}</span
+				>
+				{data.pool.unswipedCount === 1 ? 'card to swipe' : 'cards to swipe'}
+			</span>
+			<ArrowRight size={20} />
 		</a>
 	{/if}
 
 	<!-- ── The pool ──────────────────────────────────────────────────── -->
 	{#if shown.length === 0}
-		<p class="py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
-			The pool is empty. Suggest something.
-		</p>
+		<div class="tile-slot space-y-3 px-4 py-8 text-center">
+			<Layers2 size={38} class="mx-auto text-brass" />
+			<h3 class="display text-[1.5rem] text-board">Nothing on the table</h3>
+			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
+				Suggest a film and everyone can start swiping it. The pool carries over between nights.
+			</p>
+		</div>
 	{:else}
-		<ul class="space-y-2">
+		<ul class="space-y-2.5">
 			{#each shown as movie (movie.id)}
 				<li>
 					<a
 						href="/g/{data.token}/movies/{movie.id}"
-						class="flex items-center gap-3 rounded-xl border border-neutral-200 p-2 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-neutral-800 dark:hover:bg-neutral-800"
+						class="tile tile-press flex items-center gap-3 p-2"
 					>
-						<div class="h-20 w-14 shrink-0 overflow-hidden rounded">
+						<span class="block h-20 w-14 shrink-0 overflow-hidden rounded-[3px] border-2 border-ink">
 							<Poster path={movie.posterPath} title={movie.title} size="w92" />
-						</div>
-						<div class="min-w-0 flex-1 space-y-1">
-							<p class="truncate text-sm font-semibold">
-								{movie.title}
+						</span>
+						<span class="min-w-0 flex-1 space-y-1">
+							<span class="flex items-baseline gap-1.5">
+								<span class="min-w-0 truncate text-sm font-semibold text-ink">{movie.title}</span>
 								{#if movie.status === 'watched'}
 									<span
-										class="ml-1 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase dark:bg-neutral-700"
+										class="stencil shrink-0 rounded border-2 border-ink bg-ink px-1 text-[0.6rem] tracking-[0.08em] text-board uppercase"
 										>watched</span
 									>
 								{/if}
-							</p>
-							<p class="text-xs text-neutral-500 dark:text-neutral-400">
+							</span>
+							<span class="stencil block text-[0.7rem] text-ink-soft uppercase">
 								{movieMeta(movie.year, movie.runtimeMin)}
 								{#if movie.suggestedBy}· {movie.suggestedBy.displayName}{/if}
-							</p>
+							</span>
 							<VoteBadge vote={movie.myVote} />
-						</div>
-						<span aria-hidden="true" class="shrink-0 text-neutral-400">›</span>
+						</span>
+						<ChevronRight size={17} class="shrink-0 text-ink-soft" />
 					</a>
 				</li>
 			{/each}
