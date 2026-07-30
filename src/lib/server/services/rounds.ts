@@ -43,6 +43,7 @@ import { upsertStandingVote } from './movies.js';
 import {
 	computePhase1,
 	computeRunoff,
+	computeVeto,
 	generateMatchups,
 	memberSeed,
 	pairKey,
@@ -923,15 +924,27 @@ export function memberRunoffProgress(input: {
 	const { db, round } = input;
 	const finalistIds = round.finalistIds ?? [];
 
-	// Deliberately the FULL frozen finalist set, not the survivors.
+	// Deliberately the SURVIVING finalists, not the full frozen set.
 	//
-	// Asking only about survivors leaked other people's vetoes: the difference
-	// between this list and the published finalist list named every disqualified
-	// film, and with VETO_THRESHOLD > 1 it was a live veto counter. The tally
-	// already ignores pairs involving a disqualified movie, and app-spec's effort
-	// budget explicitly allows "up to 10 pairwise taps" at N_FINALISTS <= 5, so
-	// asking C(N,2) closes the channel at no cost to the budget.
-	const matchups = generateMatchups(finalistIds);
+	// This is an accepted disclosure, decided by the group owner: the difference
+	// between this list and the published finalist list names each disqualified
+	// film (and with VETO_THRESHOLD > 1 it is a live veto counter). Asking the
+	// full C(N,2) round robin would close that channel, but was judged not worth
+	// the wasted taps on pairs the tally would discard anyway — and the spec
+	// already mandates surfacing disqualifications prominently at the reveal.
+	const survivingIds = round.configSnapshot
+		? computeVeto(
+				finalistIds,
+				db
+					.select({ memberId: vetoes.memberId, movieId: vetoes.movieId })
+					.from(vetoes)
+					.where(eq(vetoes.roundId, round.id))
+					.all(),
+				loadAttendeeIds(db, round.id),
+				toTallyConfig(round.configSnapshot)
+			).survivingIds
+		: finalistIds;
+	const matchups = generateMatchups(survivingIds);
 	const myVeto = db
 		.select()
 		.from(vetoes)

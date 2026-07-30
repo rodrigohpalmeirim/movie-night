@@ -99,6 +99,8 @@ A vetoed movie returns to the pool next round rather than being deleted. A block
 
 Exception: if vetoes leave fewer than two finalists, ignore them for ranking but surface them prominently in the UI. Never reach a state with no options.
 
+Accepted disclosure (decided, not an oversight): because voters are only asked about *surviving* pairs, a ballot shrinking mid-runoff reveals which finalist was disqualified. Asking the full round robin over the frozen finalist set would close this channel; that secrecy was judged not worth the wasted taps on pairs the tally discards anyway.
+
 ### Pairwise comparison
 
 Surviving finalists go to a full round robin. With 5 finalists that's 10 pairs, with 4 it's 6 — small enough that every voter completes all of them, so there is no sampling, no Elo, no rating model, no confidence intervals. Keep `N_FINALISTS` at or below 5 so this stays true.

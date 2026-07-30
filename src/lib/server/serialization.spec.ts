@@ -239,11 +239,12 @@ describe('no aggregate is serialised before the round is decided', () => {
 		expect(benView.me.myVetoMovieId).toBeNull();
 		expect(benView.me.vetoSubmitted).toBe(false);
 		expect(benView.me.myPairVotes).toEqual([]);
-		// Ana has cast one of her three pairs, so she is not finished. Ben may see
-		// *whether* she finished, never *what* she chose.
+		// Ana's veto disqualified Casino (threshold 1), so her ballot is the single
+		// surviving pair, which she has cast — she is finished. Ben may see *whether*
+		// she finished, never *what* she chose.
 		expect(anaView.me.pairsDone).toBe(1);
-		expect(anaView.me.pairsTotal).toBe(3);
-		expect(benView.participants.find((p) => p.displayName === 'Ana')?.submitted).toBe(false);
+		expect(anaView.me.pairsTotal).toBe(1);
+		expect(benView.participants.find((p) => p.displayName === 'Ana')?.submitted).toBe(true);
 	});
 
 	test('progress is per-voter only', () => {
@@ -670,16 +671,18 @@ describe('regression: finalist order is not a served ranking', () => {
 	});
 });
 
-describe('regression: the pair set does not leak other members’ vetoes', () => {
-	test('every voter is asked the full round robin over the frozen finalist set', () => {
+describe('pair set covers surviving finalists (accepted disclosure)', () => {
+	// The group owner chose fewer taps over full secrecy: a voter's ballot shrinks
+	// when someone else's veto disqualifies a film, which discloses WHICH film was
+	// vetoed (and, with VETO_THRESHOLD > 1, when the threshold was reached). This
+	// test pins that trade-off so a change in either direction is deliberate.
+	test('a veto removes the disqualified film from everyone’s remaining pairs', () => {
 		const { w, round } = scenario();
 		world = w;
 		const runoff = toRunoff(w, round.id);
-		const before = view(w, 'Ana', runoff).me.pairsTotal;
-		expect(before).toBe(3); // C(3,2)
+		expect(view(w, 'Ana', runoff).me.pairsTotal).toBe(3); // C(3,2)
 
-		// Dee disqualifies Casino. Ana must not be able to detect that from the size
-		// or the contents of her own ballot.
+		// Dee disqualifies Casino; Ana is no longer asked about it.
 		unwrap(
 			castVeto({
 				db: w.db,
@@ -690,12 +693,12 @@ describe('regression: the pair set does not leak other members’ vetoes', () =>
 			})
 		);
 		const after = view(w, 'Ana', getRound(w.db, w.group.id, runoff.id));
-		expect(after.me.pairsTotal).toBe(before);
+		expect(after.me.pairsTotal).toBe(1); // C(2,2) survivors only
 		const asked = new Set(after.me.pairOrder.flatMap((pair) => [pair.a, pair.b]));
-		expect(asked.has(w.movie('Casino').id)).toBe(true);
-		// The published finalist set and the ballot cover exactly the same films, so
-		// the set difference names nothing.
-		expect(asked.size).toBe(after.finalists!.length);
+		expect(asked.has(w.movie('Casino').id)).toBe(false);
+		// Per-member veto ballots still never appear anywhere (that fix stands);
+		// only the aggregate effect on the survivor set is visible.
+		expect(JSON.stringify(after)).not.toContain('"byMember"');
 	});
 
 	test('a non-attendee receives no ballot data at all', () => {
