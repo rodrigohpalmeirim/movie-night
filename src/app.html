@@ -12,9 +12,10 @@
 		<link rel="icon" href="%sveltekit.assets%/icon-192.png" sizes="192x192" type="image/png" />
 		<!-- iOS ignores the manifest icons; it needs its own opaque, full-bleed PNG. -->
 		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
-		<link rel="mask-icon" href="%sveltekit.assets%/mask-icon.svg" color="#4f46e5" />
-		<meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+		<link rel="mask-icon" href="%sveltekit.assets%/mask-icon.svg" color="#efae43" />
+		<!-- One theme, always on (see app.css), so one theme colour: the felt. No
+		     media-scoped pair, because there is no light mode to switch to. -->
+		<meta name="theme-color" content="#4c141c" />
 		<!-- Standalone display on iOS: the prefixed meta is still what Safari reads,
 		     the unprefixed one is the standard Chrome asks for. Status bar is opaque
 		     ("black", not "black-translucent") because only the bottom safe-area inset
@@ -28,10 +29,7 @@
 		     except image.tmdb.org (and Referrer-Policy: same-origin covers that). -->
 		%sveltekit.head%
 	</head>
-	<body
-		data-sveltekit-preload-data="hover"
-		class="bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-50"
-	>
+	<body data-sveltekit-preload-data="hover" class="bg-felt text-chalk antialiased">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

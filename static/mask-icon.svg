@@ -1,7 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 	<title>Movie Night</title>
 	<!-- Safari pinned-tab mask: single colour, transparent background. Safari uses
-	     only the alpha channel and tints it with the link's `color` attribute. -->
-	<circle cx="256" cy="256" r="148" fill="none" stroke="#000000" stroke-width="26" stroke-dasharray="20 11" />
-	<path d="M214 184 L346 256 L214 328 Z" fill="#000000" stroke="#000000" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" />
+	     only the alpha channel and tints it with the link's `color` attribute, so
+	     this is the seal reduced to its silhouette — plate, inner rule and tick,
+	     with no palette at all. -->
+	<g transform="rotate(-8 256 256)">
+		<rect x="86" y="166" width="340" height="180" rx="26" ry="26" fill="none" stroke="#000000" stroke-width="26" />
+		<rect x="126" y="206" width="260" height="100" rx="10" ry="10" fill="none" stroke="#000000" stroke-width="18" />
+		<path d="M182 258 L226 300 L330 214" fill="none" stroke="#000000" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" />
+	</g>
 </svg>
