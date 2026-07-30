@@ -28,7 +28,8 @@
 		name,
 		value,
 		disabled = false,
-		variant = 'primary'
+		variant = 'primary',
+		size = 'lg'
 	}: {
 		label: string;
 		confirmLabel?: string;
@@ -37,6 +38,9 @@
 		value?: string;
 		disabled?: boolean;
 		variant?: 'primary' | 'danger' | 'quiet';
+		/** `lg` for the screen's main move, `md` for housekeeping that must not
+		 *  out-shout it — regenerating a link, removing a film, signing out. */
+		size?: 'lg' | 'md';
 	} = $props();
 
 	const styles = {
@@ -44,11 +48,12 @@
 		danger: 'token-cherry',
 		quiet: ''
 	};
+	const face = $derived(`token ${size === 'lg' ? 'token-lg' : ''} w-full ${styles[variant]}`);
 </script>
 
 {#if disabled}
 	<!-- Nothing to confirm: the action isn't available, so show it plainly inert. -->
-	<button type="submit" {name} {value} disabled class="token token-lg w-full {styles[variant]}">
+	<button type="submit" {name} {value} disabled class={face}>
 		{label}
 	</button>
 {:else}
@@ -57,9 +62,13 @@
 	<details class="group/confirm">
 		<summary class="block cursor-pointer list-none rounded-md select-none">
 			<!-- Closed face: the action. Open face: the way back out. -->
-			<span class="token token-lg w-full {styles[variant]} group-open/confirm:hidden">{label}</span>
-			<span class="token token-lg hidden w-full group-open/confirm:flex">Cancel</span>
+			<span class="{face} group-open/confirm:hidden">{label}</span>
+			<span class="token {size === 'lg' ? 'token-lg' : ''} hidden w-full group-open/confirm:flex"
+				>Cancel</span
+			>
 		</summary>
+		<!-- The question card is torn from the pad, not laid on the table: dashed
+		     ink edge, and flat, because you read it rather than press it. -->
 		<div class="mt-3 space-y-3 rounded-md border-2 border-dashed border-ink bg-board p-3">
 			<p class="text-sm leading-snug text-ink">{question}</p>
 			<button type="submit" {name} {value} class="token w-full {styles[variant]}">

@@ -18,7 +18,7 @@
 	screen, not just Settings. Kept to one quiet line at the end of the document.
 -->
 <footer
-	class="mx-auto max-w-lg px-4 pt-4 text-center text-[11px] leading-relaxed text-chalk-dim/70 {inGroup
+	class="mx-auto max-w-lg px-4 pt-4 text-center text-[11px] leading-relaxed text-chalk-dim {inGroup
 		? 'pb-[calc(4.5rem_+_env(safe-area-inset-bottom))]'
 		: 'pb-[calc(1rem_+_env(safe-area-inset-bottom))]'}"
 >

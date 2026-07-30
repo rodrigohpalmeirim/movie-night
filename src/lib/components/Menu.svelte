@@ -4,6 +4,9 @@
 
 	The panel is a dark tray rather than board stock, so anything laid inside it
 	(a Confirm's board-stock question card) still reads as a separate piece.
+
+	The trigger is a control, so it is raised — an empty token slot on the table.
+	The panel it opens is not, so the panel lies flat.
 -->
 <script lang="ts">
 	import Ellipsis from '$lib/icons/Ellipsis.svelte';
@@ -13,7 +16,7 @@
 
 <details class="group relative">
 	<summary
-		class="flex cursor-pointer list-none items-center justify-center rounded border-2 border-board-shade px-2 py-1.5 text-chalk-dim select-none hover:border-brass hover:text-brass"
+		class="token token-sm token-slot cursor-pointer list-none px-2 py-1.5 select-none hover:border-brass hover:text-brass"
 	>
 		<span class="sr-only">{label}</span>
 		<Ellipsis size={18} />

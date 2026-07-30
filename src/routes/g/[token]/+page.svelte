@@ -39,10 +39,7 @@
 </script>
 
 {#if form?.message}
-	<p
-		role="alert"
-		class="mb-5 flex items-start gap-2 rounded-md border-2 border-cherry bg-cherry-deep px-3 py-2.5 text-sm font-medium text-board"
-	>
+	<p role="alert" class="notice notice-cherry mb-5">
 		<TriangleAlert size={18} class="mt-px shrink-0" />
 		{form.message}
 	</p>
@@ -51,14 +48,26 @@
 {#if !round || round.state === 'abandoned'}
 	<!-- ── No active round: an empty slot on the board ──────────────── -->
 	<div class="space-y-5">
+		<!-- An empty slot on the board. A cancelled night gets the seal, because
+		     something did happen to it; a first night gets the dice, because
+		     nothing has. -->
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
-			<Dice5 size={40} class="mx-auto text-brass" />
+			{#if round?.state === 'abandoned'}
+				<Stamp word="Cancelled" tone="cherry" size="1.1rem" rotate={-6} />
+			{:else}
+				<Dice5 size={40} class="mx-auto text-brass" />
+			{/if}
 			<h2 class="display text-[1.6rem] text-board">
 				{round?.state === 'abandoned' ? 'That night got cancelled' : 'No movie night yet'}
 			</h2>
 			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
-				Start one when you know you're watching something. Suggestions and swipes carry over —
-				nothing is lost between nights.
+				{#if round?.state === 'abandoned'}
+					Tonight's vetoes and pair votes are gone. Standing swipes are kept, so starting again picks
+					up where the pool left off.
+				{:else}
+					Start one when you know you're watching something. Suggestions and swipes carry over —
+					nothing is lost between nights.
+				{/if}
 			</p>
 		</div>
 		<form method="POST" action="?/createRound" use:enhance>
@@ -168,9 +177,7 @@
 						question="This freezes tonight's finalists and the swipes behind them. There's no going back."
 					/>
 				{:else}
-					<p
-						class="flex items-start gap-2 rounded-md border-2 border-dashed border-brass bg-felt-deep px-3 py-2.5 text-sm text-brass"
-					>
+					<p class="notice notice-brass">
 						<TriangleAlert size={17} class="mt-px shrink-0" />
 						{round.transitions.advanceBlockedReason}
 					</p>
@@ -207,7 +214,7 @@
 			<ul class="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2">
 				{#each round.finalists as movie (movie.id)}
 					<li class="w-[4.75rem] shrink-0">
-						<div class="tile p-1" style="--tile-lift:3px">
+						<div class="tile p-1">
 							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border border-ink">
 								<Poster path={movie.posterPath} title={movie.title} size="w185" />
 							</div>
@@ -221,9 +228,7 @@
 		{/if}
 
 		{#if me?.attending !== true}
-			<p
-				class="flex items-start gap-2 rounded-md border-2 border-dashed border-brass bg-felt-deep px-3 py-2.5 text-sm text-brass"
-			>
+			<p class="notice notice-brass">
 				<TriangleAlert size={17} class="mt-px shrink-0" />
 				<span
 					>You're not marked as attending, so you can't vote in the runoff. Ask someone to mark you
@@ -306,7 +311,8 @@
 			</div>
 
 			<div class="mx-auto max-w-[18.5rem] pt-1">
-				<div class="tile p-2.5" style="--tile-lift:7px">
+				<!-- The stub lies flat. It is the night's receipt, not a button. -->
+				<div class="tile p-2.5">
 					<!-- The seal straddles the artwork's corner and the tear line, which is
 					     where a ticket actually gets stamped. -->
 					<div class="relative">
@@ -364,7 +370,7 @@
 
 		<details class="tile group/tally overflow-hidden" open>
 			<summary
-				class="eyebrow flex cursor-pointer list-none items-center gap-1.5 px-3 py-3 text-ink select-none focus-visible:outline-offset-[-3px]"
+				class="eyebrow row-press flex cursor-pointer list-none items-center gap-1.5 px-3 py-3 text-ink select-none focus-visible:outline-offset-[-3px]"
 			>
 				<ChevronRight
 					size={14}

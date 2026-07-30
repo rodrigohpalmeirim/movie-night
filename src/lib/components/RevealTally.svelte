@@ -80,7 +80,7 @@
 	{#if vetoesSetAside}
 		<!-- No id/aria-labelledby: the history tab renders one tally per past night,
 		     and a duplicated id would be worse than an unnamed region. -->
-		<section class="rounded border-2 border-cherry bg-cherry-deep p-3 text-board">
+		<section class="rounded-md border-2 border-ink bg-cherry p-3 text-ink">
 			<h3 class="eyebrow flex items-center gap-1.5">
 				<TriangleAlert size={15} /> Vetoes were set aside tonight
 			</h3>

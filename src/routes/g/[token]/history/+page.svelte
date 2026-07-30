@@ -65,7 +65,7 @@
 									surfaced prominently, so it rides on the row itself.
 								-->
 								<p
-									class="stencil mt-2 inline-flex items-start gap-1.5 rounded border-2 border-cherry bg-cherry-deep px-1.5 py-1 text-[0.68rem] leading-snug font-semibold text-board uppercase"
+									class="stencil mt-2 inline-flex items-start gap-1.5 rounded border-2 border-ink bg-cherry px-1.5 py-1 text-[0.68rem] leading-snug font-semibold text-ink uppercase"
 								>
 									<TriangleAlert size={13} class="mt-px shrink-0" />
 									Vetoes set aside — they would have left fewer than two films
@@ -75,7 +75,7 @@
 					</div>
 					<details class="group/tally border-t-2 border-dashed border-board-shade">
 						<summary
-							class="eyebrow flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-ink-soft select-none hover:text-ink focus-visible:outline-offset-[-3px]"
+							class="eyebrow row-press flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-ink-soft select-none hover:text-ink focus-visible:outline-offset-[-3px]"
 						>
 							<ChevronRight
 								size={14}
