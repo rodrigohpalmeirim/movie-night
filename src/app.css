@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+/*
+ * Mobile-first, dark-friendly, no third-party fonts (the invite token is in every
+ * URL, so no cross-origin asset requests). The system stack is the fast, safe
+ * default; posters do the visual work anyway.
+ */
+@theme {
+	--font-sans:
+		system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+/* Respect the "prefers less motion" setting for the swipe card and progress bars. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* <summary> markers get in the way of the menu and disclosure affordances. */
+summary::-webkit-details-marker {
+	display: none;
+}

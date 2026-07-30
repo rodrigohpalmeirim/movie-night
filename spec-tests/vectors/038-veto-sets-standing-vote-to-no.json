@@ -1,0 +1,283 @@
+{
+  "id": "V038",
+  "description": "Vetoing sets the voter's standing vote on that movie to 'no' so the standing and round layers can never contradict each other",
+  "spec_clause": "Phase 2 / Veto: 'Vetoing sets the voter's standing vote on that movie to no, so the two layers can never contradict each other.'",
+  "rationale": "4 attendees, all rows present on all three movies. m1: 4 yes -> approval 1.00; m2: 3 yes (u1,u2,u3 yes; u4 no) -> approval 0.75; m3: 2 yes -> approval 0.50. All promoted, ranked m1, m2, m3. u3 - who currently holds a standing YES on m2 - vetoes m2. vetoes(m2) = 1 >= VETO_THRESHOLD 1 -> m2 disqualified; survivors {m1,m3} = 2, so the exception does not fire. Round robin over survivors: m1 vs m3 = 3 (u1,u2,u4) to 1 (u3) -> Condorcet winner m1. Required side effect: u3's StandingVote on m2 is upserted from yes to no. This is a forward-looking write - it does not retroactively change this round's tallies (m2 was tallied at 3 yes / approval 0.75) but next round m2 would tally 2 yes of 4 rows = approval 0.50.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u2",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m3",
+        "title": "M3",
+        "runtime_min": 100,
+        "suggested_by": "u3",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m3",
+        "value": "no"
+      }
+    ],
+    "vetoes": [
+      {
+        "user_id": "u3",
+        "movie_id": "m2"
+      }
+    ],
+    "pair_votes": [
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      }
+    ],
+    "random_seed": "seed-038"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1",
+      "m2",
+      "m3"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 4,
+        "yes_votes": 4,
+        "coverage": 1.0,
+        "approval": 1.0
+      },
+      "m2": {
+        "attendee_votes": 4,
+        "yes_votes": 3,
+        "coverage": 1.0,
+        "approval": 0.75
+      },
+      "m3": {
+        "attendee_votes": 4,
+        "yes_votes": 2,
+        "coverage": 1.0,
+        "approval": 0.5
+      }
+    },
+    "finalist_ids": [
+      "m1",
+      "m2",
+      "m3"
+    ],
+    "finalist_ids_ranked": [
+      "m1",
+      "m2",
+      "m3"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {
+      "m1": 0,
+      "m2": 1,
+      "m3": 0
+    },
+    "veto_disqualified_ids": [
+      "m2"
+    ],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [
+      "m1",
+      "m3"
+    ],
+    "pairwise": [
+      {
+        "a": "m1",
+        "b": "m3",
+        "a_preferred": 3,
+        "b_preferred": 1,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m1"
+      }
+    ],
+    "copeland_scores": {
+      "m1": 1,
+      "m3": 0
+    },
+    "outcome": "winner",
+    "phase2_skipped": false,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "condorcet",
+    "standing_vote_side_effects": [
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "no",
+        "was": "yes"
+      }
+    ]
+  }
+}

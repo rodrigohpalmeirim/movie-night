@@ -1,0 +1,42 @@
+{
+	"name": "movie-voting",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "bun --bun vite dev",
+		"build": "bun --bun vite build",
+		"preview": "bun ./build/index.js",
+		"start": "bun ./build/index.js",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:server": "bun test src/lib/server",
+		"test:all": "vitest run && bun test src/lib/server",
+		"seed": "bun run scripts/seed.ts",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "bun run scripts/migrate.ts",
+		"db:verify": "bun run scripts/verify-db.ts",
+		"db:studio": "drizzle-kit studio"
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "^2.63.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@tailwindcss/vite": "^4.3.3",
+		"@types/bun": "^1.3.14",
+		"@vitest/coverage-v8": "^4.1.10",
+		"drizzle-kit": "^0.31.10",
+		"svelte": "^5.56.1",
+		"svelte-adapter-bun": "^1.0.1",
+		"svelte-check": "^4.6.0",
+		"tailwindcss": "^4.3.3",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.16",
+		"vitest": "^4.1.10"
+	},
+	"dependencies": {
+		"drizzle-orm": "^0.45.2"
+	}
+}

@@ -1,0 +1,184 @@
+{
+  "id": "V037",
+  "description": "Eligibility requires status = pool: a watched movie is excluded even with unanimous standing approval (its votes are archived, not deleted)",
+  "spec_clause": "Phase 1 / Eligibility: 'A movie is eligible if status = pool and ...' + Lifecycle: 'When a movie is watched, set status = watched ... Its standing votes are archived, not deleted.'",
+  "rationale": "4 attendees. m1 has status = watched (watched_at 2026-06-01) and unanimous archived approval: 4 rows, 4 yes -> coverage 1.00, approval 1.00, yes 4. It is excluded from eligibility by status alone, before any floor is evaluated; otherwise it would outrank everything every week. m2 (status pool): 4 rows, 3 yes -> coverage 1.00, yes 3, approval 0.75 -> eligible and clears the floor. Exactly one movie clears -> m2 wins outright, Phase 2 skipped. REWATCH_COOLDOWN is off (spec default 'never'), so m1 does not come back.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "watched",
+        "watched_at": "2026-06-01T00:00:00Z"
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u2",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "no"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [],
+    "random_seed": "seed-000"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m2"
+    ],
+    "ineligible_movies": [
+      {
+        "movie_id": "m1",
+        "reason": "status_not_pool",
+        "coverage": 1.0,
+        "attendee_votes": 4
+      }
+    ],
+    "tallies": {
+      "m2": {
+        "attendee_votes": 4,
+        "yes_votes": 3,
+        "coverage": 1.0,
+        "approval": 0.75
+      }
+    },
+    "finalist_ids": [
+      "m2"
+    ],
+    "finalist_ids_ranked": [
+      "m2"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m2",
+    "permissible_winner_ids": [
+      "m2"
+    ],
+    "decided_by": "single_clear_approval_floor",
+    "standing_vote_side_effects": []
+  }
+}

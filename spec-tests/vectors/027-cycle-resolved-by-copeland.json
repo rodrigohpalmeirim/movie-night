@@ -1,0 +1,542 @@
+{
+  "id": "V027",
+  "description": "A cycle with no Condorcet winner is resolved by rung 1, Copeland score: most pairwise victories wins even though that movie lost a head-to-head",
+  "spec_clause": "Phase 2 / Tally: 'Cycles are possible (A beats B beats C beats A) and must be handled rather than left to crash. Resolve in order: 1 Copeland score, 2 Approval count, 3 Rotation fairness, 4 Shortest runtime, 5 Seeded random.'",
+  "rationale": "5 attendees, 4 finalists. Phase 1: m1 5 rows/5 yes -> approval 1.00; m2 5 rows/4 yes -> 0.80; m3 5 rows/3 yes -> 0.60; m4 4 rows/3 yes -> coverage 4/5 = 0.80, approval 0.75. All eligible, all clear the floor, all four fit in N_FINALISTS = 5. Ranking by yes-votes: m1 (5), m2 (4), then m3 and m4 tie on 3 and the tie is resolved by approval (m4 0.75 > m3 0.60), giving m1, m2, m4, m3. Round robin, 6 pairs: m1>m2 3-2; m1>m3 4-1; m4>m1 3-2; m2 vs m3 2-2 with one explicit no preference -> tie, no winner; m2>m4 3-2; m3>m4 3-2. There is a cycle m1 > m2 > m4 > m1, so no finalist beats every other and there is no Condorcet winner. Rung 1 Copeland: m1 = 2 (m2, m3), m2 = 1 (m4), m3 = 1 (m4), m4 = 1 (m1). Unique maximum m1 = 2 -> m1 wins by Copeland; no lower rung is consulted.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u5",
+        "join_order": 5,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u5",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u2",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m3",
+        "title": "M3",
+        "runtime_min": 100,
+        "suggested_by": "u3",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m4",
+        "title": "M4",
+        "runtime_min": 100,
+        "suggested_by": "u4",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u5",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u5",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u5",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m4",
+        "value": "no"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m1",
+        "movie_b_id": "m3",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m2",
+        "movie_b_id": "m3",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m2",
+        "movie_b_id": "m3",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m2",
+        "movie_b_id": "m3",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m2",
+        "movie_b_id": "m3",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m2",
+        "movie_b_id": "m3",
+        "winner_id": null
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m2"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m3",
+        "movie_b_id": "m4",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m3",
+        "movie_b_id": "m4",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m3",
+        "movie_b_id": "m4",
+        "winner_id": "m3"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m3",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u5",
+        "movie_a_id": "m3",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      }
+    ],
+    "random_seed": "seed-027"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1",
+      "m2",
+      "m3",
+      "m4"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 5,
+        "yes_votes": 5,
+        "coverage": 1.0,
+        "approval": 1.0
+      },
+      "m2": {
+        "attendee_votes": 5,
+        "yes_votes": 4,
+        "coverage": 1.0,
+        "approval": 0.8
+      },
+      "m3": {
+        "attendee_votes": 5,
+        "yes_votes": 3,
+        "coverage": 1.0,
+        "approval": 0.6
+      },
+      "m4": {
+        "attendee_votes": 4,
+        "yes_votes": 3,
+        "coverage": 0.8,
+        "approval": 0.75
+      }
+    },
+    "finalist_ids": [
+      "m1",
+      "m2",
+      "m3",
+      "m4"
+    ],
+    "finalist_ids_ranked": [
+      "m1",
+      "m2",
+      "m4",
+      "m3"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {
+      "m1": 0,
+      "m2": 0,
+      "m3": 0,
+      "m4": 0
+    },
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [
+      "m1",
+      "m2",
+      "m3",
+      "m4"
+    ],
+    "pairwise": [
+      {
+        "a": "m1",
+        "b": "m2",
+        "a_preferred": 3,
+        "b_preferred": 2,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m1"
+      },
+      {
+        "a": "m1",
+        "b": "m3",
+        "a_preferred": 4,
+        "b_preferred": 1,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m1"
+      },
+      {
+        "a": "m1",
+        "b": "m4",
+        "a_preferred": 2,
+        "b_preferred": 3,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m4"
+      },
+      {
+        "a": "m2",
+        "b": "m3",
+        "a_preferred": 2,
+        "b_preferred": 2,
+        "no_preference": 1,
+        "not_voted": 0,
+        "pair_winner": null
+      },
+      {
+        "a": "m2",
+        "b": "m4",
+        "a_preferred": 3,
+        "b_preferred": 2,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m2"
+      },
+      {
+        "a": "m3",
+        "b": "m4",
+        "a_preferred": 3,
+        "b_preferred": 2,
+        "no_preference": 0,
+        "not_voted": 0,
+        "pair_winner": "m3"
+      }
+    ],
+    "copeland_scores": {
+      "m1": 2,
+      "m2": 1,
+      "m3": 1,
+      "m4": 1
+    },
+    "outcome": "winner",
+    "phase2_skipped": false,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "copeland",
+    "standing_vote_side_effects": []
+  }
+}

@@ -1,0 +1,1006 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "0cd461ff-b527-450e-a5ea-0351166a9228",
+  "prevId": "31f015a9-79fb-45bb-a27b-e792c24a1909",
+  "tables": {
+    "attendance": {
+      "name": "attendance",
+      "columns": {
+        "round_id": {
+          "name": "round_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attending": {
+          "name": "attending",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "runoff_submitted_at": {
+          "name": "runoff_submitted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "attendance_round_idx": {
+          "name": "attendance_round_idx",
+          "columns": [
+            "round_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "attendance_round_id_rounds_id_fk": {
+          "name": "attendance_round_id_rounds_id_fk",
+          "tableFrom": "attendance",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "attendance_member_id_members_id_fk": {
+          "name": "attendance_member_id_members_id_fk",
+          "tableFrom": "attendance",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "attendance_updated_by_members_id_fk": {
+          "name": "attendance_updated_by_members_id_fk",
+          "tableFrom": "attendance",
+          "tableTo": "members",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "attendance_pk": {
+          "columns": [
+            "round_id",
+            "member_id"
+          ],
+          "name": "attendance_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "fairness": {
+      "name": "fairness",
+      "columns": {
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_win_round_id": {
+          "name": "last_win_round_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_win_at": {
+          "name": "last_win_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "wins_count": {
+          "name": "wins_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "fairness_member_id_members_id_fk": {
+          "name": "fairness_member_id_members_id_fk",
+          "tableFrom": "fairness",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "fairness_last_win_round_id_rounds_id_fk": {
+          "name": "fairness_last_win_round_id_rounds_id_fk",
+          "tableFrom": "fairness",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "last_win_round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "groups": {
+      "name": "groups",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invite_token": {
+          "name": "invite_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "config": {
+          "name": "config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{\"n_finalists\":5,\"approval_floor\":0.5,\"coverage_floor\":0.6,\"veto_threshold\":1,\"rewatch_cooldown\":null,\"min_attendee_votes\":3}'"
+        }
+      },
+      "indexes": {
+        "groups_invite_token_unique": {
+          "name": "groups_invite_token_unique",
+          "columns": [
+            "invite_token"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "members": {
+      "name": "members",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "members_group_display_name_unique": {
+          "name": "members_group_display_name_unique",
+          "columns": [
+            "group_id",
+            "lower(\"display_name\")"
+          ],
+          "isUnique": true
+        },
+        "members_group_idx": {
+          "name": "members_group_idx",
+          "columns": [
+            "group_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "members_group_id_groups_id_fk": {
+          "name": "members_group_id_groups_id_fk",
+          "tableFrom": "members",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "movies": {
+      "name": "movies",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "year": {
+          "name": "year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "runtime_min": {
+          "name": "runtime_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poster_path": {
+          "name": "poster_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "suggested_by": {
+          "name": "suggested_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pool'"
+        },
+        "watched_at": {
+          "name": "watched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "removed_by": {
+          "name": "removed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "movies_group_tmdb_unique": {
+          "name": "movies_group_tmdb_unique",
+          "columns": [
+            "group_id",
+            "tmdb_id"
+          ],
+          "isUnique": true
+        },
+        "movies_group_status_idx": {
+          "name": "movies_group_status_idx",
+          "columns": [
+            "group_id",
+            "status"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "movies_group_id_groups_id_fk": {
+          "name": "movies_group_id_groups_id_fk",
+          "tableFrom": "movies",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "movies_suggested_by_members_id_fk": {
+          "name": "movies_suggested_by_members_id_fk",
+          "tableFrom": "movies",
+          "tableTo": "members",
+          "columnsFrom": [
+            "suggested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "movies_removed_by_members_id_fk": {
+          "name": "movies_removed_by_members_id_fk",
+          "tableFrom": "movies",
+          "tableTo": "members",
+          "columnsFrom": [
+            "removed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "movies_status_check": {
+          "name": "movies_status_check",
+          "value": "\"movies\".\"status\" in ('pool', 'watched', 'removed')"
+        }
+      }
+    },
+    "pair_votes": {
+      "name": "pair_votes",
+      "columns": {
+        "round_id": {
+          "name": "round_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "movie_a_id": {
+          "name": "movie_a_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "movie_b_id": {
+          "name": "movie_b_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winner_id": {
+          "name": "winner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "pair_votes_round_idx": {
+          "name": "pair_votes_round_idx",
+          "columns": [
+            "round_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pair_votes_round_id_rounds_id_fk": {
+          "name": "pair_votes_round_id_rounds_id_fk",
+          "tableFrom": "pair_votes",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pair_votes_member_id_members_id_fk": {
+          "name": "pair_votes_member_id_members_id_fk",
+          "tableFrom": "pair_votes",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pair_votes_movie_a_id_movies_id_fk": {
+          "name": "pair_votes_movie_a_id_movies_id_fk",
+          "tableFrom": "pair_votes",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "movie_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pair_votes_movie_b_id_movies_id_fk": {
+          "name": "pair_votes_movie_b_id_movies_id_fk",
+          "tableFrom": "pair_votes",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "movie_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pair_votes_winner_id_movies_id_fk": {
+          "name": "pair_votes_winner_id_movies_id_fk",
+          "tableFrom": "pair_votes",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "winner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pair_votes_pk": {
+          "columns": [
+            "round_id",
+            "member_id",
+            "movie_a_id",
+            "movie_b_id"
+          ],
+          "name": "pair_votes_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "pair_votes_pair_normalized": {
+          "name": "pair_votes_pair_normalized",
+          "value": "\"pair_votes\".\"movie_a_id\" < \"pair_votes\".\"movie_b_id\""
+        },
+        "pair_votes_winner_in_pair": {
+          "name": "pair_votes_winner_in_pair",
+          "value": "\"pair_votes\".\"winner_id\" is null or \"pair_votes\".\"winner_id\" = \"pair_votes\".\"movie_a_id\" or \"pair_votes\".\"winner_id\" = \"pair_votes\".\"movie_b_id\""
+        }
+      }
+    },
+    "rounds": {
+      "name": "rounds",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'open'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finalist_ids": {
+          "name": "finalist_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "runoff_at": {
+          "name": "runoff_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "standing_snapshot": {
+          "name": "standing_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "config_snapshot": {
+          "name": "config_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "winner_id": {
+          "name": "winner_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tiebreak_rule_used": {
+          "name": "tiebreak_rule_used",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "random_seed": {
+          "name": "random_seed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(abs(random()) % 4294967296)"
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "watched_at": {
+          "name": "watched_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rounds_one_active_per_group": {
+          "name": "rounds_one_active_per_group",
+          "columns": [
+            "group_id"
+          ],
+          "isUnique": true,
+          "where": "\"rounds\".\"state\" in ('open', 'runoff')"
+        },
+        "rounds_group_created_idx": {
+          "name": "rounds_group_created_idx",
+          "columns": [
+            "group_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rounds_group_id_groups_id_fk": {
+          "name": "rounds_group_id_groups_id_fk",
+          "tableFrom": "rounds",
+          "tableTo": "groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rounds_created_by_members_id_fk": {
+          "name": "rounds_created_by_members_id_fk",
+          "tableFrom": "rounds",
+          "tableTo": "members",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rounds_winner_id_movies_id_fk": {
+          "name": "rounds_winner_id_movies_id_fk",
+          "tableFrom": "rounds",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "winner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "rounds_state_check": {
+          "name": "rounds_state_check",
+          "value": "\"rounds\".\"state\" in ('open', 'runoff', 'decided', 'watched', 'abandoned')"
+        }
+      }
+    },
+    "standing_votes": {
+      "name": "standing_votes",
+      "columns": {
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "movie_id": {
+          "name": "movie_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "standing_votes_movie_idx": {
+          "name": "standing_votes_movie_idx",
+          "columns": [
+            "movie_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "standing_votes_member_id_members_id_fk": {
+          "name": "standing_votes_member_id_members_id_fk",
+          "tableFrom": "standing_votes",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "standing_votes_movie_id_movies_id_fk": {
+          "name": "standing_votes_movie_id_movies_id_fk",
+          "tableFrom": "standing_votes",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "movie_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "standing_votes_pk": {
+          "columns": [
+            "member_id",
+            "movie_id"
+          ],
+          "name": "standing_votes_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "standing_votes_value_check": {
+          "name": "standing_votes_value_check",
+          "value": "\"standing_votes\".\"value\" in ('yes', 'no')"
+        }
+      }
+    },
+    "vetoes": {
+      "name": "vetoes",
+      "columns": {
+        "round_id": {
+          "name": "round_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "movie_id": {
+          "name": "movie_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previous_standing_value": {
+          "name": "previous_standing_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "vetoes_round_movie_idx": {
+          "name": "vetoes_round_movie_idx",
+          "columns": [
+            "round_id",
+            "movie_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "vetoes_round_id_rounds_id_fk": {
+          "name": "vetoes_round_id_rounds_id_fk",
+          "tableFrom": "vetoes",
+          "tableTo": "rounds",
+          "columnsFrom": [
+            "round_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "vetoes_member_id_members_id_fk": {
+          "name": "vetoes_member_id_members_id_fk",
+          "tableFrom": "vetoes",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vetoes_movie_id_movies_id_fk": {
+          "name": "vetoes_movie_id_movies_id_fk",
+          "tableFrom": "vetoes",
+          "tableTo": "movies",
+          "columnsFrom": [
+            "movie_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "vetoes_pk": {
+          "columns": [
+            "round_id",
+            "member_id"
+          ],
+          "name": "vetoes_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "members_group_display_name_unique": {
+        "columns": {
+          "lower(\"display_name\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

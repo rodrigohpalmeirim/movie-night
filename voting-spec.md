@@ -91,7 +91,7 @@ Before the pairwise step, each attendee may veto **one finalist** — a film the
 
 A finalist with `vetoes >= VETO_THRESHOLD` is disqualified for this round. Default `VETO_THRESHOLD = 1`; make it configurable, since one veto is right for five friends and too strict for twenty.
 
-Vetoing sets the voter's standing vote on that movie to "no", so the two layers can never contradict each other.
+Vetoing sets the voter's standing vote on that movie to "no", so the two layers can never contradict each other. This flip is forward-looking only: the round's tallies are computed from a snapshot of standing votes taken when finalists were computed, so a veto can never mutate the tallies of the round it was cast in. Otherwise, when a vetoed movie survives into the round robin, two identical rounds could pick different winners depending on veto order.
 
 Pre-fill each voter's veto with last round's target if that movie is a finalist again. Without this, the person who genuinely cannot watch horror re-vetoes every week; with it, that costs one tap.
 
@@ -111,8 +111,10 @@ For each pair, count how many attendees preferred A to B. A beats B if it wins s
 
 Cycles are possible (A beats B beats C beats A) and must be handled rather than left to crash. Resolve in order:
 
+Each rule *ranks and narrows* the tied set; whatever remains tied falls through to the next rule. A rule that separates nothing is skipped. In particular, at rule 3 a finalist whose suggester is not attending has the worst possible fairness claim and is eliminated by that rung (rather than the rung being skipped as indecisive).
+
 1. **Copeland score** — most pairwise victories wins.
-2. **Approval count** — the higher-approved finalist wins.
+2. **Approval** — the higher-approved finalist wins (the `approval` fraction, not the raw yes count).
 3. **Rotation fairness** — the finalist suggested by whichever *attendee* has gone longest without a winning suggestion.
 4. **Shortest runtime.**
 5. **Seeded random**, recorded on the round so the result is reproducible and auditable.

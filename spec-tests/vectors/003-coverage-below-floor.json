@@ -1,0 +1,170 @@
+{
+  "id": "V003",
+  "description": "Eligibility: a movie below COVERAGE_FLOOR is ineligible even at 100% approval (the spec's 'two enthusiastic swipes' case)",
+  "spec_clause": "Phase 1 / Eligibility: 'The coverage rule is load-bearing in a persistent pool. Without it, a movie added yesterday with two enthusiastic swipes shows 100% approval...' + 'A movie that can't clear coverage waits for the next round'",
+  "rationale": "6 attendees. m1 has 3 standing rows, all yes. attendee_votes = 3 >= 3 passes the vote floor, but coverage = 3/6 = 0.50 < 0.60 -> ineligible despite approval = 3/3 = 1.00. No eligible movies, therefore zero movies clear the approval floor -> 'None clear it -> end the round with no clear favourite'.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u5",
+        "join_order": 5,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u6",
+        "join_order": 6,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u5",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u6",
+        "attending": true,
+        "runoff_submitted_at": null
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-29T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [],
+    "random_seed": "seed-000"
+  },
+  "expected": {
+    "eligible_movie_ids": [],
+    "ineligible_movies": [
+      {
+        "movie_id": "m1",
+        "reason": "coverage_below_floor",
+        "coverage": 0.5,
+        "attendee_votes": 3
+      }
+    ],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 3,
+        "yes_votes": 3,
+        "coverage": 0.5,
+        "approval": 1.0
+      }
+    },
+    "finalist_ids": [],
+    "finalist_ids_ranked": [],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "no_clear_favourite",
+    "phase2_skipped": false,
+    "winner_id": null,
+    "permissible_winner_ids": [],
+    "decided_by": null,
+    "standing_vote_side_effects": []
+  }
+}

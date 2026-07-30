@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Movie Night">
+	<title>Movie Night</title>
+	<!-- Maskable / apple-touch source: identical to icon.svg but full-bleed (no
+	     rounded corners), because the platform applies its own mask. The glyph
+	     is 326px wide on a 512px canvas (64%), so it stays inside the 80%
+	     safe zone circle that Android/Chrome may crop to. -->
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#6366f1" />
+			<stop offset="1" stop-color="#4338ca" />
+		</linearGradient>
+	</defs>
+	<rect width="512" height="512" fill="url(#bg)" />
+	<circle cx="256" cy="256" r="148" fill="none" stroke="#ffffff" stroke-width="26" stroke-dasharray="20 11" />
+	<path d="M214 184 L346 256 L214 328 Z" fill="#ffffff" stroke="#ffffff" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" />
+</svg>

@@ -1,0 +1,6 @@
+# The invite token in /g/<token> IS the credential — there is no other one. A
+# crawled, indexed group URL is therefore a leaked password, so everything under
+# /g/ is off limits. The landing page is all a crawler has any business seeing.
+User-agent: *
+Disallow: /g/
+Allow: /

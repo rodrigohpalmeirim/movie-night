@@ -1,0 +1,178 @@
+{
+  "id": "V012",
+  "description": "When no eligible movie clears APPROVAL_FLOOR the round ends with 'no clear favourite' and no winner",
+  "spec_clause": "Phase 1 / Selecting finalists: 'None clear it -> end the round with no clear favourite and prompt for more suggestions. This is a legitimate and useful outcome.'",
+  "rationale": "4 attendees; both movies have all 4 rows (coverage 1.00, attendee_votes 4) so both are eligible. m1: 1 yes -> approval 0.25 < 0.50. m2: 1 yes -> approval 0.25 < 0.50. Zero movies clear the floor -> outcome 'no clear favourite', winner null, no finalists, Phase 2 never starts. A pool of uniformly unappealing movies must not produce a confident-looking winner.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": null
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u2",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "no"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [],
+    "random_seed": "seed-000"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1",
+      "m2"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 4,
+        "yes_votes": 1,
+        "coverage": 1.0,
+        "approval": 0.25
+      },
+      "m2": {
+        "attendee_votes": 4,
+        "yes_votes": 1,
+        "coverage": 1.0,
+        "approval": 0.25
+      }
+    },
+    "finalist_ids": [],
+    "finalist_ids_ranked": [],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "no_clear_favourite",
+    "phase2_skipped": false,
+    "winner_id": null,
+    "permissible_winner_ids": [],
+    "decided_by": null,
+    "standing_vote_side_effects": []
+  }
+}

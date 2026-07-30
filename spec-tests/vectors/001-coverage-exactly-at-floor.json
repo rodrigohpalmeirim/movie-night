@@ -1,0 +1,157 @@
+{
+  "id": "V001",
+  "description": "Eligibility: coverage exactly equal to COVERAGE_FLOOR (0.6) passes, because the spec requires coverage >= COVERAGE_FLOOR",
+  "spec_clause": "Phase 1 / Eligibility: 'Require coverage >= COVERAGE_FLOOR (default 0.6) and attendee_votes >= 3.'",
+  "rationale": "5 attendees. m1 has standing rows from u1,u2,u3 only (u4,u5 have never seen the card). attendee_votes = 3; coverage = 3/5 = 0.60 which is exactly COVERAGE_FLOOR, and the comparison is >= so it passes. attendee_votes 3 >= 3 passes. approval = 3 yes / 3 voters = 1.00 >= 0.50. m1 is the only movie and the only one clearing the approval floor, so per 'Exactly one clears it -> it wins outright, skip Phase 2'.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u5",
+        "join_order": 5,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u5",
+        "attending": true,
+        "runoff_submitted_at": null
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [],
+    "random_seed": "seed-000"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 3,
+        "yes_votes": 3,
+        "coverage": 0.6,
+        "approval": 1.0
+      }
+    },
+    "finalist_ids": [
+      "m1"
+    ],
+    "finalist_ids_ranked": [
+      "m1"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "single_clear_approval_floor",
+    "standing_vote_side_effects": []
+  }
+}

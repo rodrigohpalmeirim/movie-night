@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="text-scale" content="scale" />
+		<!-- Installable PWA: manifest, icons, theme colour. No service worker — offline
+		     is explicitly not a v1 requirement and every action needs the network. -->
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<link rel="icon" href="%sveltekit.assets%/icon.svg" type="image/svg+xml" />
+		<!-- Raster fallback for browsers that ignore SVG favicons. -->
+		<link rel="icon" href="%sveltekit.assets%/icon-192.png" sizes="192x192" type="image/png" />
+		<!-- iOS ignores the manifest icons; it needs its own opaque, full-bleed PNG. -->
+		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/apple-touch-icon.png" />
+		<link rel="mask-icon" href="%sveltekit.assets%/mask-icon.svg" color="#4f46e5" />
+		<meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+		<!-- Standalone display on iOS: the prefixed meta is still what Safari reads,
+		     the unprefixed one is the standard Chrome asks for. Status bar is opaque
+		     ("black", not "black-translucent") because only the bottom safe-area inset
+		     is padded — a translucent bar would slide content under the notch. -->
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+		<meta name="apple-mobile-web-app-title" content="Movie Night" />
+		<!-- No third-party CDN assets: fonts, scripts and styles are all self-hosted,
+		     so the invite token in the URL cannot leak through a Referer to anyone
+		     except image.tmdb.org (and Referrer-Policy: same-origin covers that). -->
+		%sveltekit.head%
+	</head>
+	<body
+		data-sveltekit-preload-data="hover"
+		class="bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-50"
+	>
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

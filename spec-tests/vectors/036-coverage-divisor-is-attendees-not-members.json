@@ -1,0 +1,227 @@
+{
+  "id": "V036",
+  "description": "coverage divides by the number of ATTENDEES, not by group size: a large group with a small attendee set must not be blocked by absent members' missing swipes",
+  "spec_clause": "Phase 1 / Eligibility: 'coverage(movie) = attendee_votes(movie) / attendees' + Attendance: 'all tallies count attendees only ... Absence degrades gracefully rather than disenfranchising.'",
+  "rationale": "10 members but only 3 attendees {u1,u2,u3}; the other 7 are not coming and have never swiped m1. attendee_votes = 3 (u1 yes, u2 yes, u3 no); coverage = 3/3 = 1.00 >= 0.60 and attendee_votes 3 >= 3 -> eligible. approval = 2/3 = 0.6667 >= 0.50 -> promoted. Dividing by the 10 members would give coverage = 3/10 = 0.30 < 0.60 and the round would wrongly end as 'no clear favourite'. Correct result: m1 is the sole movie clearing the floor -> outright win, Phase 2 skipped.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "MIN_ATTENDEE_VOTES": 3,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u5",
+        "join_order": 5,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u6",
+        "join_order": 6,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u7",
+        "join_order": 7,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u8",
+        "join_order": 8,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u9",
+        "join_order": 9,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u10",
+        "join_order": 10,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u5",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u6",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u7",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u8",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u9",
+        "attending": false,
+        "runoff_submitted_at": null
+      },
+      {
+        "user_id": "u10",
+        "attending": false,
+        "runoff_submitted_at": null
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "no"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [],
+    "random_seed": "seed-000"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 3,
+        "yes_votes": 2,
+        "coverage": 1.0,
+        "approval": 0.6667
+      }
+    },
+    "finalist_ids": [
+      "m1"
+    ],
+    "finalist_ids_ranked": [
+      "m1"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "single_clear_approval_floor",
+    "standing_vote_side_effects": []
+  }
+}

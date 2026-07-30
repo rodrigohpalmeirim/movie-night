@@ -1,0 +1,31 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"rewriteRelativeImportExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler",
+		"types": ["bun"]
+	},
+	// Extends the generated include list so the tooling configs and the Bun
+	// scripts (migrate, verify-db) are type-checked too.
+	"include": [
+		".svelte-kit/ambient.d.ts",
+		".svelte-kit/env.d.ts",
+		".svelte-kit/non-ambient.d.ts",
+		".svelte-kit/types/**/$types.d.ts",
+		"vite.config.ts",
+		"vitest.config.ts",
+		"drizzle.config.ts",
+		"scripts/**/*.ts",
+		"src/**/*.js",
+		"src/**/*.ts",
+		"src/**/*.svelte"
+	]
+}
