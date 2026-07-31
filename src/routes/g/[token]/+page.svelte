@@ -101,10 +101,15 @@
 			</Menu>
 		</div>
 
-		<!-- My own RSVP, as a ticket you tear one half off. Default is out. -->
-		<section class="tile px-3 pt-2.5 pb-3">
-			<h3 class="eyebrow text-ink-soft">Your seat</h3>
-			<div class="perf -mx-3 mt-2.5 mb-3"></div>
+		<!-- My own RSVP, as a ticket you tear one half off. Default is out.
+		     Three pieces (top / perf / bottom), so the perf's notches are true
+		     cutouts and the felt shows through them. -->
+		<section>
+			<div class="ticket-top px-3 pt-2.5 pb-0.5">
+				<h3 class="eyebrow text-ink-soft">Your seat</h3>
+			</div>
+			<div class="perf"></div>
+			<div class="ticket-bottom px-3 pt-0.5 pb-3">
 			<p class="mb-2.5 text-base font-semibold text-ink">Are you in?</p>
 			<form method="POST" action="?/rsvp" use:enhance class="flex gap-2.5">
 				<input type="hidden" name="round_id" value={round.id} />
@@ -133,6 +138,7 @@
 					you're in.
 				</p>
 			{/if}
+			</div>
 		</section>
 
 		{#if me && me.unswipedMovieIds.length > 0}
@@ -311,8 +317,11 @@
 			</div>
 
 			<div class="mx-auto max-w-[18.5rem] pt-1">
-				<!-- The stub lies flat. It is the night's receipt, not a button. -->
-				<div class="tile p-2.5">
+				<!-- The stub lies flat. It is the night's receipt, not a button.
+				     Three pieces (top / perf / bottom), so the tear line's notches
+				     are punched clean through and the felt shows in them. -->
+				<div>
+					<div class="ticket-top p-2.5 pb-0.5">
 					<!-- The seal straddles the artwork's corner and the tear line, which is
 					     where a ticket actually gets stamped. -->
 					<div class="relative">
@@ -324,7 +333,9 @@
 								eager
 							/>
 						</div>
-						<div class="pointer-events-none absolute -right-2 -bottom-5">
+						<!-- z-10: the seal straddles the tear line, and the perf row is a
+						     positioned later sibling that would otherwise paint over it. -->
+						<div class="pointer-events-none absolute -right-2 -bottom-5 z-10">
 							<Stamp
 								word="Picked"
 								note={formatStampDate(revealed.decidedAt)}
@@ -335,7 +346,9 @@
 							/>
 						</div>
 					</div>
-					<div class="perf -mx-2.5 mt-2.5 mb-3"></div>
+					</div>
+					<div class="perf"></div>
+					<div class="ticket-bottom px-2.5 pt-0.5 pb-2.5">
 					<h2 class="display px-0.5 text-[1.5rem] leading-[1.05] text-ink">
 						{revealed.winner.title}
 					</h2>
@@ -345,6 +358,7 @@
 							· suggested by {revealed.winner.suggestedBy.displayName}
 						{/if}
 					</p>
+					</div>
 				</div>
 			</div>
 		{/if}

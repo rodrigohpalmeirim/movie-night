@@ -387,30 +387,76 @@
 		line-height: 1.02;
 	}
 
-	/* Perforation: a tear line across a ticket, punched through at both ends. */
+	/* ── Perforation: a tear line across a ticket, punched through at both
+	   ends. The notches are REAL cutouts — mask holes in this row — so
+	   whatever felt the route swapped in shows through them, instead of the
+	   old felt-coloured discs painted on top (which pinned the ticket to one
+	   table). A mask can only punch the element it is on, so the ticket is
+	   built as three pieces: `.ticket-top`, `.perf`, `.ticket-bottom` — the
+	   row carries the side walls, and the dashed rule and the notches share
+	   one geometry (both centred on the row), so they cannot drift apart.
+	   NB a mask clips the element's own box-shadow too. These pieces are
+	   flat by rule (raised means pressable), so nothing is lost here — but a
+	   raised ticket would need its shadow on an unmasked wrapper. */
 	.perf {
 		position: relative;
-		border-top: 2px dashed var(--color-board-shade);
+		height: 1.25rem;
+		border-right: 2px solid var(--color-ink);
+		border-left: 2px solid var(--color-ink);
+		/* The tear line, drawn as a stripe so the mask can cut it at the
+		   notches along with the board it sits on. */
+		background:
+			repeating-linear-gradient(90deg, var(--color-board-shade) 0 6px, transparent 6px 10px)
+				center / 100% 2px no-repeat,
+			var(--color-board);
+		/* One layer per notch, each covering its own half of the row (the
+		   default composite unions layers, so no mask-composite needed). */
+		mask-image:
+			radial-gradient(circle at 0 50%, transparent 8px, #000 8.5px),
+			radial-gradient(circle at 100% 50%, transparent 8px, #000 8.5px);
+		mask-position: left, right;
+		mask-size: 51% 100%;
+		mask-repeat: no-repeat;
 	}
 
+	/* The cut edge around each notch keeps the die-cut ink line. The ring is
+	   centred on the hole and the mask clips its outer half. */
 	.perf::before,
 	.perf::after {
 		content: '';
 		position: absolute;
-		top: -9px;
-		width: 16px;
-		height: 16px;
+		top: 50%;
+		width: 20px;
+		height: 20px;
 		border: 2px solid var(--color-ink);
 		border-radius: 9999px;
-		background-color: var(--color-felt);
+		translate: 0 -50%;
 	}
 
 	.perf::before {
-		left: -10px;
+		left: -12px;
 	}
 
 	.perf::after {
-		right: -10px;
+		right: -12px;
+	}
+
+	/* The board stock either side of the tear: same cut as `.tile`, minus the
+	   edge that the perf row supplies. */
+	.ticket-top {
+		border: 2px solid var(--color-ink);
+		border-bottom: 0;
+		border-radius: 6px 6px 0 0;
+		background-color: var(--color-board);
+		color: var(--color-ink);
+	}
+
+	.ticket-bottom {
+		border: 2px solid var(--color-ink);
+		border-top: 0;
+		border-radius: 0 0 6px 6px;
+		background-color: var(--color-board);
+		color: var(--color-ink);
 	}
 
 	/* ── Notices ──────────────────────────────────────────────────────
