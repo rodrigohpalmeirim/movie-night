@@ -9,9 +9,10 @@
  *
  * TWO RULES HOLD THE WHOLE SYSTEM TOGETHER:
  *
- * 1. RAISED MEANS PRESSABLE. The two-ply offset edge (a hard `0 4px 0`
- *    shadow that travels down on press) belongs only to things you can
- *    actually press: buttons, toggles, tabs, whole-row links. Static
+ * 1. RAISED MEANS PRESSABLE. The two-ply offset edge (a hard zero-spread
+ *    silhouette that steps down-and-right, and travels along that same
+ *    diagonal on press) belongs only to things you can actually press:
+ *    buttons, toggles, tabs, whole-row links. Static
  *    surfaces — panels, tickets, the winner's stub, scoresheets, roster
  *    rows — are cut from the same board and keep the same ink outline, but
  *    they lie flat on the table. `.tile` is flat; `.tile-press` is the
@@ -227,19 +228,29 @@
 	   an object) and the press drives the top ply down onto the table. */
 	.tile-press {
 		--tile-lift: 4px;
+		--tile-dx: calc(var(--tile-lift) * 0.5);
+		/* Two-ply slab seen from a slight angle: every layer is an exact
+		   zero-spread silhouette of the rounded face (never wider than the
+		   top), and the underside steps down AND right — a solid connected
+		   ply, not a detached cast shadow. The half-step silhouette fills the
+		   diagonal so the edge reads as one moulded piece, and the lower
+		   ply's own 2px ink edge finishes it as a lip. Pressing drives the
+		   top ply along the same diagonal onto the table. */
 		box-shadow:
-			0 var(--tile-lift) 0 0 var(--color-board-shade),
-			0 var(--tile-lift) 0 2px var(--color-ink);
+			calc(var(--tile-dx) / 2) calc(var(--tile-lift) / 2) 0 0 var(--color-board-shade),
+			var(--tile-dx) var(--tile-lift) 0 0 var(--color-board-shade),
+			calc(var(--tile-dx) + 1px) calc(var(--tile-lift) + 2px) 0 0 var(--color-ink);
 		transition:
 			transform 90ms ease-out,
 			box-shadow 90ms ease-out;
 	}
 
 	.tile-press:active {
-		transform: translateY(var(--tile-lift));
+		transform: translate(var(--tile-dx), var(--tile-lift));
 		box-shadow:
 			0 0 0 0 var(--color-board-shade),
-			0 0 0 2px var(--color-ink);
+			0 0 0 0 var(--color-board-shade),
+			1px 2px 0 0 var(--color-ink);
 	}
 
 	/* A tappable row *inside* a flat tile — a disclosure header, mostly. It
@@ -298,18 +309,20 @@
 		text-align: center;
 		text-transform: uppercase;
 		box-shadow:
-			0 var(--token-lift) 0 0 var(--token-edge),
-			0 var(--token-lift) 0 2px var(--color-ink);
+			calc(var(--token-lift) * 0.25) calc(var(--token-lift) * 0.5) 0 0 var(--token-edge),
+			calc(var(--token-lift) * 0.5) var(--token-lift) 0 0 var(--token-edge),
+			calc(var(--token-lift) * 0.5 + 1px) calc(var(--token-lift) + 2px) 0 0 var(--color-ink);
 		transition:
 			transform 90ms ease-out,
 			box-shadow 90ms ease-out;
 	}
 
 	.token:active:not(:disabled) {
-		transform: translateY(var(--token-lift));
+		transform: translate(calc(var(--token-lift) * 0.5), var(--token-lift));
 		box-shadow:
 			0 0 0 0 var(--token-edge),
-			0 0 0 2px var(--color-ink);
+			0 0 0 0 var(--token-edge),
+			1px 2px 0 0 var(--color-ink);
 	}
 
 	.token:disabled {
@@ -342,14 +355,16 @@
 		--token-text: var(--color-chalk);
 		border-color: var(--color-board-shade);
 		box-shadow:
-			0 var(--token-lift) 0 0 transparent,
-			0 var(--token-lift) 0 2px var(--color-board-shade);
+			calc(var(--token-lift) * 0.25) calc(var(--token-lift) * 0.5) 0 0 transparent,
+			calc(var(--token-lift) * 0.5) var(--token-lift) 0 0 transparent,
+			calc(var(--token-lift) * 0.5 + 1px) calc(var(--token-lift) + 2px) 0 0 var(--color-board-shade);
 	}
 
 	.token-slot:active:not(:disabled) {
 		box-shadow:
 			0 0 0 0 transparent,
-			0 0 0 2px var(--color-board-shade);
+			0 0 0 0 transparent,
+			1px 2px 0 0 var(--color-board-shade);
 	}
 
 	.token-sm {

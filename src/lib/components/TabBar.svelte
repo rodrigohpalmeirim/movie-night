@@ -63,7 +63,7 @@
 				>
 					<span
 						class="relative flex h-8 w-10 items-center justify-center rounded border-2 {active
-							? 'border-ink bg-brass text-ink shadow-[0_2px_0_0_var(--color-brass-deep),0_2px_0_2px_var(--color-ink)]'
+							? 'border-ink bg-brass text-ink shadow-[0.5px_1px_0_0_var(--color-brass-deep),1px_2px_0_0_var(--color-brass-deep),2px_4px_0_0_var(--color-ink)]'
 							: 'border-transparent'}"
 					>
 						<tab.icon size={20} />

@@ -430,7 +430,7 @@
 							shadow under the hard two-ply edge.
 						-->
 						<div
-							class="swipe-card relative h-full w-full rounded-md border-2 border-ink bg-board p-2 shadow-[0_6px_0_0_var(--color-board-shade),0_6px_0_2px_var(--color-ink),0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
+							class="swipe-card relative h-full w-full rounded-md border-2 border-ink bg-board p-2 shadow-[1.5px_3px_0_0_var(--color-board-shade),3px_6px_0_0_var(--color-board-shade),4px_8px_0_0_var(--color-ink),0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
 							entry.depth > 0
 								? 'pointer-events-none'
 								: 'touch-pan-y'}"
