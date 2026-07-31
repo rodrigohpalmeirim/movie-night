@@ -10,6 +10,7 @@
 	there is a member to be.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import TabBar from '$lib/components/TabBar.svelte';
 	import { startLiveUpdates } from '$lib/live.js';
 	import DevBar from './dev/DevBar.svelte';
@@ -21,13 +22,32 @@
 	// Owned by an effect so the stream is torn down on navigation away and
 	// re-established if the token ever changes (e.g. after regenerating the link).
 	$effect(() => startLiveUpdates(data.inviteToken));
+
+	/**
+	 * Which felt table this route sits on. app.css reads the attribute via
+	 * `html:has([data-felt=…])` and swaps the felt trio as a set — see the
+	 * mapping comment there. Keyed on the route id (not the URL), so it is
+	 * decided at SSR time and there is no first-paint flash.
+	 */
+	const FELT_BY_SEGMENT: Record<string, string> = {
+		pool: 'pool',
+		movies: 'pool',
+		swipe: 'pool',
+		veto: 'runoff',
+		pairs: 'runoff',
+		settings: 'settings',
+		history: 'history'
+	};
+	const felt = $derived(
+		FELT_BY_SEGMENT[page.route.id?.split('/')[3] ?? ''] ?? 'round'
+	);
 </script>
 
 <svelte:head>
 	<title>{data.groupName} — Movie Night</title>
 </svelte:head>
 
-<div class="mx-auto flex min-h-dvh max-w-lg flex-col">
+<div class="mx-auto flex min-h-dvh max-w-lg flex-col" data-felt={felt}>
 	<header class="px-4 pt-4">
 		<div class="flex items-center justify-between gap-3">
 			<h1 class="display truncate text-[1.35rem] text-board">{data.groupName}</h1>
