@@ -68,12 +68,14 @@
 	/** Committed cards still animating away. Keyed by id, never overlapping the queue. */
 	let exits = $state<Array<{ card: Card; dir: SwipeChoice }>>([]);
 	/**
-	 * Ink left on the stack by a card that has already gone: the seal stays put
-	 * for SEAL_RESIDUE_MS while the card flies off, so somebody swiping fast sees
+	 * Ink left behind by a card that has already gone: the seal stays put for
+	 * SEAL_RESIDUE_MS while the card flies off, so somebody swiping fast sees
 	 * their marks land and pile up instead of watching cards vanish silently.
-	 * Purely presentational — nothing here reaches the vote.
+	 * `x`/`deg` record the card's drag transform at the moment of commit — the
+	 * mark must fade exactly where the gesture left it, not where the card was
+	 * at rest. Purely presentational — nothing here reaches the vote.
 	 */
-	let residue = $state<Array<{ id: number; dir: SwipeChoice }>>([]);
+	let residue = $state<Array<{ id: number; dir: SwipeChoice; x: number; deg: number }>>([]);
 	let residueSeq = 0;
 
 	let dragX = $state(0);
@@ -163,10 +165,12 @@
 			}, EXIT_MS + 60);
 			exitTimers.add(timer);
 
-			// The seal the card was carrying stays behind on the stack for a beat.
-			// Under prefers-reduced-motion there is no fly-out at all, so there is
-			// nothing for the ink to lag behind and none of this runs.
-			const mark = { id: ++residueSeq, dir: value };
+			// The seal the card was carrying stays behind for a beat, frozen at the
+			// card's transform as the thumb released it (`dragX`/`rotation` are
+			// still live here — they are reset below). Under prefers-reduced-motion
+			// there is no fly-out at all, so there is nothing for the ink to lag
+			// behind and none of this runs.
+			const mark = { id: ++residueSeq, dir: value, x: dragX, deg: rotation };
 			residue = [...residue, mark];
 			const inkTimer = setTimeout(() => {
 				exitTimers.delete(inkTimer);
@@ -449,26 +453,34 @@
 				{/each}
 
 				<!--
-					Ink left on the stack. A committed card carries its seal off screen with
-					it, so a copy stays pressed onto the stack for a beat and then fades:
-					swipe fast and you watch your marks accumulate instead of watching cards
-					vanish. Decorative — the card counter above is what actually reports
-					progress, and none of this runs under prefers-reduced-motion, where there
-					is no fly-out for the ink to lag behind.
+					Ink left behind. A committed card carries its seal off screen with it,
+					so a copy stays pressed on for a beat and then fades: swipe fast and
+					you watch your marks accumulate instead of watching cards vanish.
+
+					Each mark sits in a full-size layer frozen at the card's drag
+					transform from the moment of commit — same box, same centre of
+					rotation, and the stamp offsets inside match the on-card stamp's
+					(border 2 + padding 8 + frame border 2 + top-4/left-3), so the copy
+					lands pixel-for-pixel where the gesture left the seal rather than
+					snapping back to the stack's resting position. Decorative — the card
+					counter above is what actually reports progress, and none of this runs
+					under prefers-reduced-motion, where there is no fly-out for the ink to
+					lag behind.
 				-->
 				{#each residue as mark (mark.id)}
 					<div
-						class="seal-residue pointer-events-none absolute z-40 {mark.dir === 'yes'
-							? 'top-6 left-5'
-							: 'top-6 right-5'}"
+						class="pointer-events-none absolute inset-0 z-40"
+						style="transform:translate3d({mark.x.toFixed(1)}px,0,0) rotate({mark.deg.toFixed(2)}deg)"
 						aria-hidden="true"
 					>
-						<Stamp
-							word={mark.dir === 'yes' ? 'Yes' : 'Nope'}
-							tone={mark.dir === 'yes' ? 'jade' : 'cherry'}
-							size="1.85rem"
-							rotate={mark.dir === 'yes' ? -13 : 12}
-						/>
+						<div class="seal-residue absolute {mark.dir === 'yes' ? 'top-7 left-6' : 'top-7 right-6'}">
+							<Stamp
+								word={mark.dir === 'yes' ? 'Yes' : 'Nope'}
+								tone={mark.dir === 'yes' ? 'jade' : 'cherry'}
+								size="1.85rem"
+								rotate={mark.dir === 'yes' ? -13 : 12}
+							/>
+						</div>
 					</div>
 				{/each}
 			</div>
