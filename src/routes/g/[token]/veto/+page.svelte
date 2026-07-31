@@ -86,9 +86,11 @@
 		<fieldset class="space-y-2.5">
 			<legend class="eyebrow mb-2.5 text-chalk">Tonight's finalists</legend>
 
-			{#each round.finalists ?? [] as movie (movie.id)}
+			<!-- Finalists deal in top to bottom. Keyed by movie id, so marking a
+			     row (or an SSE refresh) reuses the nodes and never re-deals. -->
+			{#each round.finalists ?? [] as movie, i (movie.id)}
 				{@const struck = selected === movie.id}
-				<label class="{row} {struck ? 'bg-cherry' : ''}">
+				<label class="deal-in {row} {struck ? 'bg-cherry' : ''}" style="--deal:{i}">
 					<input type="radio" name="movie_id" value={movie.id} bind:group={selected} class={radio} />
 					<span class="block h-16 w-11 shrink-0 overflow-hidden rounded-[3px] border-2 border-ink">
 						<Poster path={movie.posterPath} title={movie.title} size="w92" />

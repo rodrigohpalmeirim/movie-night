@@ -116,7 +116,7 @@
 	     A flat pad: you write on it, so nothing here is raised except the
 	     controls themselves. -->
 	{#if sheetOpen}
-		<section class="tile space-y-3 px-3 py-3" aria-label="Suggest a film">
+		<section class="pop-settle tile space-y-3 px-3 py-3" aria-label="Suggest a film">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Add to the pool</h3>
 
 			{#if !data.searchAvailable}
@@ -154,9 +154,11 @@
 			{/if}
 
 			{#if suggestions.length > 0}
+				<!-- Results deal in as they arrive; keyed by TMDB id, so a film that
+				     survives a query refinement stays put instead of re-dealing. -->
 				<ul class="space-y-2.5 border-t-2 border-dashed border-board-shade pt-3">
-					{#each suggestions as result (result.tmdbId)}
-						<li>
+					{#each suggestions as result, i (result.tmdbId)}
+						<li class="deal-in" style="--deal:{i}">
 							<form method="POST" action="?/suggest" use:enhance>
 								<input type="hidden" name="tmdb_id" value={result.tmdbId} />
 								<button class="tile tile-press flex w-full items-center gap-2.5 p-2 text-left">
@@ -184,7 +186,9 @@
 
 	<!-- ── My swipe stack ────────────────────────────────────────────── -->
 	{#if data.pool.unswipedCount > 0}
-		<a href="/g/{data.token}/swipe" class="token token-lg token-brass w-full justify-between">
+		<!-- deal-in doubles as the top-up moment: when new films land over SSE
+		     this ticket settles in; a count that merely changes stays still. -->
+		<a href="/g/{data.token}/swipe" class="deal-in token token-lg token-brass w-full justify-between">
 			<span class="flex items-center gap-2.5">
 				<span
 					class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
@@ -206,9 +210,12 @@
 			</p>
 		</div>
 	{:else}
+		<!-- The deck dealt onto the table, top row first. Keyed by movie id, so
+		     the SSE invalidateAll refresh reuses these nodes: existing rows never
+		     flicker or re-deal, and only a genuinely new suggestion animates. -->
 		<ul class="space-y-2.5">
-			{#each shown as movie (movie.id)}
-				<li>
+			{#each shown as movie, i (movie.id)}
+				<li class="deal-in" style="--deal:{i}">
 					<a
 						href="/g/{data.token}/movies/{movie.id}"
 						class="tile tile-press flex items-center gap-3 p-2"

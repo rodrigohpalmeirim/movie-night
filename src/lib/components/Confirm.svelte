@@ -68,8 +68,10 @@
 			>
 		</summary>
 		<!-- The question card is torn from the pad, not laid on the table: dashed
-		     ink edge, and flat, because you read it rather than press it. -->
-		<div class="mt-3 space-y-3 rounded-md border-2 border-dashed border-ink bg-board p-3">
+		     ink edge, and flat, because you read it rather than press it.
+		     pop-settle is CSS-only entrance dressing on the native disclosure —
+		     the no-JS open/close path is exactly what it was. -->
+		<div class="pop-settle mt-3 space-y-3 rounded-md border-2 border-dashed border-ink bg-board p-3">
 			<p class="text-sm leading-snug text-ink">{question}</p>
 			<button type="submit" {name} {value} class="token w-full {styles[variant]}">
 				{confirmLabel}

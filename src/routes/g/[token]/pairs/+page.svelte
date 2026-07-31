@@ -116,8 +116,16 @@
 
 			<div class="relative">
 				<div class="grid grid-cols-2 gap-4">
-					{#each [left, right] as movie (movie.id)}
-						<button name="winner" value={movie.id} class="tile tile-press p-2 text-left">
+					<!-- Each new pair is dealt: keyed by movie id, so advancing the
+					     cursor deals two fresh cards (left a beat before right), while
+					     an SSE refresh that lands on the same pair reuses the nodes. -->
+					{#each [left, right] as movie, i (movie.id)}
+						<button
+							name="winner"
+							value={movie.id}
+							class="deal-in tile tile-press p-2 text-left"
+							style="--deal:{i}"
+						>
 							<span class="block aspect-[2/3] overflow-hidden rounded-[3px] border-2 border-ink">
 								<Poster path={movie.posterPath} title={movie.title} size="w342" eager />
 							</span>

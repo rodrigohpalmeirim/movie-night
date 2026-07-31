@@ -37,9 +37,11 @@
 
 	<form method="POST" action="?/claim" class="space-y-2.5">
 		{#if data.members.length > 0}
+			<!-- The seats deal in top to bottom; keyed by member id, so a live
+			     refresh (someone else joining) only deals the new arrival. -->
 			<ul class="space-y-2.5">
-				{#each data.members as member (member.id)}
-					<li>
+				{#each data.members as member, i (member.id)}
+					<li class="deal-in" style="--deal:{i}">
 						<button
 							name="member_id"
 							value={member.id}
@@ -67,7 +69,7 @@
 		{/if}
 
 		{#if addingNew || data.members.length === 0}
-			<div class="tile space-y-3 px-3.5 py-3.5">
+			<div class="pop-settle tile space-y-3 px-3.5 py-3.5">
 				<div>
 					<label for="new-name" class="field-label text-ink">Your name</label>
 					<input

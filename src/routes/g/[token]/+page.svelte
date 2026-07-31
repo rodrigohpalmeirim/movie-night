@@ -142,8 +142,11 @@
 		</section>
 
 		{#if me && me.unswipedMovieIds.length > 0}
-			<!-- Your own stack, as a numbered ticket: the count is the stub. -->
-			<a href="/g/{token}/swipe" class="token token-lg token-brass w-full justify-between">
+			<!-- Your own stack, as a numbered ticket: the count is the stub.
+			     deal-in also covers the top-up arriving over SSE: when new
+			     suggestions land mid-session the ticket settles in, and a count
+			     that merely changes keeps the node and stays still. -->
+			<a href="/g/{token}/swipe" class="deal-in token token-lg token-brass w-full justify-between">
 				<span class="flex items-center gap-2.5">
 					<span
 						class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
@@ -216,10 +219,12 @@
 		</div>
 
 		{#if round.finalists}
-			<!-- The finalists racked up like cards in a holder. -->
+			<!-- The finalists racked up like cards in a holder — dealt into the
+			     rack left to right on arrival. Keyed by movie id, so the SSE
+			     refresh reuses these nodes and never re-deals them. -->
 			<ul class="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2">
-				{#each round.finalists as movie (movie.id)}
-					<li class="w-[4.75rem] shrink-0">
+				{#each round.finalists as movie, i (movie.id)}
+					<li class="deal-in w-[4.75rem] shrink-0" style="--deal:{i}">
 						<div class="tile p-1">
 							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border border-ink">
 								<Poster path={movie.posterPath} title={movie.title} size="w185" />
@@ -312,11 +317,13 @@
 				as a ticket stub with the round's seal slammed across the artwork —
 				the same stamp the swipe screen uses, in brass, once.
 			-->
-			<div class="marquee px-4 py-2.5 text-center">
+			<!-- The reveal is a two-beat deal: the marquee lands, then the stub —
+			     and the PICKED seal's own slam lands last, on top of both. -->
+			<div class="deal-in marquee px-4 py-2.5 text-center">
 				<p class="eyebrow text-[0.72rem] tracking-[0.26em]">Tonight you're watching</p>
 			</div>
 
-			<div class="mx-auto max-w-[18.5rem] pt-1">
+			<div class="deal-in mx-auto max-w-[18.5rem] pt-1" style="--deal:2">
 				<!-- The stub lies flat. It is the night's receipt, not a button.
 				     Three pieces (top / perf / bottom), so the tear line's notches
 				     are punched clean through and the felt shows in them. -->
@@ -382,7 +389,7 @@
 			</p>
 		{/if}
 
-		<details class="tile group/tally overflow-hidden" open>
+		<details class="tile group/tally expand overflow-hidden" open>
 			<summary
 				class="eyebrow row-press flex cursor-pointer list-none items-center gap-1.5 px-3 py-3 text-ink select-none focus-visible:outline-offset-[-3px]"
 			>

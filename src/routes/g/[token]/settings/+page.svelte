@@ -150,8 +150,8 @@
 		<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Members</h3>
 		<!-- The roster, ruled like the round screen's: same pad, same tear lines. -->
 		<ul class="divide-y-2 divide-dashed divide-board-shade border-y-2 border-dashed border-board-shade">
-			{#each data.settings.members as member (member.id)}
-				<li class="flex items-baseline justify-between gap-2 py-2">
+			{#each data.settings.members as member, i (member.id)}
+				<li class="deal-in flex items-baseline justify-between gap-2 py-2" style="--deal:{i}">
 					<span class="truncate text-sm font-medium text-ink">{member.displayName}</span>
 					<span class="stencil shrink-0 text-[0.7rem] text-ink-soft uppercase">
 						joined {formatDate(member.joinedAt)}

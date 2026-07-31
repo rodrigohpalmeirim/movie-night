@@ -48,7 +48,9 @@
 </svelte:head>
 
 <div class="mx-auto flex min-h-dvh max-w-lg flex-col" data-felt={felt}>
-	<header class="px-4 pt-4">
+	<!-- vt-header: the lid stays put during page transitions instead of
+	     sliding sideways with the table. -->
+	<header class="vt-header px-4 pt-4">
 		<div class="flex items-center justify-between gap-3">
 			<h1 class="display truncate text-[1.35rem] text-board">{data.groupName}</h1>
 			{#if data.group}

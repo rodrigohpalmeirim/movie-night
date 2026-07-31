@@ -70,10 +70,13 @@
 		</p>
 	{/if}
 
+	<!-- Rows deal in top to bottom on first render; keyed by member id, so the
+	     SSE refresh (someone RSVPs, someone finishes voting) reuses the nodes
+	     and only genuinely new members get dealt. -->
 	<ul class="tile divide-y-2 divide-dashed divide-board-shade">
-		{#each participants as person (person.memberId)}
+		{#each participants as person, i (person.memberId)}
 			{@const proxied = !!person.markedBy && person.markedBy.id !== person.memberId}
-			<li class="flex items-center gap-2 px-3 py-2.5">
+			<li class="deal-in flex items-center gap-2 px-3 py-2.5" style="--deal:{i}">
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-sm font-medium text-ink">
 						{person.displayName}{#if person.memberId === meId}<span

@@ -48,7 +48,7 @@
 
 <nav
 	aria-label="Main"
-	class="fixed inset-x-0 bottom-0 z-20 border-t-2 border-board-shade bg-felt-deep pb-[env(safe-area-inset-bottom)]"
+	class="vt-tabbar fixed inset-x-0 bottom-0 z-20 border-t-2 border-board-shade bg-felt-deep pb-[env(safe-area-inset-bottom)]"
 >
 	<ul class="mx-auto flex max-w-lg">
 		{#each tabs as tab (tab.href)}
@@ -68,8 +68,11 @@
 					>
 						<tab.icon size={20} />
 						{#if tab.badge}
+							<!-- badge-pop runs when the chip first lands (0 → N, e.g. a
+							     top-up arriving over SSE); a count that merely changes
+							     keeps this node and does not re-pop. -->
 							<span
-								class="stencil absolute -top-1.5 -right-1.5 min-w-[1.15rem] rounded-full border-2 border-ink bg-brass px-1 text-center text-[0.65rem] leading-[0.95rem] font-semibold text-ink"
+								class="stencil badge-pop absolute -top-1.5 -right-1.5 min-w-[1.15rem] rounded-full border-2 border-ink bg-brass px-1 text-center text-[0.65rem] leading-[0.95rem] font-semibold text-ink"
 								aria-hidden="true"
 							>
 								{tab.badge}

@@ -28,9 +28,11 @@
 			No nights yet. Once a round is revealed it lands here, tally and all.
 		</p>
 	{:else}
+		<!-- Stubs are filed newest first and deal in the same way. Keyed by
+		     round id, so the SSE refresh reuses the nodes — no re-deal. -->
 		<ul class="space-y-4">
-			{#each data.entries as entry (entry.roundId)}
-				<li class="tile overflow-hidden">
+			{#each data.entries as entry, i (entry.roundId)}
+				<li class="deal-in tile overflow-hidden" style="--deal:{i}">
 					<div class="flex gap-3 p-3">
 						<div class="w-16 shrink-0">
 							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border-2 border-ink">
@@ -73,7 +75,7 @@
 							{/if}
 						</div>
 					</div>
-					<details class="group/tally border-t-2 border-dashed border-board-shade">
+					<details class="group/tally expand border-t-2 border-dashed border-board-shade">
 						<summary
 							class="eyebrow row-press flex cursor-pointer list-none items-center gap-1.5 px-3 py-2.5 text-ink-soft select-none hover:text-ink focus-visible:outline-offset-[-3px]"
 						>

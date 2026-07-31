@@ -21,8 +21,11 @@
 		<span class="sr-only">{label}</span>
 		<Ellipsis size={18} />
 	</summary>
+	<!-- pop-settle plays each time the disclosure opens (a closed details keeps
+	     its content unrendered, so opening it is a fresh entrance). CSS-only:
+	     the no-JS toggle is untouched. -->
 	<div
-		class="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-md border-2 border-board-shade bg-felt-deep p-3"
+		class="pop-settle absolute right-0 z-10 mt-2 w-64 origin-top-right space-y-2 rounded-md border-2 border-board-shade bg-felt-deep p-3"
 	>
 		{@render children?.()}
 	</div>
