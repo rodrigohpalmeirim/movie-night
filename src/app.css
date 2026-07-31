@@ -626,6 +626,102 @@
 		}
 	}
 
+	/* ── Motion: things arriving on the table ─────────────────────────
+	   One vocabulary for everything that appears: components get DEALT.
+	   A dealt piece drops the last few pixels onto the felt and settles;
+	   rows in a list land one after another (`--deal` is the row's index,
+	   capped so long lists never make the fold wait). These are entrance
+	   animations, so they run once per DOM node — every list that uses
+	   them is a keyed each, which is what stops the SSE invalidateAll
+	   refresh from re-dealing pieces that are already on the table. */
+	.deal-in {
+		animation: deal-in 170ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+		animation-delay: calc(min(var(--deal, 0), 7) * 30ms);
+	}
+
+	@keyframes deal-in {
+		from {
+			opacity: 0;
+			transform: translateY(7px);
+		}
+	}
+
+	/* A panel that unfolds from a control — the "…" menu's tray, a confirm's
+	   question card, the suggest pad: a quick scale up with a one-frame
+	   overshoot, so it settles rather than snaps. Origin is the top edge
+	   (override with an origin-* utility when the trigger sits elsewhere). */
+	.pop-settle {
+		transform-origin: top center;
+		animation: pop-settle 150ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+	}
+
+	/* Inside a disclosure, the entrance belongs to the moment of opening:
+	   while the <details> is shut the animation is `none`, so re-opening
+	   swaps none → pop-settle and restarts it — independent of whether the
+	   engine hides closed content with display:none or content-visibility. */
+	details:not([open]) .pop-settle {
+		animation: none;
+	}
+
+	@keyframes pop-settle {
+		0% {
+			opacity: 0;
+			transform: scale(0.96) translateY(-3px);
+		}
+		70% {
+			opacity: 1;
+			transform: scale(1.01) translateY(0);
+		}
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* A counter chip landing on the tray — the tab bar's "N to swipe" badge.
+	   Runs when the chip first exists; a count that merely changes value
+	   keeps its DOM node and does not re-pop. */
+	.badge-pop {
+		animation: badge-pop 200ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+	}
+
+	@keyframes badge-pop {
+		0% {
+			opacity: 0;
+			transform: scale(0.4);
+		}
+		70% {
+			opacity: 1;
+			transform: scale(1.18);
+		}
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* A <details> scoresheet unfolding instead of snapping. Progressive:
+	   browsers without interpolate-size keep the instant native toggle, and
+	   no-JS flows are untouched either way — this styles the native
+	   disclosure, it does not replace it. */
+	@supports (interpolate-size: allow-keywords) {
+		details.expand {
+			interpolate-size: allow-keywords;
+		}
+
+		details.expand::details-content {
+			height: 0;
+			overflow: clip;
+			transition:
+				height 200ms cubic-bezier(0.2, 0.7, 0.3, 1),
+				content-visibility 200ms allow-discrete;
+		}
+
+		details.expand[open]::details-content {
+			height: auto;
+		}
+	}
+
 	/* ── Scoresheet: the reveal's tables, ruled like a pad ───────────── */
 	.scoresheet th,
 	.scoresheet td {
@@ -643,21 +739,138 @@
 }
 
 /*
+ * ── Page transitions (View Transitions API) ─────────────────────────────
+ * The root layout's onNavigate wraps client-side navigations in
+ * document.startViewTransition where it exists; everywhere else navigation
+ * is exactly what it was. Two moves:
+ *
+ *   settle (default) — the old screen lifts off, the new one drops the last
+ *   few pixels onto the table: the same deal-in the components use. The
+ *   felt tint change between sections rides in this crossfade, so walking
+ *   from one table to another reads as one deliberate cut.
+ *
+ *   forward / back — between the four tab sections the new table slides in
+ *   from the side matching the tab order (onNavigate stamps the direction
+ *   on <html data-page-transition>), so the tab bar's geometry and the
+ *   motion agree.
+ *
+ * The group header and the tab bar are pinned into their own transition
+ * groups: they are the box lid and the tray, fixed furniture that must not
+ * slide with the table between tabs.
+ */
+@keyframes vt-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes vt-settle-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+@keyframes vt-out-left {
+	to {
+		opacity: 0;
+		transform: translateX(-18px);
+	}
+}
+
+@keyframes vt-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(18px);
+	}
+}
+
+@keyframes vt-out-right {
+	to {
+		opacity: 0;
+		transform: translateX(18px);
+	}
+}
+
+@keyframes vt-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-18px);
+	}
+}
+
+::view-transition-group(*) {
+	animation-duration: 200ms;
+}
+
+::view-transition-old(root) {
+	animation: vt-fade-out 130ms ease-in both;
+}
+
+::view-transition-new(root) {
+	animation: vt-settle-in 200ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+html[data-page-transition='forward']::view-transition-old(root) {
+	animation-name: vt-out-left;
+}
+
+html[data-page-transition='forward']::view-transition-new(root) {
+	animation-name: vt-in-right;
+}
+
+html[data-page-transition='back']::view-transition-old(root) {
+	animation-name: vt-out-right;
+}
+
+html[data-page-transition='back']::view-transition-new(root) {
+	animation-name: vt-in-left;
+}
+
+/* The fixed furniture: crossfades in place instead of sliding with the
+   table. Each name exists at most once per page. */
+.vt-header {
+	view-transition-name: group-header;
+}
+
+.vt-tabbar {
+	view-transition-name: tab-bar;
+}
+
+/*
  * "Prefers less motion" means no motion: the swipe fly-out, the promote
- * spring and the seal slam are all cut outright rather than sped up.
+ * spring, the seal slam, the deal-in stagger and the page transitions are
+ * all cut outright rather than sped up. This block (plus onNavigate's own
+ * matchMedia check for view transitions) is the single mechanism — new
+ * animations get durations and delays zeroed here for free.
  */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
+		animation-delay: 0s !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+		transition-delay: 0s !important;
 		scroll-behavior: auto !important;
 	}
 
 	.seal-slam {
 		animation: none;
+	}
+
+	/* The universal selector cannot reach these pseudo-elements, so they are
+	   cut explicitly. */
+	::view-transition-group(*),
+	::view-transition-image-pair(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+
+	details.expand::details-content {
+		transition: none !important;
 	}
 }
 
