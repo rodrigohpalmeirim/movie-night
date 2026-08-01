@@ -13,6 +13,10 @@
 	re-fetched) and the cursor moves on immediately, which keeps rapid swiping
 	responsive instead of gating on an animation.
 
+	The seal lives INSIDE the card, so it is carried off with the poster it was
+	pressed onto: one object leaves the screen, never a stamp that unsticks itself
+	at the moment of release.
+
 	The cursor is *by movie id*, not by array position: the group's SSE stream
 	calls `invalidateAll()` on every write — including our own vote — so the
 	server-provided stack rebuilds mid-session, and a numeric index into it would
@@ -65,18 +69,13 @@
 	 * is what makes Undo survive a live invalidation.
 	 */
 	let restored = $state<Card[]>([]);
-	/** Committed cards still animating away. Keyed by id, never overlapping the queue. */
-	let exits = $state<Array<{ card: Card; dir: SwipeChoice }>>([]);
 	/**
-	 * Ink left behind by a card that has already gone: the seal stays put for
-	 * SEAL_RESIDUE_MS while the card flies off, so somebody swiping fast sees
-	 * their marks land and pile up instead of watching cards vanish silently.
-	 * `x`/`deg` record the card's drag transform at the moment of commit — the
-	 * mark must fade exactly where the gesture left it, not where the card was
-	 * at rest. Purely presentational — nothing here reaches the vote.
+	 * Committed cards still animating away. Keyed by id, never overlapping the
+	 * queue. The seal the card was stamped with is a child of this same node, so
+	 * it rides the fly-out: the mark leaves with the poster it was pressed onto,
+	 * exactly as a stamp on a card would.
 	 */
-	let residue = $state<Array<{ id: number; dir: SwipeChoice; x: number; deg: number }>>([]);
-	let residueSeq = 0;
+	let exits = $state<Array<{ card: Card; dir: SwipeChoice }>>([]);
 
 	let dragX = $state(0);
 	let dragging = $state(false);
@@ -91,9 +90,6 @@
 	let startX = 0;
 	const velocity = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
-
-	/** How long a committed card's seal stays inked on the stack. */
-	const SEAL_RESIDUE_MS = 200;
 
 	const answeredIds = $derived(new Set(answered.map((a) => a.card.id)));
 	const restoredIds = $derived(new Set(restored.map((c) => c.id)));
@@ -156,7 +152,8 @@
 		pending = { movieId: card.id, value };
 		// Hand the card to the exit layer *before* the cursor moves, so the keyed
 		// `each` sees it move slot rather than disappear: same DOM node, poster
-		// already decoded, and a CSS transition from wherever the thumb left it.
+		// already decoded, seal still stamped on it, and a CSS transition from
+		// wherever the thumb left it.
 		if (!reduceMotion) {
 			exits = [...exits, { card, dir: value }];
 			const timer = setTimeout(() => {
@@ -164,19 +161,6 @@
 				exits = exits.filter((exit) => exit.card.id !== card.id);
 			}, EXIT_MS + 60);
 			exitTimers.add(timer);
-
-			// The seal the card was carrying stays behind for a beat, frozen at the
-			// card's transform as the thumb released it (`dragX`/`rotation` are
-			// still live here — they are reset below). Under prefers-reduced-motion
-			// there is no fly-out at all, so there is nothing for the ink to lag
-			// behind and none of this runs.
-			const mark = { id: ++residueSeq, dir: value, x: dragX, deg: rotation };
-			residue = [...residue, mark];
-			const inkTimer = setTimeout(() => {
-				exitTimers.delete(inkTimer);
-				residue = residue.filter((entry) => entry.id !== mark.id);
-			}, SEAL_RESIDUE_MS);
-			exitTimers.add(inkTimer);
 		}
 		restored = restored.filter((c) => c.id !== card.id);
 		answered = [...answered, { card, value }];
@@ -200,7 +184,6 @@
 		// the node survives and slides back in.
 		cancelExitTimers();
 		exits = [];
-		residue = [];
 	}
 
 	/* ── pointer gesture (enhancement only) ───────────────────────── */
@@ -451,38 +434,6 @@
 						</div>
 					</div>
 				{/each}
-
-				<!--
-					Ink left behind. A committed card carries its seal off screen with it,
-					so a copy stays pressed on for a beat and then fades: swipe fast and
-					you watch your marks accumulate instead of watching cards vanish.
-
-					Each mark sits in a full-size layer frozen at the card's drag
-					transform from the moment of commit — same box, same centre of
-					rotation, and the stamp offsets inside match the on-card stamp's
-					(border 2 + padding 8 + frame border 2 + top-4/left-3), so the copy
-					lands pixel-for-pixel where the gesture left the seal rather than
-					snapping back to the stack's resting position. Decorative — the card
-					counter above is what actually reports progress, and none of this runs
-					under prefers-reduced-motion, where there is no fly-out for the ink to
-					lag behind.
-				-->
-				{#each residue as mark (mark.id)}
-					<div
-						class="pointer-events-none absolute inset-0 z-40"
-						style="transform:translate3d({mark.x.toFixed(1)}px,0,0) rotate({mark.deg.toFixed(2)}deg)"
-						aria-hidden="true"
-					>
-						<div class="seal-residue absolute {mark.dir === 'yes' ? 'top-7 left-6' : 'top-7 right-6'}">
-							<Stamp
-								word={mark.dir === 'yes' ? 'Yes' : 'Nope'}
-								tone={mark.dir === 'yes' ? 'jade' : 'cherry'}
-								size="1.85rem"
-								rotate={mark.dir === 'yes' ? -13 : 12}
-							/>
-						</div>
-					</div>
-				{/each}
 			</div>
 
 			{#if current}
@@ -533,22 +484,5 @@
 	.swipe-card :global(img) {
 		-webkit-user-drag: none;
 		user-select: none;
-	}
-
-	/* The mark a departed card leaves behind: it holds for most of its short life,
-	   then lifts off cleanly. Slightly translucent, because this is ink on the
-	   stack rather than a stamp on a card. */
-	.seal-residue {
-		animation: seal-residue 200ms linear both;
-	}
-
-	@keyframes seal-residue {
-		0%,
-		45% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-		}
 	}
 </style>
