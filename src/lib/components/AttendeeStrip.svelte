@@ -8,14 +8,15 @@
 
 	Drawn as the game's player roster: a board-stock pad with one ruled line per
 	person, their standing stamped at the end of the line, and the two small
-	tokens that change it.
+	tokens that change it. In RUNOFF a finished ballot gets the DONE seal — the
+	same ink stamp every other mark in the app is made with.
 
 	Everything shown here is *participation*, never a tally: who is coming, and in
 	RUNOFF who has finished. Nothing about how anyone voted.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Check from '$lib/icons/Check.svelte';
+	import Stamp from '$lib/components/Stamp.svelte';
 	import type { ParticipantView } from '$lib/server/services/views.js';
 
 	let {
@@ -106,10 +107,14 @@
 				</div>
 
 				{#if showProgress && person.submitted && person.attending}
-					<!-- A finished ballot gets stamped. Nothing marks an unfinished one —
-					     the absence is the state, and the line under the name spells it out. -->
-					<span class="{chip} border-ink bg-jade text-ink" aria-hidden="true">
-						<Check size={12} class="inline align-[-1px]" /> voted
+					<!-- A finished ballot gets stamped, in the app's one seal grammar and
+					     at the pool list's compact size — the same object the runoff's own
+					     "you're done" card and the pairs screen already print. Nothing
+					     marks an unfinished ballot: the absence is the state, and the line
+					     under the name spells it out. -->
+					<span class="shrink-0">
+						<Stamp word="Done" tone="jade" size="0.72rem" rotate={-7} />
+						<span class="sr-only">has finished voting</span>
 					</span>
 				{/if}
 
