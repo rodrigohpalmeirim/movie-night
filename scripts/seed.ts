@@ -174,9 +174,8 @@ const NIGHT_2: VoteMatrix = {
 
 /**
  * Tonight. Attendees are Ana, Ben and Cal, which makes the floors bite at:
- *   coverage_floor 0.6 → at least 2 of 3 attendee votes
- *   min_attendee_votes 3 → all 3 attendees must have swiped it
- *   approval_floor 0.5 → at least 2 yes of 3
+ *   coverage_floor 0.6 → at least 2 of 3 attendee votes (the whole of eligibility)
+ *   approval_floor 0.5 → at least half the votes cast on the film are yes
  *
  * The engineered edges, all asserted at the bottom of this script:
  *   - Parasite alone has 3 yes → the clear rank 1.
@@ -189,10 +188,14 @@ const NIGHT_2: VoteMatrix = {
  *     rung down to runtime, where 106 min beats 164 min. The boundary is
  *     decided by `shortest_runtime` and the reveal will say so.
  *   - Alien: 1 of 3 → below the coverage floor.
+ *   - Portrait of a Lady on Fire: 1 of 3, and that one vote is a yes → 100%
+ *     approval on a 0.33 share, which is exactly the "two enthusiastic swipes"
+ *     trap the coverage floor exists to catch. It waits for the next round.
  *   - Coco: 0 of 3 → below the coverage floor, and everyone's swipe stack.
- *   - Everything Everywhere and Portrait: 2 of 3 → clear coverage (0.67 ≥ 0.6)
- *     but fail MIN_ATTENDEE_VOTES, which is a different and separately reported
- *     reason.
+ *   - Everything Everywhere: 2 of 3 (1 yes, 1 no) → clears coverage on a partial
+ *     swipe (0.67 ≥ 0.6) and approval on the nose (0.50), so it is a genuine
+ *     candidate that only misses the cut on yes-votes. Nothing needs three
+ *     separate ballots to be eligible; a three-person night is not locked out.
  *   - Pulp Fiction: fully swiped, 1 yes of 3 → eligible, below the approval
  *     floor. The Matrix is the same with 0 yes.
  */
@@ -207,8 +210,8 @@ const TONIGHT: VoteMatrix = {
 	'Pulp Fiction': /*                 */ 'nynyn',
 	'The Matrix': /*                   */ 'nnnyy',
 	Alien: /*                          */ 'n..y.',
-	'Everything Everywhere All at Once': 'yy..y',
-	'Portrait of a Lady on Fire': /*   */ 'y.yy.',
+	'Everything Everywhere All at Once': 'yn..y',
+	'Portrait of a Lady on Fire': /*   */ 'y..y.',
 	Coco: /*                           */ '.....'
 };
 
@@ -718,9 +721,25 @@ const reason = (title: string) =>
 	phase1.tallies.find((tally) => titleFor(tally.movieId) === title)?.ineligibleReason ?? null;
 assert.equal(reason('Alien'), 'coverage_floor', 'Alien is below the coverage floor');
 assert.equal(reason('Coco'), 'coverage_floor', 'Coco is below the coverage floor');
-assert.equal(reason('Everything Everywhere All at Once'), 'min_attendee_votes');
-assert.equal(reason('Portrait of a Lady on Fire'), 'min_attendee_votes');
+assert.equal(
+	reason('Portrait of a Lady on Fire'),
+	'coverage_floor',
+	'Portrait is 1 of 3 tonight, so it waits for the next round'
+);
 assert.equal(reason('Cats'), 'not_in_pool', 'the removed movie is not eligible');
+
+// Coverage is the whole of eligibility: 2 of 3 attendees is a 0.67 share, and no
+// absolute floor on the raw count can lock a three-person night out any more.
+const eeaao = phase1.tallies.find(
+	(tally) => titleFor(tally.movieId) === 'Everything Everywhere All at Once'
+)!;
+assert.equal(eeaao.attendeeVotes, 2, 'Everything Everywhere is only half-swiped tonight');
+assert.equal(eeaao.eligible, true, 'a 2-of-3 share clears the coverage floor');
+assert.equal(eeaao.clearsApprovalFloor, true, 'its approval is exactly 0.50, and the floor is inclusive');
+assert.ok(
+	!phase1.finalistIds.includes(eeaao.movieId),
+	'it is a candidate, but 1 yes is not enough to reach the finalist cut'
+);
 
 const pulp = phase1.tallies.find((tally) => titleFor(tally.movieId) === 'Pulp Fiction')!;
 assert.equal(pulp.eligible, true, 'Pulp Fiction is fully swiped, so it is eligible');
