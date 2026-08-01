@@ -5,7 +5,12 @@
  *   attendee_votes(movie) = attendees with a standing vote on this movie
  *   coverage(movie)       = attendee_votes(movie) / attendees
  *   approval(movie)       = yes_votes among attendees / attendee_votes(movie)
- *   Require coverage >= COVERAGE_FLOOR and attendee_votes >= MIN_ATTENDEE_VOTES.
+ *   Require coverage >= COVERAGE_FLOOR.
+ *
+ * Coverage is the whole of the eligibility test. There is no separate floor on
+ * the raw vote count: a fixed minimum locked small groups out of every round,
+ * and coverage — a *share* of the attendees — already carries the "a movie
+ * nobody has seen yet waits for the next round" job at any group size.
  */
 
 import { BOUNDARY_CHAIN, buildRankRow, describeDecision, rank, type RankRow } from './tiebreak.js';
@@ -88,16 +93,11 @@ export function computeMovieTally(
 	const approval = attendeeVotes > 0 ? yesVotes / attendeeVotes : 0;
 
 	const inPool = (movie.status ?? 'pool') === 'pool';
+	// `attendeeCount > 0`: with an empty electorate coverage is 0/0, which is not
+	// a share of anything — nothing is eligible rather than everything.
 	const clearsCoverage = attendeeCount > 0 && meetsRatio(attendeeVotes, config.coverageFloor, attendeeCount);
-	const clearsMinVotes = attendeeVotes >= config.minAttendeeVotes;
 
-	const ineligibleReason = !inPool
-		? 'not_in_pool'
-		: !clearsCoverage
-			? 'coverage_floor'
-			: !clearsMinVotes
-				? 'min_attendee_votes'
-				: null;
+	const ineligibleReason = !inPool ? 'not_in_pool' : !clearsCoverage ? 'coverage_floor' : null;
 
 	return {
 		movieId: movie.id,
