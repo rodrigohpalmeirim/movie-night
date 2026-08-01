@@ -114,20 +114,23 @@
 			<form method="POST" action="?/rsvp" use:enhance class="flex gap-2.5">
 				<input type="hidden" name="round_id" value={round.id} />
 				<input type="hidden" name="member_id" value={me?.memberId} />
+				<!-- Your standing, as two latched buttons: the one that is true is held
+				     down and inked, the other stays raised. The pressed silhouette is
+				     the indicator, so neither one needs a tick — and nothing shifts
+				     sideways when you change your mind. -->
 				<button
 					name="attending"
 					value="true"
 					aria-pressed={me?.attending === true}
-					class="token flex-1 {me?.attending === true ? 'token-jade' : ''}"
+					class="token flex-1 {me?.attending === true ? 'token-jade token-latched' : ''}"
 				>
-					{#if me?.attending === true}<Check size={16} />{/if}
 					I'm in
 				</button>
 				<button
 					name="attending"
 					value="false"
 					aria-pressed={me?.attending === false}
-					class="token flex-1 {me?.attending === false ? 'token-cherry' : ''}"
+					class="token flex-1 {me?.attending === false ? 'token-cherry token-latched' : ''}"
 				>
 					Can't make it
 				</button>

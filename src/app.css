@@ -329,6 +329,45 @@
 		opacity: 0.45;
 	}
 
+	/* ── LATCHED: a control that reports a STATE, not an action ───────
+	   The tab bar's station presets, generalised. A button whose job is to say
+	   which of several states is true has no business springing back up: the
+	   true one sits pressed FLUSH — driven down the same down-and-right
+	   diagonal as any press, its two-ply underside collapsed to a plain ink
+	   ring, and finished with the inset top shade of a face sunk into the tray
+	   — and it stays there until another option is pressed, which pops it back
+	   out. The options that are not true keep their full lift, so they still
+	   read as pressable.
+
+	   That makes the silhouette carry the answer on its own: no tick, no radio
+	   dot, nothing to add — and it survives greyscale, because a latched
+	   button is a different SHAPE, not just a different hue. Pair it with the
+	   state's ink (`token-jade`, `token-cherry`) for the second channel.
+
+	   Everything latched here is a form button reading server state, so the
+	   latch is correct with JavaScript off; an optimistic flip is only ever an
+	   enhancement on top. */
+	.token-latched,
+	.token-latched:active:not(:disabled) {
+		transform: translate(calc(var(--token-lift) * 0.5), var(--token-lift));
+		box-shadow:
+			0 0 0 2px var(--color-ink),
+			inset 0 2px 0 0 rgb(26 21 18 / 30%);
+	}
+
+	/* The same latch on a whole pressable row whose state is carried by a
+	   native radio inside it. `:has()` reads the input's own `:checked`, so the
+	   browser latches the row with no JavaScript running at all — which is
+	   exactly what lets the veto screen throw its radio dots away and let the
+	   pressed row BE the selection. */
+	.tile-latch:has(input:checked),
+	.tile-latch:has(input:checked):active {
+		transform: translate(var(--tile-dx), var(--tile-lift));
+		box-shadow:
+			0 0 0 2px var(--color-ink),
+			inset 0 2px 0 0 rgb(26 21 18 / 30%);
+	}
+
 	.token-brass {
 		--token-fill: var(--color-brass);
 		--token-edge: var(--color-brass-deep);

@@ -9,17 +9,20 @@
 
 	Radio buttons rather than tap-to-submit, because the choice is exclusive and
 	the submit must be explicit: "done, vetoed nothing" is a recorded answer, not
-	an absence. The radios are native and styled with `checked:` alone, so the
-	marked row is still visibly marked with JavaScript off. Pre-filled from last
-	round when that film is a finalist again, so the person who genuinely cannot
-	watch horror spends one tap instead of five.
+	an absence. But there is no radio *dot* to look at: the rows are latched
+	board tokens, so the row you picked is the one held pressed flush into the
+	table, inked with its state's colour, while the rest keep their lift. The
+	whole thing is driven by `:has(input:checked)` on the row, which means the
+	browser does the latching from the native radio's own state — the marked row
+	is marked with JavaScript off, and there is no second indicator to keep in
+	sync. Pre-filled from last round when that film is a finalist again, so the
+	person who genuinely cannot watch horror spends one tap instead of five.
 -->
 <script lang="ts">
 	import Poster from '$lib/components/Poster.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import Ban from '$lib/icons/Ban.svelte';
-	import Check from '$lib/icons/Check.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatRuntime } from '$lib/images.js';
 	import type { ActionData, PageServerData } from './$types';
@@ -29,18 +32,29 @@
 	const round = $derived(data.round);
 	const me = $derived(round.me);
 	const prefilled = $derived(me.myVetoMovieId ?? me.vetoPrefillMovieId ?? '');
+	/**
+	 * Only the submit button's wording and ink read this — the rows latch off
+	 * their own radio in CSS. Initialised once from the server's pre-fill, then
+	 * the member drives it.
+	 */
 	let selected = $state('');
-	// Initialise once from the server's pre-fill, then let the member drive.
 	$effect(() => {
 		selected = prefilled;
 	});
 
-	/** The punched token a radio becomes: light hole, thick ink ring when marked. */
-	const radio =
-		'size-5 shrink-0 appearance-none rounded-full border-2 border-ink bg-[#fbf4e4] checked:border-[6px] focus-visible:outline-3';
-	/** Row: raised, because tapping anywhere on it marks the film. */
+	/**
+	 * The radio still exists, still owns the exclusivity and still takes focus —
+	 * it just has nothing to draw, because the latched row is the mark. The row
+	 * carries the focus ring on its behalf.
+	 */
+	const radio = 'sr-only';
+	/**
+	 * Row: raised, because tapping anywhere on it marks the film, and latched
+	 * once its radio is checked. `group` so the pieces inside can read the same
+	 * checked state.
+	 */
 	const row =
-		'tile tile-press flex cursor-pointer items-center gap-3 p-2 has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2';
+		'group tile tile-press tile-latch flex cursor-pointer items-center gap-3 p-2 has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2';
 </script>
 
 <div class="space-y-5">
@@ -89,8 +103,7 @@
 			<!-- Finalists deal in top to bottom. Keyed by movie id, so marking a
 			     row (or an SSE refresh) reuses the nodes and never re-deals. -->
 			{#each round.finalists ?? [] as movie, i (movie.id)}
-				{@const struck = selected === movie.id}
-				<label class="deal-in {row} {struck ? 'bg-cherry' : ''}" style="--deal:{i}">
+				<label class="deal-in {row} has-[input:checked]:bg-cherry" style="--deal:{i}">
 					<input type="radio" name="movie_id" value={movie.id} bind:group={selected} class={radio} />
 					<span class="block h-16 w-11 shrink-0 overflow-hidden rounded-[3px] border-2 border-ink">
 						<Poster path={movie.posterPath} title={movie.title} size="w92" />
@@ -100,28 +113,26 @@
 						<!-- Ink-soft is a kraft-only grey; on the cherry plate it drops under
 						     AA, so a struck row prints its meta in full ink. -->
 						<span
-							class="stencil block text-[0.7rem] uppercase {struck ? 'text-ink' : 'text-ink-soft'}"
+							class="stencil block text-[0.7rem] text-ink-soft uppercase group-has-[input:checked]:text-ink"
 						>
 							{movie.year ?? ''} · {formatRuntime(movie.runtimeMin)}
 						</span>
 					</span>
-					{#if struck}
-						<span class="shrink-0 pr-1">
-							<Stamp word="Vetoed" tone="cherry" size="0.78rem" rotate={-7} />
-						</span>
+					<!-- The seal is shown by the same checked state that latches the row, so
+					     it lands with JavaScript off too. -->
+					<span class="hidden shrink-0 pr-1 group-has-[input:checked]:block">
+						<Stamp word="Vetoed" tone="cherry" size="0.78rem" rotate={-7} />
 						<span class="sr-only">vetoed</span>
-					{/if}
+					</span>
 				</label>
 			{/each}
 
 			<!-- The no-veto answer. Deliberately the same kind of row, so choosing it
-			     feels like an answer rather than a way out. -->
-			<label class="{row} py-3 {selected === '' ? 'bg-jade' : ''}">
+			     feels like an answer rather than a way out — and it latches the same
+			     way, in jade instead of cherry. -->
+			<label class="{row} py-3 has-[input:checked]:bg-jade">
 				<input type="radio" name="movie_id" value="" bind:group={selected} class={radio} />
 				<span class="flex-1 text-sm font-semibold text-ink">I'm fine with all of them</span>
-				{#if selected === ''}
-					<Check size={17} class="shrink-0 text-ink" />
-				{/if}
 			</label>
 		</fieldset>
 

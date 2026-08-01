@@ -94,12 +94,17 @@
 				A standing answer, not a vote for tonight. Change it whenever you like.
 			</p>
 		</div>
+		<!-- A standing answer is a state, not a move, so these latch: your current
+		     answer is held down and inked, the other stays raised and pressable.
+		     Same pair, same order and same inks as the swipe screen — but there the
+		     buttons fire a one-off vote on the card in front of you, so there they
+		     spring back. -->
 		<form method="POST" action="?/vote" use:enhance class="flex gap-3">
 			<button
 				name="value"
 				value="no"
 				aria-pressed={vote === 'no'}
-				class="token token-lg flex-1 {vote === 'no' ? 'token-cherry' : ''}"
+				class="token token-lg flex-1 {vote === 'no' ? 'token-cherry token-latched' : ''}"
 			>
 				<X size={17} />
 				No
@@ -108,7 +113,7 @@
 				name="value"
 				value="yes"
 				aria-pressed={vote === 'yes'}
-				class="token token-lg flex-1 {vote === 'yes' ? 'token-jade' : ''}"
+				class="token token-lg flex-1 {vote === 'yes' ? 'token-jade token-latched' : ''}"
 			>
 				<Check size={17} />
 				Yes

@@ -122,11 +122,13 @@
 					<form method="POST" action="?/rsvp" use:enhance class="flex shrink-0 gap-1.5">
 						<input type="hidden" name="round_id" value={roundId} />
 						<input type="hidden" name="member_id" value={person.memberId} />
+						<!-- Latched, exactly like the round screen's own RSVP pair: whichever
+						     standing is true is held down and inked, the other stays raised. -->
 						<button
 							name="attending"
 							value="true"
 							aria-pressed={person.attending === true}
-							class="token token-sm {person.attending === true ? 'token-jade' : ''}"
+							class="token token-sm {person.attending === true ? 'token-jade token-latched' : ''}"
 						>
 							In<span class="sr-only"> — mark {person.displayName} as attending</span>
 						</button>
@@ -134,7 +136,7 @@
 							name="attending"
 							value="false"
 							aria-pressed={person.attending === false}
-							class="token token-sm {person.attending === false ? 'token-cherry' : ''}"
+							class="token token-sm {person.attending === false ? 'token-cherry token-latched' : ''}"
 						>
 							Out<span class="sr-only"> — mark {person.displayName} as not attending</span>
 						</button>
