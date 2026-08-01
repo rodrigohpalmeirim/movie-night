@@ -1,8 +1,8 @@
 {
   "id": "V005",
-  "description": "Eligibility: attendee_votes exactly 3 satisfies the floor (>= 3, inclusive) in a three-person group",
-  "spec_clause": "Phase 1 / Eligibility: 'attendee_votes >= 3'",
-  "rationale": "3 attendees, all of whom have a standing row on m1 (u1,u2 yes; u3 no). attendee_votes = 3 which is exactly the floor and the comparison is >= -> passes. coverage = 3/3 = 1.00 >= 0.60. approval = 2/3 = 0.6667 >= 0.50. Sole clearer -> outright win, Phase 2 skipped.",
+  "description": "Eligibility: a fully swiped movie in a three-person group is eligible on coverage 3/3 (spec amended 2026-08-01: the wording of this vector, not its outcome - see README section 0)",
+  "spec_clause": "Phase 1 / Eligibility: 'Require coverage >= COVERAGE_FLOOR (default 0.6).'",
+  "rationale": "3 attendees, all of whom have a standing row on m1 (u1,u2 yes; u3 no). coverage = 3/3 = 1.00 >= 0.60 -> eligible. approval = 2/3 = 0.6667 >= 0.50. Sole clearer -> outright win, Phase 2 skipped. Originally derived to pin the inclusive '>= 3' vote floor; that floor is retired, and every expected value here is unchanged by its removal.",
   "input": {
     "config": {
       "N_FINALISTS": 5,

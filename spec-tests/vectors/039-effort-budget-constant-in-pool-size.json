@@ -2,7 +2,7 @@
   "id": "V039",
   "description": "Per-round effort is constant in pool size: 12 movies in the pool still yields at most 1 veto tap plus C(5,2) = 10 pairwise taps, because only the finalists are compared",
   "spec_clause": "Effort budget: 'per movie night -> 1 optional veto tap + up to 10 pairwise taps. Constant in pool size. If any per-round step scales with the size of the pool, something has been built wrong. This is a testable invariant, not an aspiration.' + Phase 2: 'With 5 finalists that's 10 pairs'",
-  "rationale": "5 attendees, 12 movies in the pool. m06..m12 were added yesterday and have no standing rows at all: attendee_votes = 0 and coverage = 0/5 = 0.00 -> ineligible on both floors, so they add zero per-round work. Eligible: m01 (5 rows/5 yes, coverage 1.00, approval 1.00), m02 (5/4, 0.80), m03 (5/3, 0.60), m04 (4 rows/3 yes, coverage 0.80, approval 0.75), m05 (3 rows/3 yes, coverage 0.60, approval 1.00). All five clear APPROVAL_FLOOR and exactly fill N_FINALISTS = 5, so there is no boundary tie. Ranking: m01 (5 yes), m02 (4 yes), then m03/m04/m05 tie on 3 yes and are ordered by approval: m05 1.00, m04 0.75, m03 0.60. Round robin = C(5,2) = 10 pairs regardless of the 12-movie pool. In this round the deadline passed with nobody submitting pair votes: every pair is 0-0 with 5 not_voted, so no pair has a winner and there is no Condorcet winner. Rung 1 Copeland: all five score 0 -> tie. Rung 2 approval: maximum is 1.00, shared by m01 and m05 -> still tied. Rung 3 rotation fairness over that pair: u1 (m01) last won 2026-06-01; u5 (m05) has never won so waiting_since = joined_at = 2026-02-01, which is earlier -> winner m05.",
+  "rationale": "5 attendees, 12 movies in the pool. m06..m12 were added yesterday and have no standing rows at all: attendee_votes = 0 and coverage = 0/5 = 0.00 < 0.60 -> ineligible, so they add zero per-round work. Eligible: m01 (5 rows/5 yes, coverage 1.00, approval 1.00), m02 (5/4, 0.80), m03 (5/3, 0.60), m04 (4 rows/3 yes, coverage 0.80, approval 0.75), m05 (3 rows/3 yes, coverage 0.60, approval 1.00). All five clear APPROVAL_FLOOR and exactly fill N_FINALISTS = 5, so there is no boundary tie. Ranking: m01 (5 yes), m02 (4 yes), then m03/m04/m05 tie on 3 yes and are ordered by approval: m05 1.00, m04 0.75, m03 0.60. Round robin = C(5,2) = 10 pairs regardless of the 12-movie pool. In this round the deadline passed with nobody submitting pair votes: every pair is 0-0 with 5 not_voted, so no pair has a winner and there is no Condorcet winner. Rung 1 Copeland: all five score 0 -> tie. Rung 2 approval: maximum is 1.00, shared by m01 and m05 -> still tied. Rung 3 rotation fairness over that pair: u1 (m01) last won 2026-06-01; u5 (m05) has never won so waiting_since = joined_at = 2026-02-01, which is earlier -> winner m05.",
   "input": {
     "config": {
       "N_FINALISTS": 5,
@@ -360,48 +360,6 @@
       {
         "movie_id": "m12",
         "reason": "coverage_below_floor",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m06",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m07",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m08",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m09",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m10",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m11",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.0,
-        "attendee_votes": 0
-      },
-      {
-        "movie_id": "m12",
-        "reason": "attendee_votes_below_minimum",
         "coverage": 0.0,
         "attendee_votes": 0
       }

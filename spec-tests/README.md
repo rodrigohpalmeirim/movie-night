@@ -17,6 +17,41 @@ the output shape below is all that is needed to run them.
 
 ---
 
+## 0. Spec changes since derivation
+
+The vectors are an audit trail and are not edited to match an implementation.
+They *are* re-derived when `voting-spec.md` itself changes. Every such change is
+logged here.
+
+**2026-08-01 — the `attendee_votes >= 3` eligibility floor was removed.**
+Eligibility is now `status == "pool"` and `coverage >= COVERAGE_FLOOR`, nothing
+more. Reason: an absolute floor on the raw vote count locked small groups out —
+in a three-person group a single abstention made every movie permanently
+ineligible — while `coverage`, being a *share* of the attendees, already keeps
+under-seen movies waiting for the next round at any group size. Consequences,
+all re-derived from the amended text:
+
+* **V004** (renamed `004-coverage-alone-gates-eligibility`) — the only vector
+  whose **outcome** changed. Its movie (coverage 2/3, two votes, approval 1.00)
+  was ineligible and the round ended `no_clear_favourite`; it is now eligible
+  and wins outright. It is kept, inverted, as the vector that pins the new rule.
+* **V005** (renamed `005-fully-swiped-in-a-three-person-group`) — every expected
+  value is unchanged; only the `description`, `spec_clause` and `rationale`,
+  which quoted the retired floor, were reworded.
+* **V008, V039** — the redundant `attendee_votes_below_minimum` entries in
+  `ineligible_movies` were dropped. Those movies still fail `coverage`, so no
+  expected outcome, tally, finalist set or winner changed.
+* The `attendee_votes_below_minimum` value of the `reason` enum is retired. A
+  vector that still used it would now fail as an unknown reason rather than pass
+  quietly.
+* **The other 36 vectors are untouched.** Several `rationale` fields still note
+  in passing that `attendee_votes N >= 3` passed; that arithmetic is inert
+  (their movies clear coverage regardless) and is left as derived.
+* `MIN_ATTENDEE_VOTES` is likewise left in all 40 `input.config` blocks as the
+  record of what they were derived against. No runner may read it.
+
+---
+
 ## 1. Input shape
 
 ```jsonc
@@ -25,8 +60,8 @@ the output shape below is all that is needed to run them.
     "N_FINALISTS": 5,          // spec default 5
     "APPROVAL_FLOOR": 0.5,     // spec default 0.5
     "COVERAGE_FLOOR": 0.6,     // spec default 0.6
-    "MIN_ATTENDEE_VOTES": 3,   // spec: `attendee_votes >= 3` (hard-coded in the spec text,
-                               //       exposed here as a knob so the floor can be tested)
+    "MIN_ATTENDEE_VOTES": 3,   // RETIRED (see section 0): the eligibility floor this knob
+                               //       fed no longer exists. Present for provenance; read by nothing.
     "VETO_THRESHOLD": 1,       // spec default 1
     "REWATCH_COOLDOWN": null   // spec default off; unused by these vectors
   },
@@ -129,9 +164,9 @@ the output shape below is all that is needed to run them.
 ### Field notes
 
 * **`reason`** enum for `ineligible_movies`:
-  `status_not_pool`, `coverage_below_floor`, `attendee_votes_below_minimum`
-  (both floors can fail at once; vectors list every failing reason they intend
-  to assert, and the `rationale` shows both numbers).
+  `status_not_pool`, `coverage_below_floor`. (`attendee_votes_below_minimum` was
+  the third value and is retired — see section 0. Vectors list every failing
+  reason they intend to assert, so a movie can still carry more than one.)
 * **`decided_by`** enum:
   * `single_clear_approval_floor` — exactly one movie cleared `APPROVAL_FLOOR`,
     so it wins outright and Phase 2 is skipped.
@@ -179,9 +214,9 @@ the output shape below is all that is needed to run them.
 ## 3. The rules these vectors encode (restated verbatim-equivalent)
 
 **Eligibility** — `status == "pool"` and
-`coverage = attendee_votes / attendees >= COVERAGE_FLOOR` **and**
-`attendee_votes >= MIN_ATTENDEE_VOTES (3)`, where `attendee_votes` counts
-attendees holding a standing vote row (yes *or* no) on that movie.
+`coverage = attendee_votes / attendees >= COVERAGE_FLOOR`, where
+`attendee_votes` counts attendees holding a standing vote row (yes *or* no) on
+that movie. There is no separate floor on the raw count (section 0).
 `approval = yes_votes among attendees / attendee_votes` — the divisor is
 "voters who saw the card", **never** the attendee count.
 
@@ -217,10 +252,10 @@ their join date, not as infinitely overdue"). Earliest `waiting_since` wins.
 These are decisions, not spec text. Each is applied consistently across all
 vectors and named in the affected vector's `rationale`.
 
-1. **Order of the two eligibility floors vs. the approval floor.** Coverage and
-   `attendee_votes` gate *eligibility*; `APPROVAL_FLOOR` gates *promotion to
-   finalist*. A movie can be eligible yet not a finalist (V011). "Fewer than two
-   movies clear the floor" is counted over **eligible** movies only (V012).
+1. **Order of the eligibility floor vs. the approval floor.** Coverage gates
+   *eligibility*; `APPROVAL_FLOOR` gates *promotion to finalist*. A movie can be
+   eligible yet not a finalist (V011). "Fewer than two movies clear the floor" is
+   counted over **eligible** movies only (V012).
 2. **`approval` in runoff tiebreak #2 is the fraction, not the raw yes count.**
    The spec calls it "Approval count" in rule 2 but defines `approval` as a
    fraction in Phase 1 and calls the same rung "higher approval" in the finalist
@@ -246,11 +281,12 @@ vectors and named in the affected vector's `rationale`.
    none of the tied finalists has an attendee suggester, or if the most-overdue
    `waiting_since` timestamps are equal, the rung does not decide and evaluation
    falls through to shortest runtime (V033) and then seeded random (V034).
-9. **`MIN_ATTENDEE_VOTES` is exposed as config** even though the spec hard-codes
-   `>= 3`; every vector leaves it at 3 so nothing depends on that liberty.
-10. **Both floors are inclusive** (`>=`): coverage exactly `0.6` passes (V001),
-    approval exactly `0.5` passes (V013), `attendee_votes` exactly 3 passes
-    (V005), `vetoes` exactly `VETO_THRESHOLD` disqualifies (V019).
+9. **`MIN_ATTENDEE_VOTES` was exposed as config** when the spec still hard-coded
+   `>= 3`; every vector left it at 3, so nothing depended on that liberty — which
+   is why the floor's removal (section 0) touched so few of them.
+10. **The floors are inclusive** (`>=`): coverage exactly `0.6` passes (V001),
+    approval exactly `0.5` passes (V013), `vetoes` exactly `VETO_THRESHOLD`
+    disqualifies (V019).
 11. **Zero attendees / zero movies** are not covered: the spec defines no
     behaviour (`coverage` would divide by zero) and guessing would encode an
     assumption rather than test one.
@@ -279,8 +315,8 @@ arithmetic.
 | V001 | coverage-exactly-at-floor | coverage 3/5 = 0.60 exactly at COVERAGE_FLOOR passes (>=) |
 | V002 | coverage-above-floor | coverage 4/5 = 0.80 above the floor passes |
 | V003 | coverage-below-floor | 3/6 = 0.50 fails despite 100% approval (the spec's "two enthusiastic swipes" trap) |
-| V004 | min-attendee-votes-floor-not-met | coverage 2/3 passes but attendee_votes 2 < 3 -> ineligible |
-| V005 | min-attendee-votes-exactly-three | attendee_votes exactly 3 passes |
+| V004 | coverage-alone-gates-eligibility | coverage 2/3 passes on 2 votes -> eligible, sole clearer, outright win (re-derived 2026-08-01) |
+| V005 | fully-swiped-in-a-three-person-group | 3 of 3 attendees swiped -> coverage 1.00 -> eligible |
 | V006 | approval-divides-by-voters-who-saw-the-card | approval 2/4 = 0.50, not 2/5 = 0.40 |
 | V007 | absence-of-vote-is-a-third-state | abandoned half-ballot must not read as "no" (would drop a finalist) |
 | V008 | non-attendee-standing-votes-do-not-count | absent members' swipes excluded from every tally |
