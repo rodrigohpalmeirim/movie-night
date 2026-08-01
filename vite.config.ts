@@ -1,3 +1,15 @@
+/*
+ * Vite/SvelteKit config.
+ *
+ * IMPORTANT: every command that can run SvelteKit's `sync` — this config (via
+ * `vite dev` / `vite build`) and the bare `svelte-kit sync` in `package.json` —
+ * must run under the SAME JavaScript runtime, which for this project is Bun
+ * (`bun --bun …`). SvelteKit numbers page nodes in `fs.readdirSync` order, and
+ * Bun and Node return directory entries in different orders, so two runtimes
+ * produce two different numberings for the same routes. See
+ * `scripts/toolchain.spec.ts` for the full mechanism and the guard.
+ */
+
 import adapter from 'svelte-adapter-bun';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
