@@ -426,10 +426,16 @@
 		--token-text: var(--color-ink);
 	}
 
-	/* Unfilled token on the felt: a slot waiting to be claimed. */
+	/* Quiet token on the felt: a slot waiting to be claimed. Subtle, but never
+	   SEE-THROUGH — a button you can read the table's weave through stops being
+	   an object lying on the table and becomes a hole in it. So the face is the
+	   felt with a whisker of light on it and the ply is the felt's own shadow:
+	   both opaque, both mixed from the live felt trio, so the slot still matches
+	   whichever table the route swapped in (oxblood, green, blue, charcoal,
+	   plum) exactly as the old transparent fill did. */
 	.token-slot {
-		--token-fill: transparent;
-		--token-edge: transparent;
+		--token-fill: color-mix(in srgb, var(--color-felt), white 8%);
+		--token-edge: var(--color-felt-deep);
 		--token-text: var(--color-chalk);
 		/* A slot's lip is drawn in board-shade rather than ink, so it overrides the
 		   shared pressed shadow instead of keeping its own `:active` rule — which
