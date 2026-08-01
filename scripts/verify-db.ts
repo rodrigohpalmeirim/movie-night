@@ -32,6 +32,7 @@ import {
 	rounds,
 	standingVotes,
 	vetoes,
+	withConfigDefaults,
 	type Db
 } from '../src/lib/server/db/index.js';
 
@@ -104,10 +105,17 @@ ok('journal mode is WAL', () =>
 const groupId = newId();
 db.insert(groups).values({ id: groupId, name: 'Movie Night', inviteToken: newInviteToken() }).run();
 
-ok('group config defaults to all six knobs', () => {
+// The column default is the literal frozen in 0000_init.sql, which predates the
+// removal of the `min_attendee_votes` eligibility floor and still carries that
+// key. No migration rewrites it: reads project the blob onto the current knobs,
+// so a leftover key is ignored rather than honoured, and the next settings save
+// drops it. What must hold is that the raw default still yields every current
+// knob at its documented value.
+ok('group config defaults to all five knobs, ignoring retired keys', () => {
 	const row = db.select().from(groups).where(eq(groups.id, groupId)).get();
-	assert.deepEqual(row?.config, DEFAULT_GROUP_CONFIG);
-	assert.equal(Object.keys(row!.config).length, 6);
+	assert.deepEqual(withConfigDefaults(row?.config), DEFAULT_GROUP_CONFIG);
+	assert.equal(Object.keys(withConfigDefaults(row?.config)).length, 5);
+	assert.equal((row!.config as unknown as Record<string, unknown>).min_attendee_votes, 3);
 });
 
 const ana = newId();

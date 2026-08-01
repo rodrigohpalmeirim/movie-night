@@ -56,16 +56,14 @@
 		approval_floor: 'Minimum share of yes-votes for a film to be promotable (0–1).',
 		coverage_floor: 'Minimum share of attendees who must have swiped a film (0–1).',
 		veto_threshold: 'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty.',
-		rewatch_cooldown: 'Days before a watched film can return. Leave blank for never.',
-		min_attendee_votes: 'Minimum swipes on a film for it to be eligible at all.'
+		rewatch_cooldown: 'Days before a watched film can return. Leave blank for never.'
 	};
 	const KNOB_LABELS: Record<string, string> = {
 		n_finalists: 'Finalists',
 		approval_floor: 'Approval floor',
 		coverage_floor: 'Coverage floor',
 		veto_threshold: 'Veto threshold',
-		rewatch_cooldown: 'Re-watch cooldown (days)',
-		min_attendee_votes: 'Minimum swipes'
+		rewatch_cooldown: 'Re-watch cooldown (days)'
 	};
 </script>
 

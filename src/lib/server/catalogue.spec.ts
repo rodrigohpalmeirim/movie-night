@@ -5,7 +5,15 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { movies, standingVotes, withConfigDefaults } from './db/index.js';
+import {
+	DEFAULT_GROUP_CONFIG,
+	groups,
+	movies,
+	standingVotes,
+	toTallyConfig,
+	withConfigDefaults,
+	type GroupConfig
+} from './db/index.js';
 import { unwrap, type Result } from './result.js';
 import { regenerateInviteToken, renameMember, updateSettings, validateConfigPatch } from './services/groups.js';
 import { removeMovie, setStandingVote, suggestMovie } from './services/movies.js';
@@ -421,15 +429,14 @@ describe('removing movies', () => {
 });
 
 describe('settings', () => {
-	test('accepts all six knobs inside their ranges', () => {
+	test('accepts all five knobs inside their ranges', () => {
 		const patch = unwrap(
 			validateConfigPatch({
 				n_finalists: 4,
 				approval_floor: 0.6,
 				coverage_floor: 0.5,
 				veto_threshold: 2,
-				rewatch_cooldown: 90,
-				min_attendee_votes: 2
+				rewatch_cooldown: 90
 			})
 		);
 		expect(patch).toEqual({
@@ -437,9 +444,14 @@ describe('settings', () => {
 			approval_floor: 0.6,
 			coverage_floor: 0.5,
 			veto_threshold: 2,
-			rewatch_cooldown: 90,
-			min_attendee_votes: 2
+			rewatch_cooldown: 90
 		});
+	});
+
+	// The eligibility floor it set is gone, so it is an unknown setting like any
+	// other typo — not a knob that silently does nothing.
+	test('the retired min_attendee_votes knob is rejected, not ignored', () => {
+		expect(code(validateConfigPatch({ min_attendee_votes: 3 }))).toBe('invalid_input');
 	});
 
 	test('coerces form strings', () => {
@@ -455,7 +467,6 @@ describe('settings', () => {
 		expect(code(validateConfigPatch({ approval_floor: 1.2 }))).toBe('invalid_input');
 		expect(code(validateConfigPatch({ coverage_floor: -0.1 }))).toBe('invalid_input');
 		expect(code(validateConfigPatch({ veto_threshold: 0 }))).toBe('invalid_input');
-		expect(code(validateConfigPatch({ min_attendee_votes: 0 }))).toBe('invalid_input');
 		expect(code(validateConfigPatch({ approval_floor: 'nope' }))).toBe('invalid_input');
 		expect(code(validateConfigPatch({ nonsense: 1 }))).toBe('invalid_input');
 	});
@@ -463,6 +474,35 @@ describe('settings', () => {
 	test('rewatch_cooldown is the only nullable knob ("off")', () => {
 		expect(unwrap(validateConfigPatch({ rewatch_cooldown: null }))).toEqual({ rewatch_cooldown: null });
 		expect(code(validateConfigPatch({ n_finalists: null }))).toBe('invalid_input');
+	});
+
+	/**
+	 * Groups created before the eligibility floor was removed still have
+	 * `min_attendee_votes` in their stored blob. Reading must ignore it (never
+	 * crash, never honour it), and the next write must forget it.
+	 */
+	test('a leftover config key from an older schema is ignored, then dropped on save', () => {
+		world = createTestWorld({ memberNames: ['Ana'] });
+		world.db
+			.update(groups)
+			.set({ config: { ...DEFAULT_GROUP_CONFIG, min_attendee_votes: 3 } as GroupConfig })
+			.where(eq(groups.id, world.group.id))
+			.run();
+
+		const onRead = withConfigDefaults(world.reloadGroup().config);
+		expect('min_attendee_votes' in onRead).toBe(false);
+		expect(onRead).toEqual(DEFAULT_GROUP_CONFIG);
+		// The retired key must not be able to reach the tally either.
+		expect('minAttendeeVotes' in toTallyConfig(onRead)).toBe(false);
+
+		unwrap(updateSettings(world.db, { groupId: world.group.id, config: { veto_threshold: 2 } }));
+		expect(Object.keys(world.reloadGroup().config).sort()).toEqual([
+			'approval_floor',
+			'coverage_floor',
+			'n_finalists',
+			'rewatch_cooldown',
+			'veto_threshold'
+		]);
 	});
 
 	test('a partial patch leaves the other knobs alone', () => {
@@ -632,7 +672,6 @@ describe('regression: config validation ignores the prototype chain', () => {
 		expect(Object.keys(withConfigDefaults(world.reloadGroup().config)).sort()).toEqual([
 			'approval_floor',
 			'coverage_floor',
-			'min_attendee_votes',
 			'n_finalists',
 			'rewatch_cooldown',
 			'veto_threshold'

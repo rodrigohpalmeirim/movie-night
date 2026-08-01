@@ -25,7 +25,7 @@ export const load: PageServerLoad = (event) => {
 };
 
 export const actions: Actions = {
-	/** Group name and/or any of the six knobs. */
+	/** Group name and/or any of the five knobs. */
 	save: async (event) => {
 		const actor = requireActor(event);
 		const data = await event.request.formData();

@@ -198,20 +198,23 @@ interface KnobSpec {
 }
 
 /**
- * Validated ranges for the six knobs.
+ * Validated ranges for the five knobs.
  *
  * `n_finalists` is capped at 5 because the spec makes it load-bearing: "Keep
  * `N_FINALISTS` at or below 5 so this stays true" — i.e. so a full round robin
  * stays at 10 pairs and every voter finishes it. Its floor is 2, because one
  * finalist is not a runoff.
+ *
+ * `min_attendee_votes` is deliberately absent: the eligibility floor it set is
+ * gone. A client that still posts it gets `invalid_input` ("Unknown setting")
+ * rather than a silently ignored field.
  */
 export const KNOB_RANGES: Record<keyof GroupConfig, KnobSpec> = {
 	n_finalists: { min: 2, max: 5, integer: true },
 	approval_floor: { min: 0, max: 1, integer: false },
 	coverage_floor: { min: 0, max: 1, integer: false },
 	veto_threshold: { min: 1, max: 50, integer: true },
-	rewatch_cooldown: { min: 0, max: 3650, integer: true, nullable: true },
-	min_attendee_votes: { min: 1, max: 50, integer: true }
+	rewatch_cooldown: { min: 0, max: 3650, integer: true, nullable: true }
 };
 
 export function validateConfigPatch(patch: Record<string, unknown>): Result<Partial<GroupConfig>> {
