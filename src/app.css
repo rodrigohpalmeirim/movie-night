@@ -69,6 +69,11 @@
 	--color-brass-deep: #a5711a;
 	--color-jade: #2e9c7e;
 	--color-jade-deep: #17614e;
+	/* Jade is the one ink whose BUTTON face is the -deep plate (dark plate,
+	   light type), so its ply cannot be -deep as brass's and cherry's are — it
+	   has to be a step darker again. Named rather than inlined so every ply in
+	   the app is derived from the palette. */
+	--color-jade-deeper: #0c3b2f;
 	/* Cherry is the ink the red table threatens, so it is the one ink that
 	   changed value: a bright vermilion plate that prints in INK, not board.
 	   That inverts it against jade (dark plate, light type), so yes and no
@@ -229,6 +234,12 @@
 	.tile-press {
 		--tile-lift: 4px;
 		--tile-dx: calc(var(--tile-lift) * 0.5);
+		/* The ply is the SIDE of the face, never a shade in its own right, so it
+		   is a variable and not a constant: ink the face and you must ink the
+		   edge with the same hue's darker plate, or the piece reads as a cherry
+		   top glued to a kraft block. Kraft is only the default because kraft is
+		   the default face. */
+		--tile-edge: var(--color-board-shade);
 		/* Two-ply slab seen from a slight angle: every layer is an exact
 		   zero-spread silhouette of the rounded face (never wider than the
 		   top), and the underside steps down AND right — a solid connected
@@ -237,8 +248,8 @@
 		   ply's own 2px ink edge finishes it as a lip. Pressing drives the
 		   top ply along the same diagonal onto the table. */
 		box-shadow:
-			calc(var(--tile-dx) / 2) calc(var(--tile-lift) / 2) 0 0 var(--color-board-shade),
-			var(--tile-dx) var(--tile-lift) 0 0 var(--color-board-shade),
+			calc(var(--tile-dx) / 2) calc(var(--tile-lift) / 2) 0 0 var(--tile-edge),
+			var(--tile-dx) var(--tile-lift) 0 0 var(--tile-edge),
 			calc(var(--tile-dx) + 1px) calc(var(--tile-lift) + 2px) 0 0 var(--color-ink);
 		transition:
 			transform 90ms ease-out,
@@ -248,8 +259,8 @@
 	.tile-press:active {
 		transform: translate(var(--tile-dx), var(--tile-lift));
 		box-shadow:
-			0 0 0 0 var(--color-board-shade),
-			0 0 0 0 var(--color-board-shade),
+			0 0 0 0 var(--tile-edge),
+			0 0 0 0 var(--tile-edge),
 			1px 2px 0 0 var(--color-ink);
 	}
 
@@ -368,6 +379,20 @@
 			inset 0 2px 0 0 rgb(26 21 18 / 30%);
 	}
 
+	/* The ink a latched row is filled with. Face and ply are set together, as one
+	   declaration, because they are two faces of one piece of board — that is
+	   what stops a cherry row from being drawn on a kraft edge while the press
+	   travels. */
+	.tile-latch-cherry:has(input:checked) {
+		--tile-edge: var(--color-cherry-deep);
+		background-color: var(--color-cherry);
+	}
+
+	.tile-latch-jade:has(input:checked) {
+		--tile-edge: var(--color-jade-deep);
+		background-color: var(--color-jade);
+	}
+
 	.token-brass {
 		--token-fill: var(--color-brass);
 		--token-edge: var(--color-brass-deep);
@@ -375,7 +400,7 @@
 
 	.token-jade {
 		--token-fill: var(--color-jade-deep);
-		--token-edge: #0c3b2f;
+		--token-edge: var(--color-jade-deeper);
 		--token-text: var(--color-board);
 	}
 

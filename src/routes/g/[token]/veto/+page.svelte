@@ -103,7 +103,7 @@
 			<!-- Finalists deal in top to bottom. Keyed by movie id, so marking a
 			     row (or an SSE refresh) reuses the nodes and never re-deals. -->
 			{#each round.finalists ?? [] as movie, i (movie.id)}
-				<label class="deal-in {row} has-[input:checked]:bg-cherry" style="--deal:{i}">
+				<label class="deal-in {row} tile-latch-cherry" style="--deal:{i}">
 					<input type="radio" name="movie_id" value={movie.id} bind:group={selected} class={radio} />
 					<span class="block h-16 w-11 shrink-0 overflow-hidden rounded-[3px] border-2 border-ink">
 						<Poster path={movie.posterPath} title={movie.title} size="w92" />
@@ -130,7 +130,7 @@
 			<!-- The no-veto answer. Deliberately the same kind of row, so choosing it
 			     feels like an answer rather than a way out — and it latches the same
 			     way, in jade instead of cherry. -->
-			<label class="{row} py-3 has-[input:checked]:bg-jade">
+			<label class="{row} tile-latch-jade py-3">
 				<input type="radio" name="movie_id" value="" bind:group={selected} class={radio} />
 				<span class="flex-1 text-sm font-semibold text-ink">I'm fine with all of them</span>
 			</label>
