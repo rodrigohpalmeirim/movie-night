@@ -41,7 +41,9 @@ import {
 	loadAttendeeIds,
 	loadAttendance,
 	memberRunoffProgress,
-	vetoPrefillFor
+	vetoPrefillFor,
+	MIN_ELECTORATE,
+	NO_ELECTORATE_MESSAGE
 } from './rounds.js';
 
 /* ------------------------------------------------------------------ */
@@ -316,15 +318,14 @@ export function buildRoundView(input: {
 		unswipedMovieIds: unswipedMovieIds(db, group.id, me.id)
 	};
 
-	const enoughAttendees = attendeeIds.length >= input.config.min_attendee_votes;
-	// The reveal floor comes from the FROZEN config, matching `planAdvance`.
-	const revealFloor = round.configSnapshot?.min_attendee_votes ?? input.config.min_attendee_votes;
-	const enoughToReveal = attendeeIds.length >= revealFloor;
+	// Both transitions need the same thing and nothing more: somebody attending.
+	// Mirrors `planAdvance`'s guard, message included, so the button and the
+	// service can never disagree about why a tap would be refused.
+	const haveElectorate = attendeeIds.length >= MIN_ELECTORATE;
 
 	const transitions: TransitionView = {
 		canCreateRound: round.state === 'decided' || round.state === 'watched' || round.state === 'abandoned',
-		canAdvance:
-			round.state === 'open' ? enoughAttendees : round.state === 'runoff' ? enoughToReveal : false,
+		canAdvance: (round.state === 'open' || round.state === 'runoff') && haveElectorate,
 		advanceLabel:
 			round.state === 'open'
 				? 'Close swiping & pick finalists'
@@ -332,10 +333,10 @@ export function buildRoundView(input: {
 					? 'Reveal the winner'
 					: null,
 		advanceBlockedReason:
-			round.state === 'open' && !enoughAttendees
-				? `${attendeeIds.length} attending, but ${input.config.min_attendee_votes} are needed before a movie can be eligible`
-				: round.state === 'runoff' && !enoughToReveal
-					? `${attendeeIds.length} attending, but ${revealFloor} are needed to decide a winner`
+			round.state === 'open' && !haveElectorate
+				? NO_ELECTORATE_MESSAGE.open
+				: round.state === 'runoff' && !haveElectorate
+					? NO_ELECTORATE_MESSAGE.runoff
 					: null,
 		canAbandon: round.state !== 'watched' && round.state !== 'abandoned',
 		canMarkWatched: round.state === 'decided' && round.winnerId !== null

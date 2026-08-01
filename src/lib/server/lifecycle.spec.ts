@@ -251,20 +251,10 @@ describe('RSVP', () => {
 });
 
 describe('OPEN → RUNOFF', () => {
-	test('is blocked while attendees < MIN_ATTENDEE_VOTES', () => {
+	test('is blocked while nobody is attending', () => {
 		world = createTestWorld({ memberNames: MEMBERS, movies: POOL });
 		const round = unwrap(
 			createRound({ db: world.db, groupId: world.group.id, actorId: world.member('Ana').id })
-		);
-		unwrap(
-			setRsvp({
-				db: world.db,
-				groupId: world.group.id,
-				roundId: round.id,
-				memberId: world.member('Ana').id,
-				attending: true,
-				actorId: world.member('Ana').id
-			})
 		);
 		const result = advanceRound({
 			db: world.db,
@@ -274,6 +264,49 @@ describe('OPEN → RUNOFF', () => {
 		});
 		expect(code(result)).toBe('not_enough_attendees');
 		expect(getRound(world.db, world.group.id, round.id)?.state).toBe('open');
+	});
+
+	/**
+	 * The regression this pins: a fixed floor of three attendee votes locked small
+	 * groups out of every round. One attendee who has swiped the pool is a
+	 * complete electorate — coverage is a share, so 1/1 clears it.
+	 */
+	test('a single attendee is enough: their swipes decide the round', () => {
+		world = createTestWorld({ memberNames: MEMBERS, movies: POOL });
+		const ana = world.member('Ana').id;
+		const round = unwrap(createRound({ db: world.db, groupId: world.group.id, actorId: ana }));
+		unwrap(
+			setRsvp({
+				db: world.db,
+				groupId: world.group.id,
+				roundId: round.id,
+				memberId: ana,
+				attending: true,
+				actorId: ana
+			})
+		);
+		// Ana alone likes Alien and Brazil; Casino she has not seen at all.
+		for (const title of ['Alien', 'Brazil']) {
+			unwrap(
+				setStandingVote({
+					db: world.db,
+					groupId: world.group.id,
+					memberId: ana,
+					movieId: world.movie(title).id,
+					value: 'yes'
+				})
+			);
+		}
+		const advanced = unwrap(
+			advanceRound({ db: world.db, groupId: world.group.id, config: world.config, roundId: round.id })
+		);
+		expect(advanced.round.state).toBe('runoff');
+		// Order is a tiebreak concern; membership is the point here.
+		expect([...advanced.round.finalistIds!].sort()).toEqual(
+			[world.movie('Alien').id, world.movie('Brazil').id].sort()
+		);
+		// Casino has no vote from the only attendee: coverage 0/1 keeps it out.
+		expect(advanced.round.finalistIds).not.toContain(world.movie('Casino').id);
 	});
 
 	test('freezes finalists, the standing votes behind them, and the knobs', () => {
@@ -1561,7 +1594,7 @@ describe('regression: one viewing can only count once', () => {
 	});
 });
 
-describe('regression: the reveal needs an attendee floor too', () => {
+describe('regression: the reveal needs a non-empty electorate too', () => {
 	test('RSVPing everyone out blocks the reveal instead of deciding an empty election', () => {
 		const { w, round } = runoffWorld();
 		world = w;
@@ -1583,15 +1616,33 @@ describe('regression: the reveal needs an attendee floor too', () => {
 		expect(getRound(w.db, w.group.id, round.id)?.state).toBe('runoff');
 	});
 
-	test('the floor comes from the frozen config, not a knob edited mid-runoff', () => {
+	/**
+	 * The guard is one ballot, not a knob, so there is no longer a frozen floor to
+	 * read from `config_snapshot` — and nothing a mid-runoff settings edit could
+	 * raise to block a reveal that was already legal.
+	 */
+	test('a single remaining attendee can still decide the round', () => {
 		const { w, round } = runoffWorld();
 		world = w;
-		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { min_attendee_votes: 50 } }));
+		for (const name of MEMBERS.slice(1)) {
+			unwrap(
+				setRsvp({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: w.member(name).id,
+					attending: false,
+					actorId: w.member(name).id
+				})
+			);
+		}
+		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { veto_threshold: 50 } }));
 		w.reloadGroup();
-		// 4 attendees still clears the FROZEN floor of 3, so the reveal proceeds.
-		expect(
-			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id }).ok
-		).toBe(true);
+		const advanced = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+		);
+		expect(advanced.round.state).toBe('decided');
+		expect(advanced.round.winnerId).not.toBeNull();
 	});
 });
 

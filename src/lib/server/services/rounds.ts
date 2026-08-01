@@ -273,6 +273,28 @@ export type AdvancePlan =
 	  };
 
 /**
+ * The one hard attendance rule left: a round cannot be advanced by an empty
+ * electorate.
+ *
+ * This is not a knob and never was one of the voting-spec floors — it is the
+ * arithmetic. `coverage` divides by the attendee count, so with nobody attending
+ * nothing is eligible; and a winner picked from zero ballots is an all-zero
+ * head-to-head matrix broken by runtime, presented as the group's choice. One
+ * attending member is enough: their standing votes are real ballots, and the
+ * eligibility floor (coverage) is a share, so it works at any group size.
+ *
+ * It is implicit rather than configurable on purpose: the configurable floor this
+ * replaced (`min_attendee_votes`) is exactly what locked small groups out.
+ */
+export const MIN_ELECTORATE = 1;
+
+/** Exported so the round view's blocked-reason text cannot drift from the guard. */
+export const NO_ELECTORATE_MESSAGE = {
+	open: 'Nobody is in yet — at least one person has to be attending before finalists can be picked',
+	runoff: 'Nobody is attending any more, so there is no one whose votes could decide a winner'
+} as const;
+
+/**
  * Computes what the next transition *would* do, without writing anything. Split
  * out from `applyAdvance` so a concurrent tap can be proven to become a no-op:
  * two plans may be built from the same OPEN state, but only the first apply wins
@@ -290,15 +312,12 @@ export function planAdvance(input: {
 
 	if (round.state === 'open') {
 		const attendeeIds = loadAttendeeIds(db, round.id);
-		// app-spec: the transition to RUNOFF "is blocked with an explanatory
-		// message while attendees < MIN_ATTENDEE_VOTES — otherwise no movie could
-		// be eligible and the round would end 'no clear favourite' for a reason the
-		// group can fix in one tap."
-		if (attendeeIds.length < input.config.min_attendee_votes) {
-			return fail(
-				'not_enough_attendees',
-				`${attendeeIds.length} attending, but ${input.config.min_attendee_votes} are needed before a movie can be eligible`
-			);
+		// app-spec: the transition out of OPEN "is blocked with an explanatory
+		// message while nobody is attending — otherwise no movie could be eligible
+		// (coverage divides by the attendee count) and the round would end 'no clear
+		// favourite' for a reason the group can fix in one tap."
+		if (attendeeIds.length < MIN_ELECTORATE) {
+			return fail('not_enough_attendees', NO_ELECTORATE_MESSAGE.open);
 		}
 
 		const liveVotes = loadStandingVotes(db, input.groupId);
@@ -350,18 +369,13 @@ export function planAdvance(input: {
 	}
 
 	if (round.state === 'runoff') {
-		// The same floor as OPEN → RUNOFF. Without it, RSVPing everyone out before
+		// The same guard as OPEN → RUNOFF. Without it, RSVPing everyone out before
 		// the reveal produced a "winner" from an empty electorate: an all-zero
 		// head-to-head matrix decided by runtime, with the "hasn't voted" warning
 		// silently empty because nobody counted as an attendee any more.
 		const attendeeIds = loadAttendeeIds(db, round.id);
-		// From the FROZEN config: a knob edited mid-runoff must not retro-affect it.
-		const floor = round.configSnapshot?.min_attendee_votes ?? input.config.min_attendee_votes;
-		if (attendeeIds.length < floor) {
-			return fail(
-				'not_enough_attendees',
-				`${attendeeIds.length} attending, but ${floor} are needed to decide a winner`
-			);
+		if (attendeeIds.length < MIN_ELECTORATE) {
+			return fail('not_enough_attendees', NO_ELECTORATE_MESSAGE.runoff);
 		}
 		const evaluated = evaluateRunoff({ db, groupId: input.groupId, round });
 		if (!evaluated.ok) return evaluated;
