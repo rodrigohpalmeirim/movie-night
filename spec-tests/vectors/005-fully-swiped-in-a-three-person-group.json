@@ -1,8 +1,8 @@
 {
-  "id": "V004",
-  "description": "Eligibility: the attendee_votes >= 3 floor is independent of coverage - a movie can pass coverage and still fail the vote-count floor",
-  "spec_clause": "Phase 1 / Eligibility: 'Require coverage >= COVERAGE_FLOOR (default 0.6) AND attendee_votes >= 3.'",
-  "rationale": "3 attendees. m1 has 2 standing rows (u1,u2 yes); u3 never saw it. coverage = 2/3 = 0.6667 >= 0.60 PASSES, but attendee_votes = 2 < 3 FAILS -> ineligible. Both conditions are required, so m1 is out. Nothing eligible -> nothing clears the approval floor -> no clear favourite.",
+  "id": "V005",
+  "description": "Eligibility: a fully swiped movie in a three-person group is eligible on coverage 3/3 (spec amended 2026-08-01: the wording of this vector, not its outcome - see README section 0)",
+  "spec_clause": "Phase 1 / Eligibility: 'Require coverage >= COVERAGE_FLOOR (default 0.6).'",
+  "rationale": "3 attendees, all of whom have a standing row on m1 (u1,u2 yes; u3 no). coverage = 3/3 = 1.00 >= 0.60 -> eligible. approval = 2/3 = 0.6667 >= 0.50. Sole clearer -> outright win, Phase 2 skipped. Originally derived to pin the inclusive '>= 3' vote floor; that floor is retired, and every expected value here is unchanged by its removal.",
   "input": {
     "config": {
       "N_FINALISTS": 5,
@@ -79,6 +79,11 @@
         "user_id": "u2",
         "movie_id": "m1",
         "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "no"
       }
     ],
     "vetoes": [],
@@ -86,25 +91,24 @@
     "random_seed": "seed-000"
   },
   "expected": {
-    "eligible_movie_ids": [],
-    "ineligible_movies": [
-      {
-        "movie_id": "m1",
-        "reason": "attendee_votes_below_minimum",
-        "coverage": 0.6667,
-        "attendee_votes": 2
-      }
+    "eligible_movie_ids": [
+      "m1"
     ],
+    "ineligible_movies": [],
     "tallies": {
       "m1": {
-        "attendee_votes": 2,
+        "attendee_votes": 3,
         "yes_votes": 2,
-        "coverage": 0.6667,
-        "approval": 1.0
+        "coverage": 1.0,
+        "approval": 0.6667
       }
     },
-    "finalist_ids": [],
-    "finalist_ids_ranked": [],
+    "finalist_ids": [
+      "m1"
+    ],
+    "finalist_ids_ranked": [
+      "m1"
+    ],
     "rank_order_asserted": true,
     "finalist_boundary_tiebreak": null,
     "veto_counts": {},
@@ -113,11 +117,13 @@
     "surviving_finalist_ids": [],
     "pairwise": [],
     "copeland_scores": {},
-    "outcome": "no_clear_favourite",
-    "phase2_skipped": false,
-    "winner_id": null,
-    "permissible_winner_ids": [],
-    "decided_by": null,
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "single_clear_approval_floor",
     "standing_vote_side_effects": []
   }
 }

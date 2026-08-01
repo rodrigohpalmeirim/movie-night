@@ -105,7 +105,7 @@ describe('coverage and approval arithmetic', () => {
 	});
 });
 
-describe('eligibility: coverage floor AND min attendee votes AND status = pool', () => {
+describe('eligibility: coverage floor AND status = pool', () => {
 	type Case = [
 		label: string,
 		yes: number,
@@ -121,19 +121,14 @@ describe('eligibility: coverage floor AND min attendee votes AND status = pool',
 		['one vote below the coverage floor', 2, 0, 5, {}, 'pool', false, 'coverage_floor'],
 		['coverage floor of 0.6 with 6 attendees needs 4 votes', 3, 0, 6, {}, 'pool', false, 'coverage_floor'],
 		['...and 4 votes clears it', 4, 0, 6, {}, 'pool', true, null],
-		['clears coverage but not min attendee votes', 2, 0, 3, {}, 'pool', false, 'min_attendee_votes'],
-		['3 of 3 clears both', 3, 0, 3, {}, 'pool', true, null],
-		[
-			'min_attendee_votes is configurable for tiny groups',
-			2,
-			0,
-			3,
-			{ minAttendeeVotes: 2 },
-			'pool',
-			true,
-			null
-		],
-		['coverage floor is configurable', 2, 0, 10, { coverageFloor: 0.2 }, 'pool', false, 'min_attendee_votes'],
+		// Coverage is the only vote-count test there is: 2 of 3 is a 0.67 share, so
+		// it is eligible even though a three-person group can never reach the three
+		// separate ballots the old MIN_ATTENDEE_VOTES floor demanded.
+		['2 of 3 clears coverage and is eligible', 2, 0, 3, {}, 'pool', true, null],
+		['a single vote in a one-attendee round is eligible', 1, 0, 1, {}, 'pool', true, null],
+		['3 of 3 clears it too', 3, 0, 3, {}, 'pool', true, null],
+		['coverage floor is configurable', 2, 0, 10, { coverageFloor: 0.2 }, 'pool', true, null],
+		['...and still bites above the configured share', 1, 0, 10, { coverageFloor: 0.2 }, 'pool', false, 'coverage_floor'],
 		['a watched movie is never eligible', 5, 0, 5, {}, 'watched', false, 'not_in_pool'],
 		['a removed movie is never eligible', 5, 0, 5, {}, 'removed', false, 'not_in_pool'],
 		['zero attendees means nothing is eligible', 0, 0, 0, {}, 'pool', false, 'coverage_floor']

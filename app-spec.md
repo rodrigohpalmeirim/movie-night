@@ -72,9 +72,10 @@ swipe stack afterwards — never a forced twenty-movie gauntlet before they can 
 - Group name.
 - Invite link (view / copy / regenerate).
 - Voting knobs from the voting spec: `N_FINALISTS` (5), `APPROVAL_FLOOR` (0.5),
-  `COVERAGE_FLOOR` (0.6), `VETO_THRESHOLD` (1), `REWATCH_COOLDOWN` (off).
-- `MIN_ATTENDEE_VOTES` (3) — the eligibility minimum from the voting spec, exposed as a
-  knob because a 3-person group can never satisfy a hard-coded 3 while anyone abstains.
+  `COVERAGE_FLOOR` (0.6), `VETO_THRESHOLD` (1), `REWATCH_COOLDOWN` (off). That is the
+  complete set: eligibility is the coverage floor alone, so there is no minimum-swipes
+  knob (an absolute floor on the raw vote count only ever locked small groups out —
+  see the voting spec's Eligibility section).
 - Member list (rename self; members are never deleted — history references them).
 
 Knob changes take effect at the next finalist computation; they never retro-affect a
@@ -159,8 +160,9 @@ them ("in — marked by Ana") so mistakes are visible and reversible.
 
 Because default is out, the round screen shows RSVP status prominently ("4 in, 3 no
 answer") and the transition to `RUNOFF` is blocked with an explanatory message while
-attendees < `MIN_ATTENDEE_VOTES` — otherwise no movie could be eligible and the round
-would end "no clear favourite" for a reason the group can fix in one tap.
+*nobody* is in — otherwise no movie could be eligible (coverage divides by the attendee
+count) and the round would end "no clear favourite" for a reason the group can fix in one
+tap. One attendee is enough; nothing here scales the requirement with group size.
 
 ### Phase-by-phase behavior
 
@@ -229,7 +231,9 @@ be unified). Everything is group-scoped.
 ```
 Group        { id, name, invite_token (unique, indexed), created_at,
                config: { n_finalists, approval_floor, coverage_floor,
-                         veto_threshold, rewatch_cooldown, min_attendee_votes } }
+                         veto_threshold, rewatch_cooldown } }
+               -- blobs written before `min_attendee_votes` was retired may still
+                  carry that key; reads ignore it and the next save drops it
 
 Member       { id, group_id → Group, display_name, created_at }
                -- unique (group_id, display_name); never deleted
@@ -308,7 +312,8 @@ Server-side rules the API must enforce (beyond DB constraints):
 - Aggregates are **never** serialized to the client before the round is `decided` —
   hidden tallies are enforced at the API layer, not by UI omission.
 - Phase-gated writes: vetoes/pairs accepted only in `runoff`, RSVP only before `decided`.
-- Transition guards: runoff requires attendees ≥ `min_attendee_votes`; illegal state
+- Transition guards: leaving `OPEN` or `RUNOFF` requires at least one attendee — a
+  decision needs a non-empty electorate, and it is not configurable; illegal state
   jumps rejected.
 - Transitions are **conditional updates** (`UPDATE ... WHERE state = <expected>`): any
   member can advance the round, so two simultaneous taps must resolve to one transition

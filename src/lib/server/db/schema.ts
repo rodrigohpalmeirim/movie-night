@@ -43,7 +43,16 @@ export const groups = sqliteTable(
 		/** ≥128-bit URL-safe slug. Knowing the token *is* the authentication. */
 		inviteToken: text('invite_token').notNull(),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
-		/** The six voting knobs, as one JSON blob. */
+		/**
+		 * The five voting knobs, as one JSON blob.
+		 *
+		 * `createGroup` always writes the blob explicitly, so this default only
+		 * covers a raw insert. It is the SQL literal frozen in
+		 * `drizzle/0000_init.sql` and therefore still carries the retired
+		 * `min_attendee_votes` key — no migration chases it, because
+		 * `withConfigDefaults` drops the key on read and the next settings save
+		 * rewrites the row without it.
+		 */
 		config: text('config', { mode: 'json' })
 			.$type<GroupConfig>()
 			.notNull()

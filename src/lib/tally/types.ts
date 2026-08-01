@@ -19,9 +19,9 @@ export type MovieStatus = 'pool' | 'watched' | 'removed';
 export type StandingVoteValue = 'yes' | 'no';
 
 /**
- * The five voting knobs the tally needs, plus `min_attendee_votes`.
+ * The four voting knobs the tally needs.
  *
- * `rewatch_cooldown` (the sixth group knob) is deliberately absent: it governs
+ * `rewatch_cooldown` (the fifth group knob) is deliberately absent: it governs
  * whether a *watched* movie may be re-suggested into the pool, which happens
  * before any tally runs.
  */
@@ -34,16 +34,13 @@ export interface TallyConfig {
 	coverageFloor: number;
 	/** VETO_THRESHOLD (default 1) */
 	vetoThreshold: number;
-	/** MIN_ATTENDEE_VOTES (default 3) */
-	minAttendeeVotes: number;
 }
 
 export const DEFAULT_TALLY_CONFIG: TallyConfig = {
 	nFinalists: 5,
 	approvalFloor: 0.5,
 	coverageFloor: 0.6,
-	vetoThreshold: 1,
-	minAttendeeVotes: 3
+	vetoThreshold: 1
 };
 
 export interface MovieInput {
@@ -127,7 +124,7 @@ export interface TiebreakOutcome<R extends string> {
 /* Phase 1                                                             */
 /* ------------------------------------------------------------------ */
 
-export type IneligibleReason = 'not_in_pool' | 'coverage_floor' | 'min_attendee_votes';
+export type IneligibleReason = 'not_in_pool' | 'coverage_floor';
 
 export interface MovieTally {
 	movieId: MovieId;

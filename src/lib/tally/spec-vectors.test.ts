@@ -7,6 +7,13 @@
  * authority, and the disagreement is recorded in one of the three tables at the
  * bottom of this file — never resolved by editing the vector.
  *
+ * The one exception is a change to the spec itself. On 2026-08-01 the
+ * `attendee_votes >= 3` eligibility floor was removed from voting-spec.md
+ * (coverage is now the whole vote-count test), so V004's expected outcome, and
+ * the redundant `attendee_votes_below_minimum` reasons in V005/V008/V039, were
+ * re-derived from the amended text. That edit is dated and explained in
+ * spec-tests/README.md §0; every other vector is untouched.
+ *
  * Mapping notes (adapter concerns only, no semantics invented):
  *   - `random_seed` is a *string* in the vectors and the seed→choice mapping is
  *     explicitly implementation-defined, so it is hashed to this project's
@@ -52,9 +59,13 @@ interface Vector {
 			N_FINALISTS: number;
 			APPROVAL_FLOOR: number;
 			COVERAGE_FLOOR: number;
-			MIN_ATTENDEE_VOTES: number;
 			VETO_THRESHOLD: number;
 			REWATCH_COOLDOWN: number | null;
+			/**
+			 * The retired eligibility floor. Still present in every vector file as
+			 * the record of what they were derived against; read by nothing.
+			 */
+			MIN_ATTENDEE_VOTES?: number;
 		};
 		members: Array<{
 			id: string;
@@ -165,8 +176,9 @@ const FIELD_NOT_ASSERTED: Record<string, { fields: string[]; why: string }> = {
 const PENDING_HUMAN_DECISION: Record<string, string> = {};
 
 /**
- * Two readings that the vectors could not distinguish have since been settled in
- * voting-spec.md, both in favour of the behaviour already implemented here.
+ * Points on which voting-spec.md has moved since the vectors were derived: two
+ * readings the vectors could not distinguish (both settled in favour of the
+ * behaviour already implemented here) and one rule the spec dropped outright.
  * Kept as a record of the reconciliation.
  */
 const SETTLED_BY_SPEC_AMENDMENT = {
@@ -198,17 +210,35 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	 *   Enforced by the stage-2 integration test "a veto flip does not change the
 	 *   frozen tallies of its own round".
 	 */
-	VETO_FLIP_FEEDBACK: 'settled: freeze — computeRunoff is fed rounds.standing_snapshot'
+	VETO_FLIP_FEEDBACK: 'settled: freeze — computeRunoff is fed rounds.standing_snapshot',
+
+	/**
+	 * The `attendee_votes >= 3` eligibility floor.
+	 *
+	 * Amended spec (2026-08-01): eligibility is `status = pool` and
+	 * `coverage >= COVERAGE_FLOOR`, full stop. The absolute floor locked small
+	 * groups out — a three-person night with one abstention could never make
+	 * anything eligible — while coverage already does the job as a share.
+	 *
+	 * → REMOVED, and unlike the two above this one changed an answer: V004's
+	 *   movie (coverage 2/3, two votes) is now eligible and wins outright. See
+	 *   spec-tests/README.md §0.
+	 */
+	MIN_ATTENDEE_VOTES_REMOVED: 'removed: coverage is the whole vote-count test; V004 re-derived'
 } as const;
 
 /* ------------------------------------------------------------------ */
 /* Adapter                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * `attendee_votes_below_minimum` is deliberately absent: the floor it names is
+ * gone from the spec, so a vector still claiming it fails the "unknown reason
+ * enum" assertion below rather than being quietly accepted.
+ */
 const REASON_MAP = {
 	status_not_pool: 'not_in_pool',
-	coverage_below_floor: 'coverage_floor',
-	attendee_votes_below_minimum: 'min_attendee_votes'
+	coverage_below_floor: 'coverage_floor'
 } as const;
 
 function ms(iso: string | null): number | null {
@@ -220,8 +250,7 @@ function toConfig(v: Vector): TallyConfig {
 		nFinalists: v.input.config.N_FINALISTS,
 		approvalFloor: v.input.config.APPROVAL_FLOOR,
 		coverageFloor: v.input.config.COVERAGE_FLOOR,
-		vetoThreshold: v.input.config.VETO_THRESHOLD,
-		minAttendeeVotes: v.input.config.MIN_ATTENDEE_VOTES
+		vetoThreshold: v.input.config.VETO_THRESHOLD
 	};
 }
 
@@ -360,7 +389,6 @@ function failedReasons(v: Vector, movieId: MovieId): string[] {
 	if (!(tally.attendeeVotes + 1e-9 >= config.coverageFloor * attendees) || attendees === 0) {
 		reasons.push('coverage_floor');
 	}
-	if (tally.attendeeVotes < config.minAttendeeVotes) reasons.push('min_attendee_votes');
 	return reasons;
 }
 
@@ -594,7 +622,8 @@ describe('spec vectors (independently derived from voting-spec.md)', () => {
 		// in favour of the behaviour already implemented.
 		expect(Object.keys(SETTLED_BY_SPEC_AMENDMENT)).toEqual([
 			'ROTATION_FAIRNESS_NARROWING',
-			'VETO_FLIP_FEEDBACK'
+			'VETO_FLIP_FEEDBACK',
+			'MIN_ATTENDEE_VOTES_REMOVED'
 		]);
 	});
 });

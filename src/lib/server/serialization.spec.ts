@@ -544,8 +544,29 @@ describe('participation warnings', () => {
 		world = createTestWorld({ memberNames: MEMBERS, movies: POOL });
 		unwrap(createRound({ db: world.db, groupId: world.group.id, actorId: world.member('Ana').id }));
 		const payload = view(world, 'Ana');
+		// Nobody has RSVPed yet, so the electorate is empty.
 		expect(payload.transitions.canAdvance).toBe(false);
-		expect(payload.transitions.advanceBlockedReason).toContain('3 are needed');
+		expect(payload.transitions.advanceBlockedReason).toContain('at least one person');
+	});
+
+	test('one attendee is a big enough electorate to close swiping', () => {
+		world = createTestWorld({ memberNames: MEMBERS, movies: POOL });
+		const round = unwrap(
+			createRound({ db: world.db, groupId: world.group.id, actorId: world.member('Ana').id })
+		);
+		unwrap(
+			setRsvp({
+				db: world.db,
+				groupId: world.group.id,
+				roundId: round.id,
+				memberId: world.member('Ana').id,
+				attending: true,
+				actorId: world.member('Ana').id
+			})
+		);
+		const payload = view(world, 'Ana');
+		expect(payload.transitions.canAdvance).toBe(true);
+		expect(payload.transitions.advanceBlockedReason).toBeNull();
 	});
 });
 
@@ -625,7 +646,7 @@ describe('history view', () => {
 });
 
 describe('settings view', () => {
-	test('exposes the invite token, the six knobs and the member list', () => {
+	test('exposes the invite token, the five knobs and the member list', () => {
 		const { w } = scenario();
 		world = w;
 		const settings = buildSettingsView({ db: w.db, group: w.group, me: w.member('Ana') });
@@ -633,7 +654,6 @@ describe('settings view', () => {
 		expect(Object.keys(settings.config).sort()).toEqual([
 			'approval_floor',
 			'coverage_floor',
-			'min_attendee_votes',
 			'n_finalists',
 			'rewatch_cooldown',
 			'veto_threshold'

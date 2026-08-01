@@ -64,9 +64,11 @@ coverage(movie) = attendee_votes(movie) / attendees
 approval(movie) = yes_votes among attendees / attendee_votes(movie)
 ```
 
-Require `coverage >= COVERAGE_FLOOR` (default 0.6) **and** `attendee_votes >= 3`.
+Require `coverage >= COVERAGE_FLOOR` (default 0.6). That is the whole test.
 
 The coverage rule is load-bearing in a persistent pool. Without it, a movie added yesterday with two enthusiastic swipes shows 100% approval and beats a film with eight yes-votes out of ten. A movie that can't clear coverage waits for the next round — the correct, non-punitive way to handle late additions when the pool is long-lived.
+
+There is deliberately **no** absolute floor on `attendee_votes`. An earlier version of this spec also required `attendee_votes >= 3`, which locked small groups out: with three attendees and one abstention nothing could ever be eligible, and the round ended "no clear favourite" for a reason the group could not fix. Coverage is a *share*, so it does that job at any size — three of five and one of one are both a fully-seen film. The one thing that cannot be waived is an electorate: with no attendees, `coverage` divides by zero, nothing is eligible, and no round may be decided.
 
 `approval` divides by voters who *saw the card*, never by total attendees.
 
@@ -174,6 +176,8 @@ OPEN → RUNOFF → DECIDED → WATCHED
 - `RUNOFF` — finalists computed. Veto screen, then pairwise. Skipped entirely when only one movie clears the approval floor.
 - `DECIDED` — winner revealed, all tallies now visible.
 - `WATCHED` — winner retired, fairness counters updated.
+
+A round can only leave `OPEN` or `RUNOFF` while at least one member is attending. This is arithmetic, not a preference: an empty attendee set makes every `coverage` a division by zero and turns a "winner" into an all-zero head-to-head grid broken by runtime. One attendee is enough.
 
 ---
 

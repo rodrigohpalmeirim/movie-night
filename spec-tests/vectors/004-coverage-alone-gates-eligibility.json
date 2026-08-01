@@ -1,8 +1,8 @@
 {
-  "id": "V005",
-  "description": "Eligibility: attendee_votes exactly 3 satisfies the floor (>= 3, inclusive) in a three-person group",
-  "spec_clause": "Phase 1 / Eligibility: 'attendee_votes >= 3'",
-  "rationale": "3 attendees, all of whom have a standing row on m1 (u1,u2 yes; u3 no). attendee_votes = 3 which is exactly the floor and the comparison is >= -> passes. coverage = 3/3 = 1.00 >= 0.60. approval = 2/3 = 0.6667 >= 0.50. Sole clearer -> outright win, Phase 2 skipped.",
+  "id": "V004",
+  "description": "Eligibility: coverage is the whole vote-count test - a movie two of three attendees have swiped is eligible, with no absolute floor on the raw count (spec amended 2026-08-01, see README section 0)",
+  "spec_clause": "Phase 1 / Eligibility: 'Require coverage >= COVERAGE_FLOOR (default 0.6).'",
+  "rationale": "3 attendees. m1 has 2 standing rows (u1,u2 yes); u3 never saw it. coverage = 2/3 = 0.6667 >= 0.60 PASSES, and that is the only vote-count condition, so m1 is ELIGIBLE on 2 votes. approval = 2/2 = 1.00 >= 0.50 -> it is the sole movie clearing the approval floor -> 'Exactly one clears it -> it wins outright, skip Phase 2'. Under the retired attendee_votes >= 3 floor this same input was ineligible and the round ended 'no clear favourite'; that floor is what locked three-person groups out.",
   "input": {
     "config": {
       "N_FINALISTS": 5,
@@ -79,11 +79,6 @@
         "user_id": "u2",
         "movie_id": "m1",
         "value": "yes"
-      },
-      {
-        "user_id": "u3",
-        "movie_id": "m1",
-        "value": "no"
       }
     ],
     "vetoes": [],
@@ -97,10 +92,10 @@
     "ineligible_movies": [],
     "tallies": {
       "m1": {
-        "attendee_votes": 3,
+        "attendee_votes": 2,
         "yes_votes": 2,
-        "coverage": 1.0,
-        "approval": 0.6667
+        "coverage": 0.6667,
+        "approval": 1.0
       }
     },
     "finalist_ids": [
