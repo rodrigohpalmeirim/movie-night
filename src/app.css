@@ -240,6 +240,16 @@
 		   top glued to a kraft block. Kraft is only the default because kraft is
 		   the default face. */
 		--tile-edge: var(--color-board-shade);
+		/* THE PRESSED POSE, WRITTEN ONCE. Both the finger-held press (`:active`)
+		   and the latch (`.tile-latch` with its radio checked) apply exactly
+		   these two values, so a latched row cannot drift away from being the end
+		   state of the press animation. Anything using `.tile-latch` therefore
+		   carries `.tile-press` too — the vars live here. */
+		--tile-press-move: translate(var(--tile-dx), var(--tile-lift));
+		--tile-press-shadow:
+			0 0 0 0 var(--tile-edge),
+			0 0 0 0 var(--tile-edge),
+			1px 2px 0 0 var(--color-ink);
 		/* Two-ply slab seen from a slight angle: every layer is an exact
 		   zero-spread silhouette of the rounded face (never wider than the
 		   top), and the underside steps down AND right — a solid connected
@@ -257,11 +267,8 @@
 	}
 
 	.tile-press:active {
-		transform: translate(var(--tile-dx), var(--tile-lift));
-		box-shadow:
-			0 0 0 0 var(--tile-edge),
-			0 0 0 0 var(--tile-edge),
-			1px 2px 0 0 var(--color-ink);
+		transform: var(--tile-press-move);
+		box-shadow: var(--tile-press-shadow);
 	}
 
 	/* A tappable row *inside* a flat tile — a disclosure header, mostly. It
@@ -303,6 +310,14 @@
 		--token-edge: var(--color-board-shade);
 		--token-text: var(--color-ink);
 		--token-lift: 5px;
+		/* THE PRESSED POSE, WRITTEN ONCE — see `.tile-press`. `:active` and
+		   `.token-latched` apply these same two values and nothing else, so
+		   latching a button is holding it pressed, to the pixel. */
+		--token-press-move: translate(calc(var(--token-lift) * 0.5), var(--token-lift));
+		--token-press-shadow:
+			0 0 0 0 var(--token-edge),
+			0 0 0 0 var(--token-edge),
+			1px 2px 0 0 var(--color-ink);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -329,11 +344,8 @@
 	}
 
 	.token:active:not(:disabled) {
-		transform: translate(calc(var(--token-lift) * 0.5), var(--token-lift));
-		box-shadow:
-			0 0 0 0 var(--token-edge),
-			0 0 0 0 var(--token-edge),
-			1px 2px 0 0 var(--color-ink);
+		transform: var(--token-press-move);
+		box-shadow: var(--token-press-shadow);
 	}
 
 	.token:disabled {
@@ -343,27 +355,31 @@
 	/* ── LATCHED: a control that reports a STATE, not an action ───────
 	   The tab bar's station presets, generalised. A button whose job is to say
 	   which of several states is true has no business springing back up: the
-	   true one sits pressed FLUSH — driven down the same down-and-right
-	   diagonal as any press, its two-ply underside collapsed to a plain ink
-	   ring, and finished with the inset top shade of a face sunk into the tray
-	   — and it stays there until another option is pressed, which pops it back
-	   out. The options that are not true keep their full lift, so they still
-	   read as pressable.
+	   true one sits pressed FLUSH and STAYS there until another option is
+	   pressed, which pops it back out. The options that are not true keep their
+	   full lift, so they still read as pressable.
+
+	   A LATCH IS A HELD PRESS, NOTHING ELSE. It is literally the press
+	   animation's end state, so it reuses the same `--*-press-move` and
+	   `--*-press-shadow` the `:active` rule uses — same diagonal travel, same
+	   collapsed plies, same 1px/2px ink lip left behind — and the only thing
+	   the latch adds on top is the state's fill (`token-brass`, `token-jade`,
+	   `token-cherry`, `tile-latch-*`). It shares the base transition too, so
+	   releasing a finger into a latched state does not jump, and un-latching
+	   springs back up along the same 90ms diagonal. Nothing here may grow a
+	   look of its own: if the press changes, the latch changes with it.
 
 	   That makes the silhouette carry the answer on its own: no tick, no radio
 	   dot, nothing to add — and it survives greyscale, because a latched
-	   button is a different SHAPE, not just a different hue. Pair it with the
-	   state's ink (`token-jade`, `token-cherry`) for the second channel.
+	   button is a different SHAPE, not just a different hue.
 
 	   Everything latched here is a form button reading server state, so the
 	   latch is correct with JavaScript off; an optimistic flip is only ever an
 	   enhancement on top. */
 	.token-latched,
 	.token-latched:active:not(:disabled) {
-		transform: translate(calc(var(--token-lift) * 0.5), var(--token-lift));
-		box-shadow:
-			0 0 0 2px var(--color-ink),
-			inset 0 2px 0 0 rgb(26 21 18 / 30%);
+		transform: var(--token-press-move);
+		box-shadow: var(--token-press-shadow);
 	}
 
 	/* The same latch on a whole pressable row whose state is carried by a
@@ -373,10 +389,8 @@
 	   pressed row BE the selection. */
 	.tile-latch:has(input:checked),
 	.tile-latch:has(input:checked):active {
-		transform: translate(var(--tile-dx), var(--tile-lift));
-		box-shadow:
-			0 0 0 2px var(--color-ink),
-			inset 0 2px 0 0 rgb(26 21 18 / 30%);
+		transform: var(--tile-press-move);
+		box-shadow: var(--tile-press-shadow);
 	}
 
 	/* The ink a latched row is filled with. Face and ply are set together, as one
@@ -417,18 +431,18 @@
 		--token-fill: transparent;
 		--token-edge: transparent;
 		--token-text: var(--color-chalk);
+		/* A slot's lip is drawn in board-shade rather than ink, so it overrides the
+		   shared pressed shadow instead of keeping its own `:active` rule — which
+		   is what keeps its press and any future latch on it identical. */
+		--token-press-shadow:
+			0 0 0 0 var(--token-edge),
+			0 0 0 0 var(--token-edge),
+			1px 2px 0 0 var(--color-board-shade);
 		border-color: var(--color-board-shade);
 		box-shadow:
-			calc(var(--token-lift) * 0.25) calc(var(--token-lift) * 0.5) 0 0 transparent,
-			calc(var(--token-lift) * 0.5) var(--token-lift) 0 0 transparent,
+			calc(var(--token-lift) * 0.25) calc(var(--token-lift) * 0.5) 0 0 var(--token-edge),
+			calc(var(--token-lift) * 0.5) var(--token-lift) 0 0 var(--token-edge),
 			calc(var(--token-lift) * 0.5 + 1px) calc(var(--token-lift) + 2px) 0 0 var(--color-board-shade);
-	}
-
-	.token-slot:active:not(:disabled) {
-		box-shadow:
-			0 0 0 0 transparent,
-			0 0 0 0 transparent,
-			1px 2px 0 0 var(--color-board-shade);
 	}
 
 	.token-sm {

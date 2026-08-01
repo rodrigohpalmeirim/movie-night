@@ -59,10 +59,15 @@
 			{@const active = tab.match(page.url.pathname)}
 			<li class="flex-1">
 				<a href={tab.href} aria-current={active ? 'page' : undefined} class="block">
+					<!-- The real `.token` set rather than a hand-rolled copy of it: `token-sm`
+					     is exactly this tab's 3px lift, and `token-latched` is exactly the
+					     press animation's end state, so a tab can never drift away from the
+					     rest of the app's pressables. Only the layout (icon stacked over
+					     label) and the brass fill are added on top. -->
 					<span
-						class="relative flex flex-col items-center gap-0.5 rounded-md border-2 border-ink py-1.5 transition-[transform,box-shadow] duration-100 ease-out {active
-							? 'translate-x-[1.5px] translate-y-[3px] bg-brass text-ink shadow-[0_0_0_2px_var(--color-ink),inset_0_2px_0_0_rgb(26_21_18/30%)]'
-							: 'bg-board text-ink shadow-[0.75px_1.5px_0_0_var(--color-board-shade),1.5px_3px_0_0_var(--color-board-shade),2.5px_5px_0_0_var(--color-ink)] active:translate-x-[1.5px] active:translate-y-[3px] active:shadow-[1px_2px_0_0_var(--color-ink)]'}"
+						class="token token-sm relative flex-col gap-0.5 py-1.5 {active
+							? 'token-brass token-latched'
+							: ''}"
 					>
 						<tab.icon size={20} />
 						<span class="eyebrow text-[0.62rem] tracking-[0.1em]">{tab.label}</span>
