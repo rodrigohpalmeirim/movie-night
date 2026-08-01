@@ -247,6 +247,60 @@ describe('no aggregate is serialised before the round is decided', () => {
 		expect(benView.participants.find((p) => p.displayName === 'Ana')?.submitted).toBe(true);
 	});
 
+	test('my own answers travel with their winner, and stay inside my own block', () => {
+		// The review screen pre-selects the answer already on each pair, so the
+		// winner (including the `null` that means "no preference") has to reach the
+		// client. It may only ever reach the client who cast it: `winnerId` is in
+		// AGGREGATE_KEYS, so `withoutMine` proves it appears nowhere else in the
+		// payload — not even in the caster's own view outside `me`.
+		const { w, round } = scenario();
+		world = w;
+		const runoff = toRunoff(w, round.id);
+		const ana = w.member('Ana').id;
+		const order = memberRunoffProgress({ db: w.db, round: runoff, memberId: ana }).order;
+		const cast = (pair: { a: string; b: string }, winner: string | null) =>
+			unwrap(
+				castPairVote({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: runoff.id,
+					memberId: ana,
+					a: pair.a,
+					b: pair.b,
+					winner
+				})
+			);
+		cast(order[0], order[0].a);
+		cast(order[1], null);
+		const stored = getRound(w.db, w.group.id, runoff.id);
+
+		const anaView = view(w, 'Ana', stored);
+		const mine = anaView.me.myPairVotes;
+		expect(mine.length).toBe(2);
+		for (const vote of mine) expect(Object.keys(vote).sort()).toEqual(['a', 'b', 'winnerId']);
+		const byPair = new Map(mine.map((vote) => [`${vote.a}|${vote.b}`, vote.winnerId]));
+		expect(byPair.get(`${order[0].a}|${order[0].b}`)).toBe(order[0].a);
+		// A recorded "no preference" is an answer, and must be distinguishable from
+		// an unanswered pair — hence `has` alongside a null value.
+		expect(byPair.has(`${order[1].a}|${order[1].b}`)).toBe(true);
+		expect(byPair.get(`${order[1].a}|${order[1].b}`)).toBeNull();
+
+		// Re-casting is an upsert, so an edited answer replaces the old one rather
+		// than arriving twice.
+		cast(order[0], order[0].b);
+		const edited = view(w, 'Ana', getRound(w.db, w.group.id, runoff.id)).me.myPairVotes;
+		expect(edited.length).toBe(2);
+		expect(edited.find((v) => v.a === order[0].a && v.b === order[0].b)?.winnerId).toBe(order[0].b);
+
+		// Nobody else sees any of it, and no other branch of the payload carries it.
+		const benView = view(w, 'Ben', stored);
+		expect(benView.me.myPairVotes).toEqual([]);
+		expect(collectKeys(withoutMine(benView)).has('winnerId')).toBe(false);
+		expect(collectKeys(withoutMine(anaView)).has('winnerId')).toBe(false);
+		assertNoAggregates(withoutMine(anaView), "the caster's own RUNOFF view");
+		assertNoAggregates(withoutMine(benView), "another member's RUNOFF view");
+	});
+
 	test('progress is per-voter only', () => {
 		const { w, round } = scenario();
 		world = w;

@@ -916,6 +916,68 @@ describe('pair votes', () => {
 		expect(submittedAt()).not.toBeNull();
 	});
 
+	test('reviewing a finished ballot and changing one answer neither duplicates nor un-submits', () => {
+		// What the "review my picks" walk does on the server: it re-posts pairs the
+		// member has already answered. Each re-post must land on the same row, the
+		// member must stay finished throughout, and the first completion time must
+		// not be bumped by the edit.
+		const { w, round } = runoffWorld();
+		world = w;
+		const ana = w.member('Ana').id;
+		const order = memberRunoffProgress({ db: w.db, round, memberId: ana }).order;
+		const rowFor = () =>
+			w.db
+				.select()
+				.from(attendance)
+				.where(and(eq(attendance.roundId, round.id), eq(attendance.memberId, ana)))
+				.get();
+
+		unwrap(castVeto({ db: w.db, groupId: w.group.id, roundId: round.id, memberId: ana, movieId: null }));
+		for (const pair of order) {
+			unwrap(
+				castPairVote({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: ana,
+					a: pair.a,
+					b: pair.b,
+					winner: pair.a
+				})
+			);
+		}
+		const finishedAt = rowFor()?.runoffSubmittedAt ?? null;
+		expect(finishedAt).not.toBeNull();
+
+		// Walk the whole deck again: keep most answers, flip the first one.
+		for (const [i, pair] of order.entries()) {
+			unwrap(
+				castPairVote({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: ana,
+					a: pair.a,
+					b: pair.b,
+					winner: i === 0 ? pair.b : pair.a
+				})
+			);
+		}
+
+		const mine = w.db
+			.select()
+			.from(pairVotes)
+			.where(and(eq(pairVotes.roundId, round.id), eq(pairVotes.memberId, ana)))
+			.all();
+		expect(mine.length).toBe(order.length);
+		const flipped = mine.find((row) => row.movieAId === order[0].a && row.movieBId === order[0].b);
+		expect(flipped?.winnerId).toBe(order[0].b);
+		const after = memberRunoffProgress({ db: w.db, round, memberId: ana });
+		expect(after.done).toBe(after.total);
+		expect(after.complete).toBe(true);
+		expect(rowFor()?.runoffSubmittedAt?.getTime()).toBe(finishedAt!.getTime());
+	});
+
 	test('each voter gets their own pair order, stable across reads', () => {
 		const { w, round } = runoffWorld();
 		world = w;
