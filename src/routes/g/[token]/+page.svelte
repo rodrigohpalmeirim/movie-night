@@ -268,8 +268,12 @@
 						<a href="/g/{token}/veto" class="font-semibold text-ink-soft underline"
 							>Change your veto</a
 						>
-						<a href="/g/{token}/pairs" class="font-semibold text-ink-soft underline"
-							>Change your picks</a
+						<!-- `?review` opens the pair deck at pair one with every answer
+						     already marked, so reviewing and changing are one door rather
+						     than two: a member steps through and re-taps only what they
+						     meant to change. -->
+						<a href="/g/{token}/pairs?review" class="font-semibold text-ink-soft underline"
+							>Review my picks</a
 						>
 					</div>
 				</div>

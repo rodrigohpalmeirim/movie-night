@@ -15,9 +15,26 @@
 	import Check from '$lib/icons/Check.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate } from '$lib/images.js';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
+
+	/**
+	 * Every field on this screen is a *current value*, not a blank to fill in, so a
+	 * successful save must leave the value on screen — never wipe the form.
+	 *
+	 * `use:enhance`'s default is `reset: true`, which calls `form.reset()`. That
+	 * restores each input's `defaultValue`, i.e. its `value` **content attribute** —
+	 * and Svelte sets `value` as a DOM *property*, so on a client-side navigation
+	 * (arriving here via the tab bar) the attribute was never written and every
+	 * field resets to empty. Even on a hydrated load it would restore the
+	 * pre-edit text. Either way the fields lie until a reload.
+	 *
+	 * So: keep the values, and let the (default) `invalidateAll` re-run `load` so
+	 * what stays on screen is what the server actually stored.
+	 */
+	const keepValues: SubmitFunction = () => async ({ update }) => update({ reset: false });
 
 	const inviteUrl = $derived(
 		`${typeof location === 'undefined' ? '' : location.origin}/g/${data.settings.inviteToken}`
@@ -104,7 +121,7 @@
 	</section>
 
 	<!-- ── Group name + knobs ────────────────────────────────────────── -->
-	<form method="POST" action="?/save" use:enhance class="space-y-5">
+	<form method="POST" action="?/save" use:enhance={keepValues} class="space-y-5">
 		<section class="tile space-y-3 px-3 py-3">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">The group</h3>
 			<div>
@@ -163,7 +180,7 @@
 			Members are never deleted — history refers to them.
 		</p>
 
-		<form method="POST" action="?/renameSelf" use:enhance>
+		<form method="POST" action="?/renameSelf" use:enhance={keepValues}>
 			<label for="display-name" class="field-label text-ink">Your display name</label>
 			<div class="flex gap-2">
 				<input
