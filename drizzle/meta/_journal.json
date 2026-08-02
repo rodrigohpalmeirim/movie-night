@@ -22,6 +22,13 @@
       "when": 1785409070928,
       "tag": "0002_veto_previous_value_and_case_fold",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785671278347,
+      "tag": "0003_movie_details",
+      "breakpoints": true
     }
   ]
 }

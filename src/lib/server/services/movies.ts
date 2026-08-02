@@ -131,6 +131,10 @@ export async function suggestMovie(input: {
 				year: detail.year,
 				runtimeMin: detail.runtimeMin,
 				posterPath: detail.posterPath,
+				// Same call, so the extras cost nothing extra: a film suggested today
+				// never needs the lazy backfill at all.
+				details: detail.details,
+				detailsFetchedAt: now,
 				suggestedBy: input.actorId,
 				addedAt: now,
 				status: 'pool'

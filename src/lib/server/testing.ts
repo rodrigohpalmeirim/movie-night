@@ -20,7 +20,8 @@ import {
 	type Group,
 	type GroupConfig,
 	type Member,
-	type Movie
+	type Movie,
+	type MovieDetails
 } from './db/index.js';
 import type { ActorContext } from './context.js';
 import { claimMember, createGroup } from './services/groups.js';
@@ -47,6 +48,8 @@ export interface SeedMovie {
 	suggestedBy?: string;
 	status?: Movie['status'];
 	watchedAt?: Date | null;
+	/** Left null by default: a seeded pool is a pool the backfill has not reached. */
+	details?: MovieDetails | null;
 }
 
 let tmdbCounter = 0;
@@ -136,6 +139,8 @@ export function createTestWorld(input: {
 					year: 2020,
 					runtimeMin: seed.runtimeMin === undefined ? 100 : seed.runtimeMin,
 					posterPath: `/${seed.title}.jpg`,
+					details: seed.details ?? null,
+					detailsFetchedAt: seed.details ? now : null,
 					suggestedBy: world.member(seed.suggestedBy ?? input.memberNames[0]).id,
 					addedAt: now,
 					status: seed.status ?? 'pool',
@@ -154,18 +159,32 @@ export function createTestWorld(input: {
  * `configured` is true here; the 503 path is exercised with a client that has no
  * API key at all.
  */
+export interface CatalogueEntry {
+	title: string;
+	runtime: number | null;
+	year?: number;
+	/**
+	 * Raw `append_to_response` blocks (`videos`, `credits`, `release_dates`)
+	 * merged into the detail payload, so a test can hand the extraction real
+	 * TMDB-shaped extras — or, by leaving it out, prove a bare payload is fine.
+	 */
+	extras?: Record<string, unknown>;
+}
+
 export function fakeTmdb(
-	catalogue: Record<number, { title: string; runtime: number | null; year?: number }>,
-	options: { failWith?: number } = {}
+	catalogue: Record<number, CatalogueEntry>,
+	options: { failWith?: number; onDetail?: (tmdbId: number) => void } = {}
 ): TmdbClient {
 	return new TmdbClient({
 		apiKey: 'test-key',
+		certCountry: 'PT',
 		fetchImpl: async (input) => {
 			const url = String(input);
 			if (options.failWith) return new Response('nope', { status: options.failWith });
 
 			const detail = url.match(/\/movie\/(\d+)/);
 			if (detail) {
+				options.onDetail?.(Number(detail[1]));
 				const entry = catalogue[Number(detail[1])];
 				if (!entry) return new Response('{}', { status: 404 });
 				return Response.json({
@@ -173,7 +192,8 @@ export function fakeTmdb(
 					title: entry.title,
 					release_date: `${entry.year ?? 2021}-05-01`,
 					poster_path: `/p${detail[1]}.jpg`,
-					runtime: entry.runtime
+					runtime: entry.runtime,
+					...entry.extras
 				});
 			}
 

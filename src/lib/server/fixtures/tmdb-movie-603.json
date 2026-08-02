@@ -1,0 +1,386 @@
+{
+	"id": 603,
+	"title": "The Matrix",
+	"release_date": "1999-03-31",
+	"poster_path": "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg",
+	"runtime": 136,
+	"tagline": "Believe the unbelievable.",
+	"overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+	"genres": [
+		{
+			"id": 28,
+			"name": "Action"
+		},
+		{
+			"id": 878,
+			"name": "Science Fiction"
+		}
+	],
+	"videos": {
+		"results": [
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "How KEANU REEVES prepared for THE MATRIX",
+				"key": "w-efbYj1YHA",
+				"site": "YouTube",
+				"size": 1080,
+				"type": "Featurette",
+				"official": true,
+				"id": "6a5232288f6851b82c66c30b",
+				"published_at": "2026-07-10T19:00:28.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "Why The Wachowskis Invented \"Bullet Time” for 'The Matrix'",
+				"key": "CF5bBZ2t130",
+				"site": "YouTube",
+				"size": 1080,
+				"type": "Featurette",
+				"official": true,
+				"id": "68f8cda9fa57a24031dbc45d",
+				"published_at": "2025-10-02T16:00:30.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "How ‘The Matrix’ Almost Didn’t Get Made!",
+				"key": "-_Rup7zDPGc",
+				"site": "YouTube",
+				"size": 1080,
+				"type": "Featurette",
+				"official": true,
+				"id": "68d58922f3632c88f469c5b5",
+				"published_at": "2025-09-25T16:00:01.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "Official 25th Anniversary Trailer #3",
+				"key": "FVI84Dfx2-I",
+				"site": "YouTube",
+				"size": 2160,
+				"type": "Trailer",
+				"official": true,
+				"id": "66ed9040beb947a007fe1096",
+				"published_at": "2024-09-17T17:49:33.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "25th Anniversary Spot",
+				"key": "H5Xwfk1Tugw",
+				"site": "YouTube",
+				"size": 2160,
+				"type": "Teaser",
+				"official": true,
+				"id": "66d0d50fea73a4fe1094189f",
+				"published_at": "2024-08-13T15:00:21.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "25th Anniversary Official Trailer",
+				"key": "d0XTFAMmhrE",
+				"site": "YouTube",
+				"size": 1080,
+				"type": "Trailer",
+				"official": true,
+				"id": "662fb6d1028f140122695715",
+				"published_at": "2024-04-26T11:43:36.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "Keanu Reeves on Reading the Script for THE MATRIX",
+				"key": "RMxEDx7tiBY",
+				"site": "YouTube",
+				"size": 720,
+				"type": "Featurette",
+				"official": true,
+				"id": "660bfec71495650163ba52bb",
+				"published_at": "2024-04-01T22:18:29.000Z"
+			},
+			{
+				"iso_639_1": "en",
+				"iso_3166_1": "US",
+				"name": "Official 4K Trailer",
+				"key": "nUEQNVV3Gfs",
+				"site": "YouTube",
+				"size": 2160,
+				"type": "Trailer",
+				"official": true,
+				"id": "6209f3530143257d582cd9d3",
+				"published_at": "2021-05-26T18:00:11.000Z"
+			}
+		]
+	},
+	"credits": {
+		"cast": [
+			{
+				"id": 6384,
+				"name": "Keanu Reeves",
+				"character": "Neo",
+				"order": 0,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 2975,
+				"name": "Laurence Fishburne",
+				"character": "Morpheus",
+				"order": 1,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 530,
+				"name": "Carrie-Anne Moss",
+				"character": "Trinity",
+				"order": 2,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 1331,
+				"name": "Hugo Weaving",
+				"character": "Agent Smith",
+				"order": 3,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 9364,
+				"name": "Gloria Foster",
+				"character": "Oracle",
+				"order": 4,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 532,
+				"name": "Joe Pantoliano",
+				"character": "Cypher",
+				"order": 5,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 9372,
+				"name": "Marcus Chong",
+				"character": "Tank",
+				"order": 6,
+				"known_for_department": "Acting"
+			},
+			{
+				"id": 7244,
+				"name": "Julian Arahanga",
+				"character": "Apoc",
+				"order": 7,
+				"known_for_department": "Acting"
+			}
+		],
+		"crew": [
+			{
+				"id": 1091,
+				"name": "Joel Silver",
+				"job": "Producer",
+				"department": "Production"
+			},
+			{
+				"id": 4949,
+				"name": "Don Davis",
+				"job": "Original Music Composer",
+				"department": "Sound"
+			},
+			{
+				"id": 9340,
+				"name": "Lana Wachowski",
+				"job": "Director",
+				"department": "Directing"
+			},
+			{
+				"id": 9339,
+				"name": "Lilly Wachowski",
+				"job": "Director",
+				"department": "Directing"
+			}
+		]
+	},
+	"release_dates": {
+		"results": [
+			{
+				"iso_3166_1": "DE",
+				"release_dates": [
+					{
+						"certification": "16",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-06-17T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "Re-release",
+						"release_date": "2003-05-29T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "16",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-11-25T00:00:00.000Z",
+						"type": 5
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "4K UHD",
+						"release_date": "2018-05-24T00:00:00.000Z",
+						"type": 5
+					}
+				]
+			},
+			{
+				"iso_3166_1": "FR",
+				"release_dates": [
+					{
+						"certification": "TP",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-06-23T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "en",
+						"note": "Mondes possibles : la science-fiction sur grand écran, Institut Lumière, Lyon",
+						"release_date": "2026-06-21T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "en",
+						"note": "Mondes possibles : la science-fiction sur grand écran, Institut Lumière, Lyon",
+						"release_date": "2026-06-27T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "en",
+						"note": "Mondes possibles : la science-fiction sur grand écran, Institut Lumière, Lyon",
+						"release_date": "2026-07-13T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "TP",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "VHS / DVD",
+						"release_date": "2000-03-23T00:00:00.000Z",
+						"type": 5
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "Canal+",
+						"release_date": "2001-03-19T00:00:00.000Z",
+						"type": 6
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "France 2",
+						"release_date": "2003-05-18T00:00:00.000Z",
+						"type": 6
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "fr",
+						"note": "Canal+ Grand Écran",
+						"release_date": "2026-04-04T00:00:00.000Z",
+						"type": 6
+					}
+				]
+			},
+			{
+				"iso_3166_1": "GB",
+				"release_dates": [
+					{
+						"certification": "15",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-06-11T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "15",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "Re-Release",
+						"release_date": "2021-12-03T00:00:00.000Z",
+						"type": 3
+					}
+				]
+			},
+			{
+				"iso_3166_1": "PT",
+				"release_dates": [
+					{
+						"certification": "M/12",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "Porto",
+						"release_date": "1999-06-09T00:00:00.000Z",
+						"type": 1
+					},
+					{
+						"certification": "M/12",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-06-25T00:00:00.000Z",
+						"type": 3
+					}
+				]
+			},
+			{
+				"iso_3166_1": "US",
+				"release_dates": [
+					{
+						"certification": "R",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "Westwood, California",
+						"release_date": "1999-03-24T00:00:00.000Z",
+						"type": 1
+					},
+					{
+						"certification": "R",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "",
+						"release_date": "1999-03-31T00:00:00.000Z",
+						"type": 3
+					},
+					{
+						"certification": "",
+						"descriptors": [],
+						"iso_639_1": "",
+						"note": "4K UHD",
+						"release_date": "2018-05-22T00:00:00.000Z",
+						"type": 5
+					}
+				]
+			}
+		]
+	}
+}

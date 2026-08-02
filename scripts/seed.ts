@@ -378,6 +378,16 @@ for (const fixture of FIXTURES) {
 	assert.equal(outcome.movie.posterPath, fixture.posterPath);
 }
 
+/**
+ * The offline fixtures have no extras to hand over, and an empty details blob
+ * counts as fetched — which would freeze the demo group with no taglines, no
+ * cast and no trailers forever. Leaving the rows as "never fetched" instead lets
+ * the lazy backfill pull the real thing from TMDB on the first read that needs
+ * it (these are real ids). With no API key configured nothing is fetched and the
+ * screens simply hide those sections, which is also worth seeing.
+ */
+db.update(movies).set({ details: null, detailsFetchedAt: null }).where(eq(movies.groupId, group.id)).run();
+
 const movieByTitle = (title: string): Movie => {
 	const found = db
 		.select()

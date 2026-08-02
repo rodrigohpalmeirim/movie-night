@@ -94,6 +94,30 @@ export const members = sqliteTable(
 export const MOVIE_STATUSES = ['pool', 'watched', 'removed'] as const;
 export type MovieStatus = (typeof MOVIE_STATUSES)[number];
 
+/**
+ * The richer TMDB facts, cached on the movie row as one JSON blob.
+ *
+ * One column rather than five: it is written as a unit by a single upstream
+ * call, read as a unit by the detail screen and the card back, and never
+ * queried by parts — the same reasoning that puts `standing_snapshot` on the
+ * round. Everything inside is nullable or empty-able, because TMDB has all of
+ * it for a blockbuster and none of it for a 1970s obscurity, and a missing
+ * field must render as an absent section rather than an error.
+ */
+export interface MovieDetails {
+	tagline: string | null;
+	overview: string | null;
+	/** Genre names, in TMDB's own order. */
+	genres: string[];
+	/** For $CERT_COUNTRY, falling back to US, then to whatever TMDB has. */
+	certification: string | null;
+	directors: string[];
+	/** Top billing, truncated — the card back has room for five names. */
+	cast: Array<{ name: string; character: string }>;
+	/** A YouTube video id, never a URL and never an embed. */
+	trailerKey: string | null;
+}
+
 export const movies = sqliteTable(
 	'movies',
 	{
@@ -107,6 +131,17 @@ export const movies = sqliteTable(
 		/** Feeds tiebreak rule 4 (shortest runtime); null when TMDB has none. */
 		runtimeMin: integer('runtime_min'),
 		posterPath: text('poster_path'),
+		/**
+		 * Cached TMDB extras. Null = never successfully fetched; the lazy backfill
+		 * fills it in on a later read.
+		 */
+		details: text('details', { mode: 'json' }).$type<MovieDetails>(),
+		/**
+		 * When the details call was last ATTEMPTED, successfully or not. A failed
+		 * attempt still stamps it, which is what stops a permanently-404ing film
+		 * from re-hitting TMDB on every single page load.
+		 */
+		detailsFetchedAt: integer('details_fetched_at', { mode: 'timestamp_ms' }),
 		suggestedBy: text('suggested_by')
 			.notNull()
 			.references(() => members.id),
