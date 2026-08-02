@@ -31,6 +31,24 @@ export function formatRuntime(runtimeMin: number | null): string {
 	return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
+/**
+ * The trailer link. A plain YouTube watch URL, opened in a new tab: app-spec
+ * allows exactly one third-party origin (`image.tmdb.org`), so a trailer is a
+ * link off the app and never an embedded player.
+ */
+export function trailerUrl(key: string | null | undefined): string | null {
+	if (!key) return null;
+	return `https://www.youtube.com/watch?v=${encodeURIComponent(key)}`;
+}
+
+/** "Action · Science Fiction · M/12" — whichever of the two the film has. */
+export function genreLine(
+	genres: string[] | null | undefined,
+	certification: string | null | undefined
+): string {
+	return [...(genres ?? []), ...(certification ? [certification] : [])].join(' · ');
+}
+
 export function formatDate(iso: string | null): string {
 	if (!iso) return '';
 	return new Date(iso).toLocaleDateString(undefined, {

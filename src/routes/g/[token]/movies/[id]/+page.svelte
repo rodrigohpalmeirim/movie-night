@@ -15,9 +15,10 @@
 	import VoteBadge from '$lib/components/VoteBadge.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import Check from '$lib/icons/Check.svelte';
+	import Play from '$lib/icons/Play.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
-	import { formatDate, movieMeta } from '$lib/images.js';
+	import { formatDate, movieMeta, trailerUrl } from '$lib/images.js';
 	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -29,6 +30,18 @@
 	);
 	const vote = $derived(
 		answer.value(form && 'myVote' in form && form.myVote ? form.myVote : data.myVote)
+	);
+
+	/**
+	 * Every extra is optional — TMDB has all of it for a blockbuster and none of
+	 * it for a 1970s obscurity, and a film whose details have not been fetched
+	 * yet has none of it either. Each section is therefore its own `{#if}`: an
+	 * absent fact prints nothing at all rather than an empty heading.
+	 */
+	const details = $derived(data.movie.details);
+	const trailer = $derived(trailerUrl(details?.trailerKey));
+	const hasNotes = $derived(
+		!!details && (!!details.overview || details.directors.length > 0 || details.cast.length > 0)
 	);
 </script>
 
@@ -61,9 +74,33 @@
 			</div>
 			<div class="min-w-0 flex-1">
 				<h2 class="display text-[1.4rem] leading-[1.06] text-ink">{data.movie.title}</h2>
+				{#if details?.tagline}
+					<!-- The line the poster itself would carry, set in the box-lid slab. -->
+					<p class="display mt-1.5 text-[0.8rem] leading-[1.25] text-ink-soft">{details.tagline}</p>
+				{/if}
 				<p class="stencil mt-1.5 text-[0.72rem] text-ink-soft uppercase">
 					{movieMeta(data.movie.year, data.movie.runtimeMin)}
 				</p>
+				{#if details && (details.genres.length > 0 || details.certification)}
+					<!-- Printed on the component: the rating in its own boxed plate, the
+					     genres as punched chips. -->
+					<div class="mt-2 flex flex-wrap items-center gap-1.5">
+						{#if details.certification}
+							<span
+								class="stencil rounded-[3px] border-2 border-ink px-1.5 pt-0.5 pb-px text-[0.66rem] leading-none font-semibold text-ink uppercase"
+							>
+								<span class="sr-only">Rated </span>{details.certification}
+							</span>
+						{/if}
+						{#each details.genres as genre (genre)}
+							<span
+								class="stencil rounded-full border border-ink/35 bg-board-shade/45 px-2 pt-0.5 pb-px text-[0.66rem] leading-none text-ink-soft uppercase"
+							>
+								{genre}
+							</span>
+						{/each}
+					</div>
+				{/if}
 				{#if data.movie.suggestedBy}
 					<p class="stencil text-[0.72rem] text-ink-soft uppercase">
 						Suggested by {data.movie.suggestedBy}
@@ -93,6 +130,16 @@
 			<TriangleAlert size={17} class="mt-px shrink-0" />
 			{form.message}
 		</p>
+	{/if}
+
+	{#if trailer}
+		<!-- A link off the table, not a screen embedded in it: the app talks to
+		     exactly one third-party origin (image.tmdb.org), so the trailer opens
+		     in YouTube's own tab and no player is loaded here. -->
+		<a href={trailer} target="_blank" rel="noopener" class="token token-lg token-brass w-full">
+			<Play size={16} />
+			Watch trailer<span class="sr-only"> for {data.movie.title} on YouTube (opens a new tab)</span>
+		</a>
 	{/if}
 
 	<section class="space-y-2.5">
@@ -129,6 +176,40 @@
 			</button>
 		</form>
 	</section>
+
+	{#if hasNotes && details}
+		<!-- The notes printed on the back of the card: what it is about, and whose
+		     names are on it. Text only — no headshots; this is a printed component,
+		     not a database record. -->
+		<section class="tile space-y-3 p-3.5">
+			{#if details.overview}
+				<div>
+					<h3 class="eyebrow text-ink-soft">The story</h3>
+					<p class="mt-1 text-sm leading-relaxed text-ink">{details.overview}</p>
+				</div>
+			{/if}
+			{#if details.directors.length > 0}
+				<div class="border-t-2 border-dashed border-board-shade pt-2.5">
+					<h3 class="eyebrow text-ink-soft">Directed by</h3>
+					<p class="mt-1 text-sm leading-snug text-ink">{details.directors.join(' & ')}</p>
+				</div>
+			{/if}
+			{#if details.cast.length > 0}
+				<div class="border-t-2 border-dashed border-board-shade pt-2.5">
+					<h3 class="eyebrow text-ink-soft">Starring</h3>
+					<ul class="mt-1 space-y-0.5 text-sm leading-snug text-ink">
+						{#each details.cast as person (person.name + person.character)}
+							<li>
+								{person.name}{#if person.character}<span class="text-ink-soft">
+										as {person.character}</span
+									>{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	{#if data.movie.status === 'pool'}
 		<form method="POST" action="?/remove" use:enhance>
