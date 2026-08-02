@@ -105,17 +105,26 @@ ok('journal mode is WAL', () =>
 const groupId = newId();
 db.insert(groups).values({ id: groupId, name: 'Movie Night', inviteToken: newInviteToken() }).run();
 
-// The column default is the literal frozen in 0000_init.sql, which predates the
-// removal of the `min_attendee_votes` eligibility floor and still carries that
-// key. No migration rewrites it: reads project the blob onto the current knobs,
-// so a leftover key is ignored rather than honoured, and the next settings save
-// drops it. What must hold is that the raw default still yields every current
-// knob at its documented value.
+// A config-less ORM insert gets DEFAULT_GROUP_CONFIG injected client-side by
+// drizzle's .default(), so the six-knob literal frozen in 0000_init.sql only
+// ever reaches rows written by raw SQL. Rows from before the removal of the
+// `min_attendee_votes` eligibility floor still carry that key, and no
+// migration rewrites them: reads project the blob onto the current knobs, so
+// a leftover key is ignored rather than honoured, and the next settings save
+// drops it.
 ok('group config defaults to all five knobs, ignoring retired keys', () => {
 	const row = db.select().from(groups).where(eq(groups.id, groupId)).get();
 	assert.deepEqual(withConfigDefaults(row?.config), DEFAULT_GROUP_CONFIG);
 	assert.equal(Object.keys(withConfigDefaults(row?.config)).length, 5);
-	assert.equal((row!.config as unknown as Record<string, unknown>).min_attendee_votes, 3);
+
+	const legacyId = newId();
+	db.run(
+		`INSERT INTO groups (id, name, invite_token) VALUES ('${legacyId}', 'Legacy', '${newInviteToken()}')`
+	);
+	const legacy = db.select().from(groups).where(eq(groups.id, legacyId)).get();
+	assert.equal((legacy!.config as unknown as Record<string, unknown>).min_attendee_votes, 3);
+	assert.deepEqual(withConfigDefaults(legacy?.config), DEFAULT_GROUP_CONFIG);
+	assert.equal('min_attendee_votes' in withConfigDefaults(legacy?.config), false);
 });
 
 const ana = newId();
