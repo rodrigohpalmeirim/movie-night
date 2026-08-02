@@ -200,8 +200,12 @@
 					<ul class="mt-1 space-y-0.5 text-sm leading-snug text-ink">
 						{#each details.cast as person (person.name + person.character)}
 							<li>
-								{person.name}{#if person.character}<span class="text-ink-soft">
-										as {person.character}</span
+								<!-- The separator is written OUT, as an expression: a space that is
+								     only ever leading whitespace inside the span is collapsed away
+								     by the compiler, which is what ran "Ryan Gosling" straight into
+								     "as K". `{' '}` is a text node, so it survives. -->
+								{person.name}{#if person.character}{' '}<span class="text-ink-soft"
+										>as {person.character}</span
 									>{/if}
 							</li>
 						{/each}
