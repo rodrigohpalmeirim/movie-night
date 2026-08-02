@@ -5,14 +5,16 @@ import { and, eq } from 'drizzle-orm';
 import { members, movies, standingVotes } from '$lib/server/db/index.js';
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
+import { backfillDetails } from '$lib/server/services/details.js';
 import { removeMovie, setStandingVote } from '$lib/server/services/movies.js';
+import { getTmdb } from '$lib/server/tmdb.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function reject(failure: Failure) {
 	return formFail(statusOf(failure), { code: failure.code, message: failure.message });
 }
 
-export const load: PageServerLoad = (event) => {
+export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
 	const row = actor.db
 		.select({ movie: movies, suggesterName: members.displayName })
@@ -31,6 +33,15 @@ export const load: PageServerLoad = (event) => {
 			)
 			.get()?.value ?? null;
 
+	// This screen is the one that prints all of it, so it is the read most worth
+	// backfilling: one film, one call, cached for everyone after.
+	const filled = await backfillDetails({
+		db: actor.db,
+		tmdb: getTmdb(),
+		movieIds: [row.movie.id],
+		now: actor.now
+	});
+
 	return {
 		token: event.params.token,
 		movie: {
@@ -42,7 +53,8 @@ export const load: PageServerLoad = (event) => {
 			status: row.movie.status,
 			addedAt: row.movie.addedAt.toISOString(),
 			watchedAt: row.movie.watchedAt?.toISOString() ?? null,
-			suggestedBy: row.suggesterName
+			suggestedBy: row.suggesterName,
+			details: filled.get(row.movie.id) ?? row.movie.details ?? null
 		},
 		/** Only ever the viewer's own vote. */
 		myVote

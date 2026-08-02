@@ -128,6 +128,22 @@ export async function backfillDetails(input: BackfillInput): Promise<Map<string,
 	return filled;
 }
 
+/**
+ * Folds a backfill's results into an already-serialised payload, so the read
+ * that paid for the fetch is also the read that serves it — nobody has to
+ * reload to see a tagline.
+ */
+export function mergeDetails<T extends { id: string; details: MovieDetails | null }>(
+	cards: T[],
+	filled: Map<string, MovieDetails>
+): T[] {
+	if (filled.size === 0) return cards;
+	return cards.map((card) => {
+		const details = filled.get(card.id);
+		return details ? { ...card, details } : card;
+	});
+}
+
 /** Test helper: the in-flight set is process-wide, so tests must be able to clear it. */
 export function clearDetailsInFlight(): void {
 	inFlight.clear();

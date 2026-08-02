@@ -10,7 +10,7 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { rounds } from './db/index.js';
+import { rounds, type MovieDetails } from './db/index.js';
 import { unwrap } from './result.js';
 import { removeMovie, setStandingVote } from './services/movies.js';
 import {
@@ -602,6 +602,35 @@ describe('pool view', () => {
 				.query<{ n: number }, [string]>('select count(*) as n from standing_votes where movie_id = ?')
 				.get(casino)?.n
 		).toBe(4);
+	});
+
+	test('the cached TMDB extras travel with the card, and a film without them serialises cleanly', () => {
+		// Public facts about a film, not an aggregate: they may ride any payload at
+		// any phase. What must NOT happen is a film the backfill has not reached
+		// serialising as a hole — the screens read `details === null` as "no
+		// sections", so the key has to be there and be null.
+		const details: MovieDetails = {
+			tagline: 'In space no one can hear you scream.',
+			overview: 'A commercial towing vehicle answers a distress call.',
+			genres: ['Horror', 'Science Fiction'],
+			certification: 'M/16',
+			directors: ['Ridley Scott'],
+			cast: [{ name: 'Sigourney Weaver', character: 'Ripley' }],
+			trailerKey: 'LjLamj-b0I8'
+		};
+		world = createTestWorld({
+			memberNames: MEMBERS,
+			movies: [{ title: 'Alien', details }, { title: 'Brazil' }]
+		});
+		const pool = buildPoolView({ db: world.db, group: world.group, me: world.member('Ana') });
+		const byTitle = new Map(pool.movies.map((movie) => [movie.title, movie]));
+		expect(byTitle.get('Alien')?.details).toEqual(details);
+		expect(byTitle.get('Brazil')?.details).toBeNull();
+		expect(Object.keys(byTitle.get('Brazil')!)).toContain('details');
+		// A round trip through JSON is what actually reaches the browser.
+		expect(JSON.parse(JSON.stringify(byTitle.get('Alien'))).details.cast[0].name).toBe('Sigourney Weaver');
+		// And none of it smuggles in an aggregate name.
+		assertNoAggregates(pool, 'the pool view with details');
 	});
 
 	test('a watched movie stays visible with its watched stamp', () => {

@@ -9,6 +9,7 @@
 import { fail as formFail, redirect } from '@sveltejs/kit';
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
+import { backfillDetails, mergeDetails } from '$lib/server/services/details.js';
 import { suggestMovie } from '$lib/server/services/movies.js';
 import { buildPoolView } from '$lib/server/services/views.js';
 import { suggestLimiter, tmdbSearchLimiter } from '$lib/server/ratelimit.js';
@@ -19,11 +20,23 @@ function reject(failure: Failure) {
 	return formFail(statusOf(failure), { code: failure.code, message: failure.message });
 }
 
-export const load: PageServerLoad = (event) => {
+export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
+	const pool = buildPoolView({ db: actor.db, group: actor.group, me: actor.member });
+
+	// Browsing the pool warms the same cache the deck and the detail screen read
+	// from, a few films at a time, so a group that predates the extras fills in
+	// as it is used rather than in one batch.
+	const filled = await backfillDetails({
+		db: actor.db,
+		tmdb: getTmdb(),
+		movieIds: pool.movies.map((movie) => movie.id),
+		now: actor.now
+	});
+
 	return {
 		token: event.params.token,
-		pool: buildPoolView({ db: actor.db, group: actor.group, me: actor.member }),
+		pool: { ...pool, movies: mergeDetails(pool.movies, filled) },
 		/** So the UI can explain a 503 before the member types anything. */
 		searchAvailable: getTmdb().configured
 	};

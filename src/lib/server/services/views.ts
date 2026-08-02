@@ -29,6 +29,7 @@ import {
 	type GroupConfig,
 	type Member,
 	type Movie,
+	type MovieDetails,
 	type Round,
 	type RoundState,
 	type StandingVoteValue,
@@ -66,6 +67,13 @@ export interface MovieCard {
 	addedAt: string;
 	status: Movie['status'];
 	watchedAt: string | null;
+	/**
+	 * The cached TMDB extras, or null while the backfill has yet to reach this
+	 * film. These are public facts about a movie — the same words TMDB shows
+	 * anyone — and touch no tally, so they carry no phase gate: what the card
+	 * back prints, the pool row and the reveal may print too.
+	 */
+	details: MovieDetails | null;
 }
 
 function memberRef(member: Member | undefined): MemberRef | null {
@@ -83,7 +91,8 @@ function movieCard(movie: Movie, byId: Map<string, Member>): MovieCard {
 		suggestedBy: memberRef(byId.get(movie.suggestedBy)),
 		addedAt: movie.addedAt.toISOString(),
 		status: movie.status,
-		watchedAt: movie.watchedAt?.toISOString() ?? null
+		watchedAt: movie.watchedAt?.toISOString() ?? null,
+		details: movie.details ?? null
 	};
 }
 
