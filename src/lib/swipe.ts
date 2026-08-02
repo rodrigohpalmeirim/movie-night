@@ -32,6 +32,15 @@ export const MIN_COMMIT_DISTANCE = 56;
 /** Ignore the first few pixels for the hint overlays: taps must not flash them. */
 export const HINT_DEAD_ZONE = 10;
 
+/**
+ * Travel that turns a press into a drag. Below it the gesture is still a tap, so
+ * the ⓘ corner, the trailer link and the buttons keep working; at it the card
+ * turns face up (the seal belongs on the poster) and the click that follows the
+ * release is swallowed. Smaller than `HINT_DEAD_ZONE`, so the card is already
+ * the right way round by the time any ink shows.
+ */
+export const TAP_SLOP = 6;
+
 /* ── velocity ───────────────────────────────────────────────────────── */
 
 /**

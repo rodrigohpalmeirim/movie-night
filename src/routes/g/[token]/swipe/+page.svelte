@@ -17,6 +17,13 @@
 	pressed onto: one object leaves the screen, never a stamp that unsticks itself
 	at the moment of release.
 
+	The card turns over. A ⓘ corner token flips it to a printed kraft back — what
+	the film is about, who is in it, and a link out to the trailer — and flips it
+	straight back. The flip never fights the gesture: the first few pixels of a
+	drag turn the card face up mid-drag, without interrupting it, so a vote is
+	always stamped onto the poster. Without JavaScript that corner is simply a
+	link to the movie's own page, which prints the same facts.
+
 	The cursor is *by movie id*, not by array position: the group's SSE stream
 	calls `invalidateAll()` on every write — including our own vote — so the
 	server-provided stack rebuilds mid-session, and a numeric index into it would
@@ -34,10 +41,12 @@
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import Check from '$lib/icons/Check.svelte';
+	import Info from '$lib/icons/Info.svelte';
+	import Play from '$lib/icons/Play.svelte';
 	import StampIcon from '$lib/icons/Stamp.svelte';
 	import Undo2 from '$lib/icons/Undo2.svelte';
 	import X from '$lib/icons/X.svelte';
-	import { movieMeta, posterUrl } from '$lib/images.js';
+	import { genreLine, movieMeta, posterUrl, trailerUrl } from '$lib/images.js';
 	import {
 		EXIT_EASE,
 		EXIT_MS,
@@ -46,6 +55,7 @@
 		PROMOTE_MS,
 		SPRING_EASE,
 		SPRING_MS,
+		TAP_SLOP,
 		commitProgress,
 		createVelocityTracker,
 		decideRelease,
@@ -79,6 +89,13 @@
 
 	let dragX = $state(0);
 	let dragging = $state(false);
+	/**
+	 * Which card is showing its back, BY MOVIE ID — like every other cursor on
+	 * this screen. That is what makes the flip reset itself when the deck
+	 * advances: the id stops matching the top card, so the next film always
+	 * arrives face up without anyone having to remember to clear a flag.
+	 */
+	let flippedId = $state<string | null>(null);
 	let cardWidth = $state(0);
 	let reduceMotion = $state(false);
 	/** Describes the vote currently being posted; the form reads only this. */
@@ -88,6 +105,24 @@
 	// Plain locals: the gesture reads them every pointermove, nothing renders them.
 	let pointerId: number | null = null;
 	let startX = 0;
+	/**
+	 * Has this gesture travelled far enough to be a drag rather than a tap?
+	 * Deliberately NOT state: it decides what a release means, and nothing
+	 * renders it.
+	 */
+	let dragMoved = false;
+	/**
+	 * The control inside the card the press landed on, if any.
+	 *
+	 * The card captures the pointer for the length of a drag, and a captured
+	 * pointer's click is dispatched at the CAPTURING element — so a tap on a link
+	 * inside the card cannot be relied upon to reach that link at all. Taps are
+	 * therefore resolved here, on release, from where the press started: it is the
+	 * only place that knows both what was pressed and whether the finger then
+	 * dragged. Pointer clicks are cancelled in the handler below so a browser that
+	 * does deliver them cannot act a second time.
+	 */
+	let tapTarget: HTMLAnchorElement | null = null;
 	const velocity = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
 
@@ -149,6 +184,9 @@
 		const card = current;
 		if (!card) return;
 
+		// A vote is stamped on the artwork, so a card never leaves back-first. The
+		// gesture has usually flipped it already; this covers the buttons and keys.
+		flippedId = null;
 		pending = { movieId: card.id, value };
 		// Hand the card to the exit layer *before* the cursor moves, so the keyed
 		// `each` sees it move slot rather than disappear: same DOM node, poster
@@ -193,6 +231,8 @@
 		if (!event.isPrimary || pointerId !== null || card.id !== current?.id) return;
 		pointerId = event.pointerId;
 		dragging = true;
+		dragMoved = false;
+		tapTarget = (event.target as HTMLElement | null)?.closest('a[data-card-tap]') ?? null;
 		startX = event.clientX;
 		dragX = 0;
 		velocity.reset(event.clientX, event.timeStamp);
@@ -204,19 +244,34 @@
 		// clientX against the down position, not movementX: no accumulated drift.
 		dragX = event.clientX - startX;
 		velocity.sample(event.clientX, event.timeStamp);
+		if (!dragMoved && Math.abs(dragX) >= TAP_SLOP) {
+			dragMoved = true;
+			// The thumb has started a vote: turn the card face up under it, without
+			// touching the drag. `dragX` is untouched, the pointer is still captured,
+			// and the same gesture carries straight on to its commit — the poster
+			// simply arrives in time to be stamped.
+			flippedId = null;
+		}
 	}
 
 	function onPointerUp(event: PointerEvent) {
 		if (event.pointerId !== pointerId) return;
 		pointerId = null;
 		dragging = false;
+		const tapped = tapTarget;
+		tapTarget = null;
 		const choice = decideRelease({
 			dx: dragX,
 			vx: velocity.velocity(event.timeStamp),
 			width: cardWidth
 		});
-		if (choice) commit(choice);
-		else dragX = 0; // springs back
+		if (choice) {
+			commit(choice);
+			return;
+		}
+		dragX = 0; // springs back
+		// It never travelled: it was a tap on something, so do what that something says.
+		if (!dragMoved && tapped) activateCardTap(tapped);
 	}
 
 	function onPointerCancel(event: PointerEvent) {
@@ -225,6 +280,7 @@
 		// turn that into a vote.
 		pointerId = null;
 		dragging = false;
+		tapTarget = null;
 		dragX = 0;
 	}
 
@@ -237,7 +293,10 @@
 		if (target?.isContentEditable) return;
 		if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
 
-		if (event.key === 'ArrowRight') commit('yes');
+		// Escape turns a card that is showing its back face up again — the same
+		// thing the corner token does, from the keyboard.
+		if (event.key === 'Escape' && flippedId !== null) flippedId = null;
+		else if (event.key === 'ArrowRight') commit('yes');
 		else if (event.key === 'ArrowLeft') commit('no');
 		else if (event.key === 'u' || event.key === 'U') undo();
 		else return;
@@ -273,6 +332,47 @@
 		if (entry.depth > 0) return 'transform:translate3d(0px,0,0) rotate(0deg)';
 		const spring = dragging || reduceMotion ? 'none' : `transform ${SPRING_MS}ms ${SPRING_EASE}`;
 		return `transform:translate3d(${dragX.toFixed(1)}px,0,0) rotate(${rotation.toFixed(2)}deg);transition:${spring};will-change:transform`;
+	}
+
+	/* ── the flip ─────────────────────────────────────────────────── */
+	/** Only the top card, and never one already flying away, can show its back. */
+	function facingBack(entry: Entry): boolean {
+		return entry.exit === null && entry.depth === 0 && flippedId === entry.card.id;
+	}
+
+	function flip(movieId: string) {
+		flippedId = flippedId === movieId ? null : movieId;
+	}
+
+	/** A tap that landed on one of the card's own links, resolved on release. */
+	function activateCardTap(link: HTMLAnchorElement) {
+		if (link.dataset.cardTap === 'flip') flip(link.dataset.movieId ?? '');
+		// The trailer opens exactly as the markup promises — the anchor's own href,
+		// a new tab, no opener — just driven from here rather than from a click the
+		// pointer capture may have eaten.
+		else if (link.dataset.cardTap === 'trailer') window.open(link.href, '_blank', 'noopener');
+	}
+
+	/**
+	 * The click side of the same two links.
+	 *
+	 * A KEYBOARD activation (`detail === 0`: no coordinates, no gesture) is the
+	 * one click that has to act on its own — and the ⓘ, which is a link to the
+	 * film's own page for the no-JavaScript case, flips in place instead once
+	 * JavaScript is running. A POINTER click is only ever the tail of a gesture
+	 * already handled on release, so it is cancelled.
+	 */
+	function onCardTapClick(event: MouseEvent, card: Card) {
+		const link = event.currentTarget as HTMLAnchorElement;
+		if (event.detail !== 0) {
+			event.preventDefault();
+			return;
+		}
+		if (link.dataset.cardTap === 'flip') {
+			event.preventDefault();
+			flip(card.id);
+		}
+		// The trailer link is left alone: from the keyboard it is simply a link.
 	}
 
 	/** Stamp/tint strength for a layer: full on a committed card, live on the top one. */
@@ -320,6 +420,73 @@
 			opacity={no}
 			scale={0.82 + 0.18 * no}
 		/>
+	</div>
+{/snippet}
+
+<!--
+	The printed back of the card: kraft stock, stencil header, ink body. Same
+	facts the movie's own page prints, cut down to what fits on a component you
+	hold in one hand — so the overview is clamped rather than scrolled (a
+	scrolling panel inside a swipe target fights the gesture) and the cast is a
+	line of names rather than a table.
+-->
+{#snippet back(card: Card, showing: boolean)}
+	{@const trailer = trailerUrl(card.details?.trailerKey)}
+	<div class="flex h-full w-full flex-col bg-board p-3 text-ink">
+		<h3 class="stencil pr-9 text-[0.8rem] leading-[1.15] font-semibold text-ink uppercase">
+			{card.title}
+		</h3>
+		{#if card.details?.tagline}
+			<p class="display mt-1 line-clamp-2 text-[0.7rem] leading-[1.2] text-ink-soft">
+				{card.details.tagline}
+			</p>
+		{/if}
+
+		<div class="mt-2 min-h-0 flex-1">
+			{#if card.details?.overview}
+				<p class="line-clamp-6 text-[0.76rem] leading-snug text-ink">{card.details.overview}</p>
+			{:else}
+				<p class="text-[0.76rem] leading-snug text-ink-soft">
+					Nothing printed on the back of this one.
+				</p>
+			{/if}
+		</div>
+
+		{#if card.details && (card.details.directors.length > 0 || card.details.cast.length > 0)}
+			<dl class="mt-2 space-y-1 border-t-2 border-dashed border-board-shade pt-2">
+				{#if card.details.directors.length > 0}
+					<div>
+						<dt class="eyebrow text-[0.6rem] text-ink-soft">Directed by</dt>
+						<dd class="line-clamp-1 text-[0.74rem] leading-snug">
+							{card.details.directors.join(' & ')}
+						</dd>
+					</div>
+				{/if}
+				{#if card.details.cast.length > 0}
+					<div>
+						<dt class="eyebrow text-[0.6rem] text-ink-soft">Starring</dt>
+						<dd class="line-clamp-2 text-[0.74rem] leading-snug">
+							{card.details.cast.map((person) => person.name).join(', ')}
+						</dd>
+					</div>
+				{/if}
+			</dl>
+		{/if}
+
+		{#if trailer}
+			<a
+				href={trailer}
+				target="_blank"
+				rel="noopener"
+				data-card-tap="trailer"
+				onclick={(event) => onCardTapClick(event, card)}
+				tabindex={showing ? undefined : -1}
+				class="token token-sm token-brass mt-2.5 w-full {showing ? '' : 'pointer-events-none'}"
+			>
+				<Play size={13} />
+				Watch trailer<span class="sr-only"> for {card.title} on YouTube (opens a new tab)</span>
+			</a>
+		{/if}
 	</div>
 {/snippet}
 
@@ -400,6 +567,7 @@
 			<div class="relative mx-auto aspect-[2/3] w-full max-w-[16.5rem]" bind:clientWidth={cardWidth}>
 				{#each entries as entry (entry.card.id)}
 					{@const hint = hints(entry)}
+					{@const showing = facingBack(entry)}
 					<div class="absolute inset-0" style={layerStyle(entry)}>
 						<!--
 							The card is not a control — the buttons below are, and the arrow
@@ -426,10 +594,57 @@
 							aria-hidden={entry.exit !== null || entry.depth > 0}
 							role="presentation"
 						>
+							<!--
+								The artwork frame doubles as the flip's stage: it holds the
+								perspective and the clipping, and the two faces turn inside it.
+								A committed card gets no flip transition — it snaps face up as
+								it leaves, so the seal is on the poster from the first frame.
+							-->
 							<div
-								class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep"
+								class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep [perspective:900px]"
 							>
-								{@render face(entry.card, hint.yes, hint.no)}
+								<div
+									class="card-flip absolute inset-0 {showing ? 'is-flipped' : ''}"
+									style={entry.exit ? 'transition:none' : ''}
+								>
+									<div class="card-face absolute inset-0" aria-hidden={showing}>
+										{@render face(entry.card, hint.yes, hint.no)}
+									</div>
+									{#if entry.exit === null && entry.depth === 0}
+										<div
+											class="card-face card-face-back absolute inset-0 overflow-hidden"
+											aria-hidden={!showing}
+										>
+											{@render back(entry.card, showing)}
+										</div>
+									{/if}
+								</div>
+								{#if entry.exit === null && entry.depth === 0}
+									<!--
+										One corner token, two jobs: turn the card over, and turn it
+										back. It sits OUTSIDE the turning container, so it never
+										rotates away from the thumb — only its icon changes. With no
+										JavaScript it is what it looks like: a link to the film.
+									-->
+									<a
+										href="/g/{data.token}/movies/{entry.card.id}"
+										data-card-tap="flip"
+										data-movie-id={entry.card.id}
+										onclick={(event) => onCardTapClick(event, entry.card)}
+										class="token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0"
+									>
+										{#if showing}
+											<X size={15} />
+										{:else}
+											<Info size={15} />
+										{/if}
+										<span class="sr-only">
+											{showing
+												? `Turn ${entry.card.title} back over`
+												: `What is ${entry.card.title} about?`}
+										</span>
+									</a>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -443,6 +658,13 @@
 						{movieMeta(current.year, current.runtimeMin)}
 						{#if current.suggestedBy}· suggested by {current.suggestedBy.displayName}{/if}
 					</p>
+					{#if genreLine(current.details?.genres, current.details?.certification)}
+						<!-- What the shelf label would say. Quiet: it informs the swipe, it
+						     is not the swipe. -->
+						<p class="stencil mt-0.5 text-[0.68rem] text-chalk-dim/80 uppercase">
+							{genreLine(current.details?.genres, current.details?.certification)}
+						</p>
+					{/if}
 				</div>
 
 				<!-- Always-visible tokens: the accessible and desktop path. -->
@@ -484,5 +706,33 @@
 	.swipe-card :global(img) {
 		-webkit-user-drag: none;
 		user-select: none;
+	}
+
+	/*
+		Turning the card over: one two-faced container inside the artwork frame,
+		rotated about its vertical axis. Each face hides its own back, so the two
+		never show through each other, and the frame above supplies the
+		perspective — put it on the rotating element itself and the turn reads flat.
+
+		Under prefers-reduced-motion the global block in app.css zeroes every
+		transition duration, which turns this into exactly what it should be: an
+		instant swap between two faces, with no rotation to sit through.
+	*/
+	.card-flip {
+		transform-style: preserve-3d;
+		transition: transform 420ms cubic-bezier(0.2, 0.7, 0.3, 1);
+	}
+
+	.card-flip.is-flipped {
+		transform: rotateY(180deg);
+	}
+
+	.card-face {
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+	}
+
+	.card-face-back {
+		transform: rotateY(180deg);
 	}
 </style>
