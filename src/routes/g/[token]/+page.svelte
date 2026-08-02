@@ -23,6 +23,7 @@
 	import Dice5 from '$lib/icons/Dice5.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate, formatStampDate, movieMeta } from '$lib/images.js';
+	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
@@ -31,6 +32,14 @@
 	const round = $derived(data.round);
 	const me = $derived(round?.me);
 	const revealed = $derived(round?.reveal ?? null);
+
+	/**
+	 * My own RSVP, latched optimistically: the ticket's two tokens are one
+	 * control group, so pressing either one latches it and raises the other
+	 * immediately instead of after the round trip.
+	 */
+	const rsvp = createLatch<boolean | null>((data) => data.get('attending') === 'true');
+	const myAttending = $derived(rsvp.value(me?.attending ?? null));
 
 	const waitingCount = $derived(data.unsubmittedAttendeeIds.length);
 	const myRunoffStep = $derived(
@@ -111,31 +120,32 @@
 			<div class="perf"></div>
 			<div class="ticket-bottom px-3 pt-0.5 pb-3">
 			<p class="mb-2.5 text-base font-semibold text-ink">Are you in?</p>
-			<form method="POST" action="?/rsvp" use:enhance class="flex gap-2.5">
+			<form method="POST" action="?/rsvp" use:enhance={rsvp.submit} class="flex gap-2.5">
 				<input type="hidden" name="round_id" value={round.id} />
 				<input type="hidden" name="member_id" value={me?.memberId} />
 				<!-- Your standing, as two latched buttons: the one that is true is held
 				     down and inked, the other stays raised. The pressed silhouette is
 				     the indicator, so neither one needs a tick — and nothing shifts
-				     sideways when you change your mind. -->
+				     sideways when you change your mind. Latched from the optimistic
+				     value, so the press holds through the round trip. -->
 				<button
 					name="attending"
 					value="true"
-					aria-pressed={me?.attending === true}
-					class="token flex-1 {me?.attending === true ? 'token-jade token-latched' : ''}"
+					aria-pressed={myAttending === true}
+					class="token flex-1 {myAttending === true ? 'token-jade token-latched' : ''}"
 				>
 					I'm in
 				</button>
 				<button
 					name="attending"
 					value="false"
-					aria-pressed={me?.attending === false}
-					class="token flex-1 {me?.attending === false ? 'token-cherry token-latched' : ''}"
+					aria-pressed={myAttending === false}
+					class="token flex-1 {myAttending === false ? 'token-cherry token-latched' : ''}"
 				>
 					Can't make it
 				</button>
 			</form>
-			{#if me?.attending === null}
+			{#if myAttending === null}
 				<p class="mt-2.5 text-xs leading-relaxed text-ink-soft">
 					Nobody is counted as attending until they say so — your swipes only shape the night if
 					you're in.

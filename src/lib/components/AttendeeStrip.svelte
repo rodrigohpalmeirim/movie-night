@@ -17,6 +17,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Stamp from '$lib/components/Stamp.svelte';
+	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ParticipantView } from '$lib/server/services/views.js';
 
 	let {
@@ -53,6 +54,18 @@
 
 	const chip =
 		'stencil shrink-0 rounded border-2 px-1.5 py-px text-[0.68rem] font-semibold uppercase tracking-[0.08em]';
+
+	/**
+	 * One control group per person — each row posts its own form, so marking Ana
+	 * must not disturb a tap on Ben still in flight. The row's own standing is
+	 * drawn from the pending value while there is one; the summary and the
+	 * "waiting on" line stay on server truth, because they are the group's
+	 * count rather than this row's press.
+	 */
+	const rsvp = createLatch<boolean | null>(
+		(data) => data.get('attending') === 'true',
+		(data) => String(data.get('member_id'))
+	);
 </script>
 
 <section class="space-y-2.5">
@@ -76,7 +89,11 @@
 	     and only genuinely new members get dealt. -->
 	<ul class="tile divide-y-2 divide-dashed divide-board-shade">
 		{#each participants as person, i (person.memberId)}
-			{@const proxied = !!person.markedBy && person.markedBy.id !== person.memberId}
+			{@const attending = rsvp.value(person.attending, person.memberId)}
+			{@const proxied =
+				!rsvp.isPending(person.memberId) &&
+				!!person.markedBy &&
+				person.markedBy.id !== person.memberId}
 			<li class="deal-in flex items-center gap-2 px-3 py-2.5" style="--deal:{i}">
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-sm font-medium text-ink">
@@ -90,23 +107,23 @@
 						only appears when it has something the token cannot carry: no answer
 						yet, who set a proxy RSVP, or the runoff progress.
 					-->
-					{#if !editable || person.attending === null || proxied || (showProgress && person.attending)}
+					{#if !editable || attending === null || proxied || (showProgress && attending)}
 						<p class="stencil text-[0.7rem] tracking-[0.02em] text-ink-soft">
-							{#if person.attending === null}
+							{#if attending === null}
 								No answer yet
-							{:else if person.attending}
+							{:else if attending}
 								In{#if proxied} — marked by {person.markedBy?.displayName}{/if}
 							{:else}
 								Out{#if proxied} — marked by {person.markedBy?.displayName}{/if}
 							{/if}
-							{#if showProgress && person.attending}
+							{#if showProgress && attending}
 								· {person.submitted ? 'voted' : 'not voted yet'}
 							{/if}
 						</p>
 					{/if}
 				</div>
 
-				{#if showProgress && person.submitted && person.attending}
+				{#if showProgress && person.submitted && attending}
 					<!-- A finished ballot gets stamped, in the app's one seal grammar and
 					     at the pool list's compact size — the same object the runoff's own
 					     "you're done" card and the pairs screen already print. Nothing
@@ -119,24 +136,25 @@
 				{/if}
 
 				{#if editable}
-					<form method="POST" action="?/rsvp" use:enhance class="flex shrink-0 gap-1.5">
+					<form method="POST" action="?/rsvp" use:enhance={rsvp.submit} class="flex shrink-0 gap-1.5">
 						<input type="hidden" name="round_id" value={roundId} />
 						<input type="hidden" name="member_id" value={person.memberId} />
 						<!-- Latched, exactly like the round screen's own RSVP pair: whichever
-						     standing is true is held down and inked, the other stays raised. -->
+						     standing is true is held down and inked, the other stays raised —
+						     from the moment of the press, not the moment the server answers. -->
 						<button
 							name="attending"
 							value="true"
-							aria-pressed={person.attending === true}
-							class="token token-sm {person.attending === true ? 'token-jade token-latched' : ''}"
+							aria-pressed={attending === true}
+							class="token token-sm {attending === true ? 'token-jade token-latched' : ''}"
 						>
 							In<span class="sr-only"> — mark {person.displayName} as attending</span>
 						</button>
 						<button
 							name="attending"
 							value="false"
-							aria-pressed={person.attending === false}
-							class="token token-sm {person.attending === false ? 'token-cherry token-latched' : ''}"
+							aria-pressed={attending === false}
+							class="token token-sm {attending === false ? 'token-cherry token-latched' : ''}"
 						>
 							Out<span class="sr-only"> — mark {person.displayName} as not attending</span>
 						</button>
@@ -144,14 +162,14 @@
 				{:else}
 					<!-- RSVPs are closed: the standing is a stamp, not a control. -->
 					<span
-						class="{chip} {person.attending === true
+						class="{chip} {attending === true
 							? 'border-ink bg-jade text-ink'
-							: person.attending === false
+							: attending === false
 								? 'border-ink bg-ink text-board'
 								: 'border-dashed border-ink-soft text-ink-soft'}"
 						aria-hidden="true"
 					>
-						{person.attending === true ? 'in' : person.attending === false ? 'out' : 'no answer'}
+						{attending === true ? 'in' : attending === false ? 'out' : 'no answer'}
 					</span>
 				{/if}
 			</li>

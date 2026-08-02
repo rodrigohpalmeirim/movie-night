@@ -18,10 +18,18 @@
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { formatDate, movieMeta } from '$lib/images.js';
+	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
-	const vote = $derived(form && 'myVote' in form && form.myVote ? form.myVote : data.myVote);
+
+	/** The answer pair is one control group: pressing one raises the other now. */
+	const answer = createLatch<'yes' | 'no' | null>((body) =>
+		body.get('value') === 'yes' ? 'yes' : 'no'
+	);
+	const vote = $derived(
+		answer.value(form && 'myVote' in form && form.myVote ? form.myVote : data.myVote)
+	);
 </script>
 
 <div class="space-y-5">
@@ -98,8 +106,9 @@
 		     answer is held down and inked, the other stays raised and pressable.
 		     Same pair, same order and same inks as the swipe screen — but there the
 		     buttons fire a one-off vote on the card in front of you, so there they
-		     spring back. -->
-		<form method="POST" action="?/vote" use:enhance class="flex gap-3">
+		     spring back. The latch is optimistic, so a slow answer from the server
+		     never lets the press up and back down again. -->
+		<form method="POST" action="?/vote" use:enhance={answer.submit} class="flex gap-3">
 			<button
 				name="value"
 				value="no"

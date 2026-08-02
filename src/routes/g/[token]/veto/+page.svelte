@@ -19,12 +19,14 @@
 	person who genuinely cannot watch horror spends one tap instead of five.
 -->
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import Poster from '$lib/components/Poster.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import Ban from '$lib/icons/Ban.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatRuntime } from '$lib/images.js';
+	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
@@ -33,12 +35,18 @@
 	const me = $derived(round.me);
 	const prefilled = $derived(me.myVetoMovieId ?? me.vetoPrefillMovieId ?? '');
 	/**
-	 * Only the submit button's wording and ink read this — the rows latch off
-	 * their own radio in CSS. Initialised once from the server's pre-fill, then
-	 * the member drives it.
+	 * The rows latch off their own radio in CSS, so `bind:group` IS the latch
+	 * here — anything that writes to it mid-flight pops the marked row back up.
+	 * Which is what the pre-fill sync would do: submitting invalidates `load`
+	 * (and so does anyone else's action arriving over SSE), and a new server
+	 * pre-fill would then overwrite the member's own choice while their POST is
+	 * still travelling. So the sync only runs when nothing is in flight — the
+	 * latch stays where the finger left it and the reconcile happens after.
 	 */
 	let selected = $state('');
+	const submission = createLatch<string>((body) => String(body.get('movie_id') ?? ''));
 	$effect(() => {
+		if (submission.isPending()) return;
 		selected = prefilled;
 	});
 
@@ -94,7 +102,7 @@
 		</p>
 	{/if}
 
-	<form method="POST" action="?/submit" class="space-y-4">
+	<form method="POST" action="?/submit" use:enhance={submission.submit} class="space-y-4">
 		<input type="hidden" name="round_id" value={round.id} />
 
 		<fieldset class="space-y-2.5">
