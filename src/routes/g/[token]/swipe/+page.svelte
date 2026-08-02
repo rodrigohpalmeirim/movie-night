@@ -17,9 +17,12 @@
 	pressed onto: one object leaves the screen, never a stamp that unsticks itself
 	at the moment of release.
 
-	The card turns over. A ⓘ corner token flips it to a printed kraft back — what
-	the film is about, who is in it, and a link out to the trailer — and flips it
-	straight back. The flip never fights the gesture: the first few pixels of a
+	The WHOLE card turns over — stock, edge and all, one object rotating about its
+	vertical axis, not a panel swapped inside a frame. A ⓘ token in the corner of
+	the face turns it to a printed kraft back — what the film is about, who is in
+	it, and a link out to the trailer — and a matching token in the back's own
+	header turns it face up again. The flip never fights the gesture: it rides a
+	layer inside the element the drag transforms, and the first few pixels of a
 	drag turn the card face up mid-drag, without interrupting it, so a vote is
 	always stamped onto the poster. Without JavaScript that corner is simply a
 	link to the movie's own page, which prints the same facts.
@@ -98,6 +101,19 @@
 	let flippedId = $state<string | null>(null);
 	let cardWidth = $state(0);
 	let reduceMotion = $state(false);
+	/**
+	 * How much room the back's synopsis actually has, and how tall one of its
+	 * lines is — both measured, never assumed. The back is a flex column: the
+	 * header, the credits and the trailer button take what they need and the
+	 * synopsis box takes the rest, so the only honest clamp is that box's height
+	 * in whole lines. Measuring it is what stops the overview from stopping short
+	 * of the bottom of the card on a tall phone, or being sliced mid-line on a
+	 * short one — and it keeps the print CUT rather than scrolled, because a
+	 * scrolling panel inside a swipe target fights the gesture.
+	 */
+	let overviewBoxHeight = $state(0);
+	let overviewLineHeight = $state(0);
+	let overviewEl = $state<HTMLParagraphElement | null>(null);
 	/** Describes the vote currently being posted; the form reads only this. */
 	let pending = $state<{ movieId: string; value: SwipeChoice }>({ movieId: '', value: 'yes' });
 	let form = $state<HTMLFormElement | undefined>(undefined);
@@ -137,6 +153,18 @@
 	const total = $derived(answered.length + queue.length);
 	const position = $derived(Math.min(answered.length + 1, total));
 
+	/**
+	 * The clamp the back's overview actually gets: as many whole lines as fit the
+	 * space left for it. Falls back to six — what the markup ships with, so the
+	 * server-rendered card and the first client frame agree — until the box has
+	 * been measured.
+	 */
+	const overviewLines = $derived(
+		overviewBoxHeight > 0 && overviewLineHeight > 0
+			? Math.max(1, Math.floor(overviewBoxHeight / overviewLineHeight))
+			: 6
+	);
+
 	const progress = $derived(commitProgress(dragX, cardWidth));
 	const rotation = $derived(rotationFor(dragX, cardWidth));
 	const yesHint = $derived(dragX > 0 ? stampOpacity(progress) : 0);
@@ -162,6 +190,17 @@
 			image.decoding = 'async';
 			image.src = url;
 		}
+	});
+
+	// The synopsis's line box, read off the paragraph itself rather than derived
+	// from a font size written down twice. Re-read whenever the box resizes: the
+	// reader's own text scaling moves the card and the line together.
+	$effect(() => {
+		const el = overviewEl;
+		void overviewBoxHeight;
+		if (!el) return;
+		const measured = parseFloat(getComputedStyle(el).lineHeight);
+		if (measured > 0) overviewLineHeight = measured;
 	});
 
 	$effect(() => {
@@ -429,22 +468,59 @@
 	hold in one hand — so the overview is clamped rather than scrolled (a
 	scrolling panel inside a swipe target fights the gesture) and the cast is a
 	line of names rather than a table.
+
+	It is laid out as a column with FIXED ENDS and one elastic middle: the header
+	and the credits/trailer block take exactly what they need, and the synopsis
+	takes everything left over. Nothing here can be pushed off the card, and
+	nothing leaves a strip of blank kraft under the last line of print.
 -->
 {#snippet back(card: Card, showing: boolean)}
 	{@const trailer = trailerUrl(card.details?.trailerKey)}
 	<div class="flex h-full w-full flex-col bg-board p-3 text-ink">
-		<h3 class="stencil pr-9 text-[0.8rem] leading-[1.15] font-semibold text-ink uppercase">
-			{card.title}
-		</h3>
-		{#if card.details?.tagline}
-			<p class="display mt-1 line-clamp-2 text-[0.7rem] leading-[1.2] text-ink-soft">
-				{card.details.tagline}
-			</p>
-		{/if}
+		<!--
+			The way back is a slot in the header row, not a token floating over the
+			print: it has its own column beside the title, so it cannot come down on
+			the trailer button at the foot of the card — or on the title — at any
+			width. The ⓘ that turned the card over lives in the opposite corner, on
+			the face, where nothing else is printed.
+		-->
+		<div class="flex shrink-0 items-start gap-2">
+			<div class="min-w-0 flex-1">
+				<h3 class="stencil text-[0.8rem] leading-[1.15] font-semibold text-ink uppercase">
+					{card.title}
+				</h3>
+				{#if card.details?.tagline}
+					<p class="display mt-1 line-clamp-2 text-[0.7rem] leading-[1.2] text-ink-soft">
+						{card.details.tagline}
+					</p>
+				{/if}
+			</div>
+			<a
+				href="/g/{data.token}/movies/{card.id}"
+				data-card-tap="flip"
+				data-movie-id={card.id}
+				onclick={(event) => onCardTapClick(event, card)}
+				tabindex={showing ? undefined : -1}
+				class="card-corner token token-sm relative h-8 w-8 shrink-0 rounded-full p-0 {showing
+					? ''
+					: 'pointer-events-none'}"
+			>
+				<X size={15} />
+				<span class="sr-only">Turn {card.title} back over</span>
+			</a>
+		</div>
 
-		<div class="mt-2 min-h-0 flex-1">
+		<!-- The elastic middle. `overflow-hidden` is the hard stop: whatever the
+		     clamp misses by a pixel is cut, never scrolled. -->
+		<div class="mt-2 min-h-0 flex-1 overflow-hidden" bind:clientHeight={overviewBoxHeight}>
 			{#if card.details?.overview}
-				<p class="line-clamp-6 text-[0.76rem] leading-snug text-ink">{card.details.overview}</p>
+				<p
+					bind:this={overviewEl}
+					class="line-clamp-6 text-[0.76rem] leading-snug text-ink"
+					style="-webkit-line-clamp:{overviewLines};line-clamp:{overviewLines}"
+				>
+					{card.details.overview}
+				</p>
 			{:else}
 				<p class="text-[0.76rem] leading-snug text-ink-soft">
 					Nothing printed on the back of this one.
@@ -453,7 +529,7 @@
 		</div>
 
 		{#if card.details && (card.details.directors.length > 0 || card.details.cast.length > 0)}
-			<dl class="mt-2 space-y-1 border-t-2 border-dashed border-board-shade pt-2">
+			<dl class="mt-2 shrink-0 space-y-1 border-t-2 border-dashed border-board-shade pt-2">
 				{#if card.details.directors.length > 0}
 					<div>
 						<dt class="eyebrow text-[0.6rem] text-ink-soft">Directed by</dt>
@@ -481,7 +557,9 @@
 				data-card-tap="trailer"
 				onclick={(event) => onCardTapClick(event, card)}
 				tabindex={showing ? undefined : -1}
-				class="token token-sm token-brass mt-2.5 w-full {showing ? '' : 'pointer-events-none'}"
+				class="token token-sm token-brass mt-2.5 w-full shrink-0 {showing
+					? ''
+					: 'pointer-events-none'}"
 			>
 				<Play size={13} />
 				Watch trailer<span class="sr-only"> for {card.title} on YouTube (opens a new tab)</span>
@@ -575,13 +653,15 @@
 							hence the presentation role and no keyboard handler.
 						-->
 						<!--
-							Board stock, ink edge, artwork inset in its own frame: the card in
-							your hand is the same component as everything else on the table,
-							but it is the one thing lifted off it — hence the single soft
-							shadow under the hard two-ply edge.
+							THE HAND: the drag lives here, and only here. This element carries
+							the gesture's translate/rotate — and the shadow the card casts on the
+							table, which stays put on the felt while the card turns above it.
+							Drag and flip COMPOSE rather than overwrite each other: this
+							transform moves the card, the one two levels down turns it over, and
+							neither ever writes the other's property.
 						-->
 						<div
-							class="swipe-card relative h-full w-full rounded-md border-2 border-ink bg-board p-2 shadow-[1.5px_3px_0_0_var(--color-board-shade),3px_6px_0_0_var(--color-board-shade),4px_8px_0_0_var(--color-ink),0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
+							class="swipe-card relative h-full w-full rounded-md shadow-[0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
 							entry.depth > 0
 								? 'pointer-events-none'
 								: 'touch-pan-y'}"
@@ -595,56 +675,79 @@
 							role="presentation"
 						>
 							<!--
-								The artwork frame doubles as the flip's stage: it holds the
-								perspective and the clipping, and the two faces turn inside it.
-								A committed card gets no flip transition — it snaps face up as
-								it leaves, so the seal is on the poster from the first frame.
+								The stage the card turns on. The perspective gets its own layer,
+								deliberately untransformed: the element above is re-styled on every
+								pointermove and marked `will-change: transform`, and depth is not
+								something to hang off a compositing hint that changes 60 times a
+								second.
 							-->
-							<div
-								class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep [perspective:900px]"
-							>
+							<div class="absolute inset-0 [perspective:900px]">
+								<!--
+									THE CARD ITSELF, turning as one object: board stock, ink edge and
+									two-ply lip on BOTH faces, so what comes round is a whole card and
+									not a panel swapped inside a frame. A committed card gets no flip
+									transition — it snaps face up as it leaves, so the seal is on the
+									poster from the first frame.
+								-->
 								<div
 									class="card-flip absolute inset-0 {showing ? 'is-flipped' : ''}"
 									style={entry.exit ? 'transition:none' : ''}
 								>
-									<div class="card-face absolute inset-0" aria-hidden={showing}>
-										{@render face(entry.card, hint.yes, hint.no)}
+									<div
+										class="card-face absolute inset-0 rounded-md border-2 border-ink bg-board p-2 shadow-[1.5px_3px_0_0_var(--color-board-shade),3px_6px_0_0_var(--color-board-shade),4px_8px_0_0_var(--color-ink)]"
+										aria-hidden={showing}
+									>
+										<!-- The artwork, inset in its own frame. -->
+										<div
+											class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep"
+										>
+											{@render face(entry.card, hint.yes, hint.no)}
+											{#if entry.exit === null && entry.depth === 0}
+												<!--
+													The corner token that turns the card over, in the one
+													corner of the face nothing else is printed in. Its twin —
+													the way back — is a slot in the back's header row, so the
+													two can never meet on the same corner as the trailer
+													button. With no JavaScript this is what it looks like: a
+													link to the film's own page, which prints the same facts.
+												-->
+												<a
+													href="/g/{data.token}/movies/{entry.card.id}"
+													data-card-tap="flip"
+													data-movie-id={entry.card.id}
+													onclick={(event) => onCardTapClick(event, entry.card)}
+													tabindex={showing ? -1 : undefined}
+													class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {showing
+														? 'pointer-events-none'
+														: ''}"
+												>
+													<Info size={15} />
+													<span class="sr-only">What is {entry.card.title} about?</span>
+												</a>
+											{/if}
+										</div>
 									</div>
 									{#if entry.exit === null && entry.depth === 0}
+										<!--
+											The back's two-ply lip is written MIRRORED (negative x), because
+											the face it is on is: turned round, it lands bottom-right on
+											screen, exactly where every other lip on the table falls. The
+											card's own thickness turns with the card; the shadow it casts
+											on the felt does not.
+										-->
 										<div
-											class="card-face card-face-back absolute inset-0 overflow-hidden"
+											class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2 shadow-[-1.5px_3px_0_0_var(--color-board-shade),-3px_6px_0_0_var(--color-board-shade),-4px_8px_0_0_var(--color-ink)]"
 											aria-hidden={!showing}
 										>
-											{@render back(entry.card, showing)}
+											<!-- The print, inset in the same frame the artwork sits in. -->
+											<div
+												class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-board"
+											>
+												{@render back(entry.card, showing)}
+											</div>
 										</div>
 									{/if}
 								</div>
-								{#if entry.exit === null && entry.depth === 0}
-									<!--
-										One corner token, two jobs: turn the card over, and turn it
-										back. It sits OUTSIDE the turning container, so it never
-										rotates away from the thumb — only its icon changes. With no
-										JavaScript it is what it looks like: a link to the film.
-									-->
-									<a
-										href="/g/{data.token}/movies/{entry.card.id}"
-										data-card-tap="flip"
-										data-movie-id={entry.card.id}
-										onclick={(event) => onCardTapClick(event, entry.card)}
-										class="token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0"
-									>
-										{#if showing}
-											<X size={15} />
-										{:else}
-											<Info size={15} />
-										{/if}
-										<span class="sr-only">
-											{showing
-												? `Turn ${entry.card.title} back over`
-												: `What is ${entry.card.title} about?`}
-										</span>
-									</a>
-								{/if}
 							</div>
 						</div>
 					</div>
@@ -709,10 +812,16 @@
 	}
 
 	/*
-		Turning the card over: one two-faced container inside the artwork frame,
-		rotated about its vertical axis. Each face hides its own back, so the two
-		never show through each other, and the frame above supplies the
-		perspective — put it on the rotating element itself and the turn reads flat.
+		Turning the card over: ONE two-faced container holding two whole cards,
+		rotated about its vertical axis, so the object that turns is the card and
+		not a panel inside it. Each face hides its own back, so the two never show
+		through each other, and the element above supplies the perspective — put it
+		on the rotating element itself and the turn reads flat.
+
+		That element above is also the one the gesture transforms, which is the
+		whole point of the split: the drag owns `transform` on the outer element,
+		the flip owns `transform` here, and a card being dragged mid-turn simply
+		carries both.
 
 		Under prefers-reduced-motion the global block in app.css zeroes every
 		transition duration, which turns this into exactly what it should be: an
@@ -734,5 +843,19 @@
 
 	.card-face-back {
 		transform: rotateY(180deg);
+	}
+
+	/*
+		A 2rem token is the right SIZE on a card held in one hand; 2rem is not a
+		target. The halo is the target: it takes both flip affordances out to 44px
+		without changing what is printed. It is transparent and unstyled, so it
+		hit-tests but never shows, and a press on it reports the anchor as the
+		event target — which is what the tap resolver reads on release.
+	*/
+	.card-corner::after {
+		content: '';
+		position: absolute;
+		inset: -6px;
+		border-radius: 9999px;
 	}
 </style>
