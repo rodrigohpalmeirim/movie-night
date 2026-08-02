@@ -694,7 +694,7 @@
 									style={entry.exit ? 'transition:none' : ''}
 								>
 									<div
-										class="card-face absolute inset-0 rounded-md border-2 border-ink bg-board p-2 shadow-[1.5px_3px_0_0_var(--color-board-shade),3px_6px_0_0_var(--color-board-shade),4px_8px_0_0_var(--color-ink)]"
+										class="card-face absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
 										aria-hidden={showing}
 									>
 										<!-- The artwork, inset in its own frame. -->
@@ -729,14 +729,16 @@
 									</div>
 									{#if entry.exit === null && entry.depth === 0}
 										<!--
-											The back's two-ply lip is written MIRRORED (negative x), because
-											the face it is on is: turned round, it lands bottom-right on
-											screen, exactly where every other lip on the table falls. The
-											card's own thickness turns with the card; the shadow it casts
+											The back is turned twice — once by itself, once by the container
+											that flips — so on screen it is NOT mirrored (which is why its
+											print reads the right way round). Its lip is therefore the same
+											lip as the front's, written once in the stylesheet below, and it
+											falls down-and-right on screen whichever way the card is facing.
+											The card's own thickness turns with the card; the shadow it casts
 											on the felt does not.
 										-->
 										<div
-											class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2 shadow-[-1.5px_3px_0_0_var(--color-board-shade),-3px_6px_0_0_var(--color-board-shade),-4px_8px_0_0_var(--color-ink)]"
+											class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
 											aria-hidden={!showing}
 										>
 											<!-- The print, inset in the same frame the artwork sits in. -->
@@ -836,9 +838,27 @@
 		transform: rotateY(180deg);
 	}
 
+	/*
+		The card's edge, written ONCE for both faces: two plies of board-shade
+		stepping down-and-right and a half-step of ink behind them — the same
+		extrusion every tile and token on the table has.
+
+		It is deliberately not pre-mirrored for the back. The back face is turned
+		twice — `rotateY(180deg)` of its own, plus the container's when flipped —
+		so the total is a full turn and the visible back is NOT mirrored (which is
+		exactly why its print reads the right way round rather than backwards).
+		Negating the x offsets there would therefore not compensate for anything;
+		it would simply paint the lip down-and-LEFT. One declaration, both faces,
+		and the swap happens at 90° where the card is edge-on and neither lip is
+		on screen.
+	*/
 	.card-face {
 		backface-visibility: hidden;
 		-webkit-backface-visibility: hidden;
+		box-shadow:
+			1.5px 3px 0 0 var(--color-board-shade),
+			3px 6px 0 0 var(--color-board-shade),
+			4px 8px 0 0 var(--color-ink);
 	}
 
 	.card-face-back {
