@@ -93,7 +93,8 @@ Suggestion is TMDB-search only:
    server-side).
 2. Results show poster, title, year. Tapping one saves the movie with
    `tmdb_id, title, year, runtime_min, poster_path` (runtime fetched from the movie
-   detail endpoint at save time — it feeds tiebreak rule 4).
+   detail endpoint at save time — it feeds tiebreak rule 4), plus the cached `details`
+   blob the same call returns (Movie details, below).
 3. Duplicates are blocked per group on `tmdb_id`: suggesting an existing pool movie
    just navigates to it; re-suggesting a *watched* movie follows the re-watch/cooldown
    rule in the voting spec; re-suggesting a *removed* movie restores it (standing votes
@@ -103,12 +104,49 @@ Suggestions are open at all times — the pool is persistent and independent of 
 Movies added while a round is `OPEN` enter it via top-up; movies added later than that
 wait for the next round.
 
+### Movie details
+
+The detail call is `GET /movie/{tmdb_id}?append_to_response=videos,credits,release_dates`
+— **one** request, which is why the extras are free: the runtime lookup was already
+being paid for. What is kept, cached on the movie row as a single `details` JSON blob:
+
+- `tagline`, `overview`, `genres` (names)
+- `certification` — the age rating for `$CERT_COUNTRY` (default `PT`), falling back to
+  `US`, then to the first country TMDB has a non-empty rating for
+- `directors`, and the top ~5 billed `cast` as `{ name, character }`
+- `trailer_key` — a **YouTube video id only**. Preference: official Trailer, then any
+  Trailer, then official Teaser; YouTube-hosted only. It is rendered as a plain link to
+  `youtube.com/watch?v=…` in a new tab. No embedded player: the app talks to exactly one
+  third-party origin (`image.tmdb.org`) and that rule does not bend for an iframe.
+
+Every field is nullable or empty-able and every section renders only when it has
+content — TMDB has all of this for a blockbuster and none of it for an obscurity. The
+extras add **no** failure mode to suggesting: a payload missing all of them, or shaped
+in a way nobody predicted, still saves the film with an empty blob. (An outright TMDB
+outage blocks the suggestion exactly as it always did, because that is the call the
+runtime comes from.)
+
+**Caching and lazy backfill.** `details_fetched_at` stamps every *attempt*, successful
+or not. Rows that predate the feature (or whose fetch failed) are filled in by the reads
+that need them — the swipe deck, a movie's detail screen, the pool list — which fetch
+what they are missing, cache it on the row and serve it in the same response. Three
+brakes: at most a few films per page load, no retry inside a six-hour window after a
+failed attempt, and no two concurrent reads fetching the same film. A film that TMDB has
+deleted therefore costs one request per window rather than one per page load, and a
+group that predates the extras warms up as it is used instead of in a batch. Once
+fetched, details are never refreshed: they are facts about a finished film.
+
+These are public facts and touch no tally, so they are serialized with the movie
+wherever it appears and carry no phase gate.
+
 ### Pool screen
 
 The pool is a browsable list: poster, title, year, runtime, suggested-by, and **the
 viewer's own standing vote** (yes / no / not yet seen — three visually distinct states).
 Tapping a movie allows revising the standing vote at any time. Aggregate counts are never
-shown here (hidden-tallies rule).
+shown here (hidden-tallies rule). The detail screen also prints the cached TMDB
+details — tagline, rating badge, genre chips, story, director, top cast — and a
+prominent "Watch trailer" link when there is one.
 
 Unswiped movies surface as a swipe stack ("3 to swipe") pinned at the top.
 
@@ -199,7 +237,7 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
 | **Round** (home tab) | State-dependent: RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. |
-| Swipe | Full-screen card stack: poster, title, year, runtime; swipe right = yes, left = no; buttons for desktop. Used for top-ups and backlog. |
+| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
 | **Pool** (tab) | Browsable pool + own standing votes + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, remove). |
@@ -240,10 +278,16 @@ Member       { id, group_id → Group, display_name, created_at }
                -- replaces the voting spec's User; all user_id refs mean member_id
 
 Movie        { id, group_id → Group, tmdb_id, title, year, runtime_min, poster_path,
+               details: { tagline, overview, genres[], certification,
+                          directors[], cast[{ name, character }],
+                          trailer_key } | null,        -- cached TMDB extras, one blob
+               details_fetched_at | null,              -- last ATTEMPT, success or not
                suggested_by → Member, added_at,
                status: pool | watched | removed,
                watched_at, removed_at, removed_by → Member }
                -- unique (group_id, tmdb_id)
+               -- details null = never fetched successfully; the lazy backfill
+                  retries on a later read, outside the retry window
 
 StandingVote { member_id, movie_id, value: yes | no, updated_at }
                -- unique (member_id, movie_id); absence = not yet seen
@@ -300,7 +344,8 @@ POST  round/veto { movie_id | null }
 POST  round/pair { a, b, winner | null }
 GET   pool                               → movies + my standing votes only
 POST  movies/search { query }            → proxied TMDB search
-POST  movies { tmdb_id }                 → suggest (fetches runtime server-side)
+POST  movies { tmdb_id }                 → suggest (one server-side detail call:
+                                           runtime + the cached details blob)
 POST  movies/[id]/vote { yes | no }      → standing-vote upsert
 POST  movies/[id]/remove
 GET   history
@@ -335,7 +380,7 @@ Server-side rules the API must enforce (beyond DB constraints):
 | Database | **SQLite** via **Drizzle ORM** (`bun:sqlite` driver) | Typed schema, migrations via drizzle-kit; WAL mode. One file, trivially backed up. |
 | Styling | **Tailwind CSS v4** | Mobile-first utilities; posters do most of the visual work. |
 | Gestures | Small custom pointer-event handler or a tiny library for the swipe stack | Buttons remain the accessible/desktop path; swipe is enhancement. |
-| Movie data | **TMDB API** (free tier) | Server-side key; posters served from `image.tmdb.org`; TMDB attribution wherever their data is used — the suggest sheet, plus a permanent line on Settings (a condition of the free API). Cache search responses briefly server-side. |
+| Movie data | **TMDB API** (free tier) | Server-side key; posters served from `image.tmdb.org`; TMDB attribution wherever their data is used — the suggest sheet, plus a permanent line on Settings (a condition of the free API). Cache search responses briefly server-side; cache the per-movie details blob on the row, and lazily backfill it (Movies → Movie details). `$CERT_COUNTRY` picks which country's age rating is kept. |
 
 **Deployment:** a single small VPS or Fly.io machine running the Bun server; SQLite on a
 persistent volume; nightly snapshot or Litestream replication for backup. No external
