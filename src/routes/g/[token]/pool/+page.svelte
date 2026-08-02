@@ -181,6 +181,19 @@
 					{/each}
 				</ul>
 			{/if}
+
+			<!--
+				TMDB's credit, where TMDB's data actually is: every result on this pad
+				came from their search, so the sheet is the compliance-relevant spot
+				rather than the bottom of every screen in the app. Set in the sheet's
+				own quiet ink-soft help type, ruled off from the results above it.
+			-->
+			<p class="border-t-2 border-dashed border-board-shade pt-2.5 text-[0.7rem] leading-relaxed text-ink-soft">
+				Search results, film data and posters come from
+				<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline"
+					>The Movie Database</a
+				>. This product uses the TMDB API but is not endorsed or certified by TMDB.
+			</p>
 		</section>
 	{/if}
 

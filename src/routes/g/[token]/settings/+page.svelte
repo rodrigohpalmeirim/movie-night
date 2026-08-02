@@ -6,8 +6,9 @@
 	raised except the buttons, because nothing here is pressable except the
 	buttons — this screen is where the old lift-everything treatment read worst.
 
-	Includes the TMDB attribution line, which is a condition of their free API
-	(app-wide footer, so it is on every screen rather than only this one).
+	Ends with the TMDB attribution, which is a condition of their free API. This
+	is its permanent home — a colophon at the foot of the rules insert — while the
+	suggest sheet carries it where the data is actually used.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -211,4 +212,12 @@
 			/>
 		</form>
 	</section>
+
+	<!-- The credit's permanent home: printed on the felt below the pads, in the
+	     dim chalk the app uses for small print on the table. -->
+	<p class="px-1 text-[11px] leading-relaxed text-chalk-dim">
+		This product uses the TMDB API but is not endorsed or certified by TMDB. Film data and posters
+		courtesy of
+		<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline">The Movie Database</a>.
+	</p>
 </div>

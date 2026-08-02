@@ -335,7 +335,7 @@ Server-side rules the API must enforce (beyond DB constraints):
 | Database | **SQLite** via **Drizzle ORM** (`bun:sqlite` driver) | Typed schema, migrations via drizzle-kit; WAL mode. One file, trivially backed up. |
 | Styling | **Tailwind CSS v4** | Mobile-first utilities; posters do most of the visual work. |
 | Gestures | Small custom pointer-event handler or a tiny library for the swipe stack | Buttons remain the accessible/desktop path; swipe is enhancement. |
-| Movie data | **TMDB API** (free tier) | Server-side key; posters served from `image.tmdb.org`; TMDB attribution in the footer (a condition of the free API). Cache search responses briefly server-side. |
+| Movie data | **TMDB API** (free tier) | Server-side key; posters served from `image.tmdb.org`; TMDB attribution wherever their data is used — the suggest sheet, plus a permanent line on Settings (a condition of the free API). Cache search responses briefly server-side. |
 
 **Deployment:** a single small VPS or Fly.io machine running the Bun server; SQLite on a
 persistent volume; nightly snapshot or Litestream replication for backup. No external

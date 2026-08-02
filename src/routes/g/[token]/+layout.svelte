@@ -65,7 +65,16 @@
 		<div class="mt-[3px] border-t-2 border-dashed border-felt-line"></div>
 	</header>
 
-	<main class="flex-1 px-4 pt-5 {data.devMode ? 'pb-36' : 'pb-24'}">
+	<!-- The bottom padding is the tab bar's clearance and nothing else: the bar is
+	     fixed and about 4.5rem tall plus the iOS safe area, so the last thing on
+	     the page has to be able to scroll out from under it. (It used to also
+	     carry the app-wide TMDB footer above the bar; that band of reserved space
+	     is gone — the credit lives in the suggest sheet and in Settings.) -->
+	<main
+		class="flex-1 px-4 pt-5 {data.devMode
+			? 'pb-[calc(9rem_+_env(safe-area-inset-bottom))]'
+			: 'pb-[calc(6rem_+_env(safe-area-inset-bottom))]'}"
+	>
 		{@render children?.()}
 	</main>
 
