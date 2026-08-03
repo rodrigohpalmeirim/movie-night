@@ -35,7 +35,9 @@
 	Which card is in front is stated as a number on every layer, and that number is
 	never animated: a deck whose paint order is left to document order, to mount
 	order, or to an interpolation shows the wrong card in front on the frame it
-	advances.
+	advances. Every card also asks for its compositor layer from the frame it mounts
+	rather than from the frame it is promoted, so the hand-over never has to create
+	one — a commit moves a card and repaints it, and changes nothing about what it is.
 
 	All motion is CSS transitions on inline transforms; `prefers-reduced-motion`
 	drops the fly-out and the spring entirely (app.css also zeroes durations
@@ -404,17 +406,41 @@
 		return `z-index:${entry.z};transform:scale(${scale.toFixed(3)}) translateY(${lift.toFixed(2)}px);opacity:${fade.toFixed(3)};transition:${settle}`;
 	}
 
-	/** Inner layer: the drag itself, and the flight off screen. */
+	/**
+	 * Inner layer: the drag itself, and the flight off screen.
+	 *
+	 * `will-change: transform` is on every card in every role, from the frame it
+	 * mounts to the frame it is dropped — including the one at the back of the deck,
+	 * which is not moving at all. It is not a hint about this frame; it is the
+	 * promise that a card is the same kind of object for the whole of its life.
+	 *
+	 * A card that asks for its compositor layer only once it reaches the top asks on
+	 * the ONE frame that should not be renegotiating anything: the frame the deck
+	 * hands over, where the card leaving starts a transform the compositor runs, the
+	 * card behind it is promoted into the top slot, and a third is mounted behind
+	 * that. Paint order itself holds — it is stated as a number on every layer, and
+	 * it reads back correct in computed style on every frame of every commit — but a
+	 * layer that has to be *created* in the middle of the hand-over is one the
+	 * compositor has to place against layers that already exist, and nothing in CSS
+	 * says on which frame it finishes agreeing. Asking early costs one more layer
+	 * the size of a poster and moves that off the frame that matters.
+	 *
+	 * The same reasoning is why the machinery a card is MADE of — the perspective,
+	 * the `preserve-3d`, the two faces — is not applied by role: anything conditional
+	 * on whether a card is top, behind or leaving necessarily changes at exactly the
+	 * hand-over, so making the deck's 3D conditional would put churn on that frame
+	 * rather than take it off. A commit changes where a card is and where it is
+	 * painted. It does not change what a card is.
+	 */
 	function cardStyle(entry: Entry): string {
 		if (entry.exit) {
 			// Percentages are of the card's own width, so this clears any viewport.
 			const x = entry.exit === 'yes' ? 'calc(110% + 50vw)' : 'calc(-110% - 50vw)';
 			const deg = entry.exit === 'yes' ? EXIT_ROTATION_DEG : -EXIT_ROTATION_DEG;
 			const fade = Math.round(EXIT_MS * 0.4);
-			// `will-change` stays set so the compositor layer survives the flight.
 			return `transform:translate3d(${x},0,0) rotate(${deg}deg);opacity:0;transition:transform ${EXIT_MS}ms ${EXIT_EASE},opacity ${fade}ms linear ${EXIT_MS - fade}ms;will-change:transform`;
 		}
-		if (entry.depth > 0) return 'transform:translate3d(0px,0,0) rotate(0deg)';
+		if (entry.depth > 0) return 'transform:translate3d(0px,0,0) rotate(0deg);will-change:transform';
 		const spring = dragging || reduceMotion ? 'none' : `transform ${SPRING_MS}ms ${SPRING_EASE}`;
 		return `transform:translate3d(${dragX.toFixed(1)}px,0,0) rotate(${rotation.toFixed(2)}deg);transition:${spring};will-change:transform`;
 	}
