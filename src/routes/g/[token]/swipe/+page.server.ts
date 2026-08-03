@@ -20,6 +20,29 @@ function reject(failure: Failure) {
 	return formFail(statusOf(failure), { code: failure.code, message: failure.message });
 }
 
+/**
+ * THE INTRO REVEAL'S ONE TICKET, spent by the first swipe screen of a browser
+ * session and not refunded until the browser is closed.
+ *
+ * The reveal deals the first card back up and turns it over on arrival, which is
+ * how anyone discovers the card has a back at all. Discovered once is enough:
+ * replaying it on every visit to this screen is a card that will not sit still.
+ *
+ * It has to be decided HERE, because the flipped card is in the server's HTML —
+ * that is what stops hydration arguing about which way up the first card is. A
+ * client-only memory (sessionStorage) is known one frame too late either way: the
+ * server would deal the back either always or never, and the client would then
+ * have to correct it in view of the reader.
+ *
+ * No `maxAge` and no `expires`, which is the whole trick: a session cookie lasts
+ * exactly as long as the browser session the reveal is scoped to. `httpOnly` and
+ * `sameSite: 'lax'` match the member cookie (see `MEMBER_COOKIE_OPTIONS`); the
+ * path is the site, because there is one such cookie for the visitor and not one
+ * per group — the back of a card is the same discovery in all of them.
+ */
+const INTRO_COOKIE = 'swipe_intro_seen';
+const INTRO_COOKIE_OPTIONS = { path: '/', httpOnly: true, sameSite: 'lax' } as const;
+
 export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
 	const pool = buildPoolView({ db: actor.db, group: actor.group, me: actor.member });
@@ -38,10 +61,21 @@ export const load: PageServerLoad = async (event) => {
 		now: actor.now
 	});
 
+	// Spend the reveal's ticket, and only if there is a card to reveal: an empty
+	// stack has no back to show, so it must not burn the one chance the session
+	// has of showing one. A reader who prefers reduced motion spends it too — they
+	// get the card face up instantly (the page clears the flip on the first
+	// effect), and what they would never want is that not-quite-a-reveal again on
+	// the next visit.
+	const intro = ordered.length > 0 && event.cookies.get(INTRO_COOKIE) === undefined;
+	if (intro) event.cookies.set(INTRO_COOKIE, '1', INTRO_COOKIE_OPTIONS);
+
 	return {
 		token: event.params.token,
 		stack: mergeDetails(ordered, filled),
-		poolSize: pool.movies.filter((movie) => movie.status === 'pool').length
+		poolSize: pool.movies.filter((movie) => movie.status === 'pool').length,
+		/** Is this the session's first swipe screen? See `INTRO_COOKIE`. */
+		intro
 	};
 };
 

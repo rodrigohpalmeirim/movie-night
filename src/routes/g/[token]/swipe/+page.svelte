@@ -32,9 +32,11 @@
 	affordance, so there is no token on it to aim at, and the only thing inside it
 	a tap means something else on is the trailer button. From the keyboard ArrowUp
 	turns it over and back, Escape only ever face up. Which leaves the back to be
-	discovered, so it is shown: the first card of a session is dealt back up and
-	turns itself over on the frame after it arrives, once, and nothing does that
-	again — no dwell, because the reveal is the turn and not the pause before it.
+	discovered, so it is shown: the first card of a BROWSER SESSION is dealt back up
+	and turns itself over on the frame after it arrives, once, and nothing does that
+	again — not the next card, and not the next visit to this screen, which the
+	server remembers on a session cookie. No dwell either, because the reveal is the
+	turn and not the pause before it.
 	The flip never fights the gesture: it rides a layer inside the element the drag
 	transforms, and the first few pixels of a drag turn the card face up mid-drag,
 	without interrupting it, so a vote is always stamped onto the poster.
@@ -61,9 +63,9 @@
 	the spring and the fly-out, and keyframe animations for the turn — one for the
 	card, one for the shadow it casts — which pass through a midpoint (the card
 	swells towards you halfway round and its shadow drops and narrows to a sliver
-	under it) that no transition could hold. `prefers-reduced-motion` drops the fly-out, the spring,
-	the turn and the intro reveal entirely (app.css also zeroes durations globally,
-	so this is belt and braces).
+	under it) that no transition could hold. `prefers-reduced-motion` drops the
+	fly-out, the spring, the turn and the intro reveal entirely (app.css also zeroes
+	durations globally, so this is belt and braces).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -135,12 +137,20 @@
 	 */
 	const FLIP_MS = 350;
 	/**
-	 * The card the intro reveal deals back up: the first of the session, read ONCE
+	 * The card the intro reveal deals back up, or null when there is no reveal to
+	 * give: the first card of the FIRST swipe screen of a browser session, read ONCE
 	 * at init and deliberately not reactive. `untrack` says so out loud — the stack
 	 * is rebuilt by every live invalidation, and the intro is a fact about arriving
 	 * on this screen, not about whatever the server most recently dealt.
+	 *
+	 * Whether the reveal is owed at all is the SERVER's answer (`data.intro`, a
+	 * session cookie — see `INTRO_COOKIE` in `+page.server.ts`), because the card is
+	 * dealt back up in the server's HTML: only knowledge the server already has can
+	 * decide which way up the first paint is without a correction the reader sees.
+	 * Coming back to this screen in the same browser session, `data.intro` is false
+	 * and the deck is simply face up, as it is for every card after the first.
 	 */
-	const introId: string | null = untrack(() => data.stack[0]?.id ?? null);
+	const introId: string | null = untrack(() => (data.intro ? (data.stack[0]?.id ?? null) : null));
 
 	/** Answers this session, newest last — powers Undo and drives the cursor. */
 	let answered = $state<Array<{ card: Card; value: SwipeChoice }>>([]);
@@ -166,9 +176,11 @@
 	 * advances: the id stops matching the top card, so the next film always
 	 * arrives face up without anyone having to remember to clear a flag.
 	 *
-	 * It starts on the FIRST card of the session: the deck is dealt back up and
-	 * turns itself over on the very next frame (see the intro effect), which is how
-	 * anyone finds out there is a back at all now that no token advertises it.
+	 * It starts on the FIRST card a browser session is dealt, and on nothing else:
+	 * that card arrives back up and turns itself over on the very next frame (see
+	 * the intro effect), which is how anyone finds out there is a back at all now
+	 * that no token advertises it. Every later visit starts at null — `introId` is
+	 * already null, because the server has spent the session's one reveal.
 	 */
 	let flippedId = $state<string | null>(introId);
 	/**
@@ -318,9 +330,9 @@
 	/**
 	 * THE INTRO REVEAL, and the only thing on this screen that happens by itself.
 	 *
-	 * The first card is dealt back up (`flippedId` starts on it, so the server's
-	 * HTML and the first client render agree and hydration has nothing to argue
-	 * with) and starts turning over IMMEDIATELY: there is no dwell, because the
+	 * The session's first card is dealt back up (`flippedId` starts on it, so the
+	 * server's HTML and the first client render agree and hydration has nothing to
+	 * argue with) and starts turning over IMMEDIATELY: there is no dwell, because the
 	 * reveal is the turn, not the pause before it. The back is what the card is
 	 * dealt as, and the poster is what it becomes while you watch — which is the
 	 * whole discoverability story for tap-to-flip, since nothing else on the card
@@ -338,6 +350,11 @@
 	 * a tap has toggled it deliberately — hence the id check, which only ever turns
 	 * over the card the intro itself dealt. Under prefers-reduced-motion there is
 	 * no reveal at all: the card starts face up.
+	 *
+	 * And it runs on the first swipe screen of a browser session only, which is the
+	 * same gate as the dealt-back-up card and therefore the same value: `introId` is
+	 * null when the server did not grant a reveal, so there is nothing here to check
+	 * twice.
 	 */
 	$effect(() => {
 		if (!introId) return;
