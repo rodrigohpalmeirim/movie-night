@@ -21,8 +21,9 @@
 	the back, no lip on either. A raised edge on this table means pressable, and
 	the card is not a control — the tokens under it are. What it does own is the
 	soft shadow it casts on the felt, which is lift, not an invitation to press —
-	and it belongs to the card: it follows the drag, and it swells and drops as the
-	card turns over, rather than lying on the felt while the card leaves it.
+	and it belongs to the card: it follows the drag, and as the card turns over it
+	drops, spreads and closes to the sliver an edge-on card casts, rather than
+	lying on the felt at full width while the card leaves it.
 
 	The WHOLE card turns over — stock, print and all, one object rotating about its
 	vertical axis, not a panel swapped inside a frame. A TAP ANYWHERE ON IT turns
@@ -59,8 +60,8 @@
 	All motion is CSS on transforms: transitions on the inline ones for the drag,
 	the spring and the fly-out, and keyframe animations for the turn — one for the
 	card, one for the shadow it casts — which pass through a midpoint (the card
-	swells towards you halfway round and its shadow spreads under it) that no
-	transition could hold. `prefers-reduced-motion` drops the fly-out, the spring,
+	swells towards you halfway round and its shadow drops and narrows to a sliver
+	under it) that no transition could hold. `prefers-reduced-motion` drops the fly-out, the spring,
 	the turn and the intro reveal entirely (app.css also zeroes durations globally,
 	so this is belt and braces).
 -->
@@ -648,8 +649,8 @@
 	 * outright: it snaps.
 	 *
 	 * It goes on TWO elements, which are the two things a turn moves: the flipping
-	 * layer, which rotates and swells, and the drag layer, whose cast shadow swells
-	 * and drops with it (the shadow is that element's pseudo-element, deliberately
+	 * layer, which rotates and swells, and the drag layer, whose cast shadow drops
+	 * and closes with it (the shadow is that element's pseudo-element, deliberately
 	 * outside the 3D — see the stylesheet). One state, one duration, one easing, so
 	 * the shadow cannot drift out of step with the card it belongs to.
 	 *
@@ -939,7 +940,7 @@
 							table, as a pseudo-element, so the shadow follows the thumb by being
 							moved by the same transform. It does not sit still while the card
 							turns above it either: it wears the turn's own state (see
-							`turnClass`) and swells, drops and softens on keyframes of its own,
+							`turnClass`) and drops, narrows and softens on keyframes of its own,
 							in step with the card. Drag and flip COMPOSE rather than overwrite
 							each other: this transform moves the card, the one two levels down
 							turns it over, and neither ever writes the other's property.
@@ -999,7 +1000,7 @@
 										way round. Kraft stock, edge to edge, clipped by the same corners as the
 										face: a card is one flat object whichever way it is facing, and the only
 										shadow near it is the one it casts on the felt — which is not printed on
-										either face, so it never turns; it swells with the turn from outside the 3D.
+										either face, so it never turns; it narrows with the turn from outside the 3D.
 
 										EVERY card in the stack has one, top, behind or leaving, because a card is
 										not a different object in a different slot (see `cardStyle`). No style is
@@ -1138,7 +1139,8 @@
 
 		1.13 at the midpoint, not a hair over 1: on a card this size a lift you have
 		to be told about is not a lift. It has to read as the card leaving the table
-		to turn — which is also why the shadow below spreads at the same instant.
+		to turn — which is also why the shadow below drops, spreads and closes to a
+		sliver at the same instant.
 
 		The way back UNWINDS the same turn (180° → 90° → 0°) rather than carrying on
 		round: turning a card back is the gesture reversed, not a second lap.
@@ -1174,8 +1176,9 @@
 		free: one transform moves the card and its shadow together, and there is
 		nothing to keep in sync during a drag. What it no longer does is sit still
 		while the card turns above it — it wears the same `is-turning-*` state the
-		flip does and spreads on keyframes of its own, so the swell reads as one
-		object lifting off the table.
+		flip does and drops, spreads and CLOSES on keyframes of its own, so what turns
+		reads as one object lifting off the table rather than a card revolving over a
+		blob that never moves.
 
 		Deliberately OUTSIDE the 3D. Put on the faces it would ride the turn for
 		nothing, but a shadow is cast on the table rather than printed on the stock,
@@ -1209,23 +1212,51 @@
 	}
 
 	/*
-		Bigger, lower and fainter halfway round, back to rest by the end — what a
-		shadow does as the thing casting it rises. It grows slightly less than the
-		card does (1.09 against 1.13), because the card is coming towards the eye and
-		the shadow only spreads on the table, and the whole layer scales, so the
-		offset and the blur soften with it rather than being animated a second time.
+		Lower, taller, NARROWER and fainter halfway round, back to rest by the end —
+		what a shadow does as the thing casting it rises and turns edge-on.
+
+		The two axes do different jobs, which is why the scale is written as a pair.
+		Vertically the shadow spreads a little (1.09 against the card's 1.13: the card
+		is coming towards the eye, the shadow only spreads on the table). Horizontally
+		it COLLAPSES to a sliver, because a card seen edge-on has no width to cast —
+		and the horizontal extent is the whole reason this exists: a full-width blob
+		under a card standing on its edge is not that card's shadow, it is the felt's.
+
+		The intermediate stops are what keep the sliver honest. A card's apparent
+		width through the turn is the cosine of its angle, and the angle is eased, so
+		at a quarter of the way through the card is at 45° and about 0.7 as wide;
+		interpolated straight from full to sliver the shadow would be down to a half
+		by then and visibly ahead of the card. cos 45° written down at 25% and 75%
+		puts the two back on the same curve.
+
+		The layer scales, so the box-shadow's 16px drop and 24px blur scale with it —
+		vertically to ~26px of blur under a 27px drop, horizontally down to ~3px,
+		which is what makes the sliver read as an edge rather than a smudge. The
+		opacity floor is what stops the edge reading as a hard bar at the one instant
+		the card is invisible and none of it is hidden behind the stock.
+
+		Symmetric about the midpoint, so the one keyframe serves both directions of
+		the turn and the intro reveal.
 	*/
 	@keyframes card-cast-lift {
 		from {
-			transform: translateY(0) scale(1);
+			transform: translateY(0) scale(1, 1);
 			opacity: 1;
 		}
+		25% {
+			transform: translateY(5px) scale(0.72, 1.05);
+			opacity: 0.88;
+		}
 		50% {
-			transform: translateY(10px) scale(1.09);
-			opacity: 0.72;
+			transform: translateY(10px) scale(0.14, 1.09);
+			opacity: 0.62;
+		}
+		75% {
+			transform: translateY(5px) scale(0.72, 1.05);
+			opacity: 0.88;
 		}
 		to {
-			transform: translateY(0) scale(1);
+			transform: translateY(0) scale(1, 1);
 			opacity: 1;
 		}
 	}
