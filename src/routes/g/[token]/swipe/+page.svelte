@@ -39,6 +39,12 @@
 	rather than from the frame it is promoted, so the hand-over never has to create
 	one — a commit moves a card and repaints it, and changes nothing about what it is.
 
+	Which is why every card in the stack is BUILT the same, whether it is on top,
+	behind, or on its way off screen: both faces and the ⓘ corner are there for the
+	whole of a card's life, and the ones a card's current role has no use for are
+	hidden with style rather than left out. A part printed on promotion and thrown
+	away on commit is a layer tree rebuilt on the very frame the deck hands over.
+
 	All motion is CSS transitions on inline transforms; `prefers-reduced-motion`
 	drops the fly-out and the spring entirely (app.css also zeroes durations
 	globally, so this is belt and braces).
@@ -139,10 +145,22 @@
 	 * of the bottom of the card on a tall phone, or being sliced mid-line on a
 	 * short one — and it keeps the print CUT rather than scrolled, because a
 	 * scrolling panel inside a swipe target fights the gesture.
+	 *
+	 * The room is measured PER MOVIE ID, because every card in the stack carries a
+	 * back now (see the invariant in `cardStyle`) and the room left over is
+	 * genuinely a per-card fact: a film with no tagline, no trailer or one line of
+	 * cast leaves its synopsis more space than one with all three. Keying it by id
+	 * is also what makes promotion free — a card measures its own box on the frame
+	 * it mounts, at the BACK of the deck, where nothing is watching, so by the time
+	 * it is on top the clamp is already right and the hand-over frame has no
+	 * measuring left to do.
+	 *
+	 * The line box is not a per-card fact — one class, one font, one document — so
+	 * it is read once, off whichever back is currently on top.
 	 */
-	let overviewBoxHeight = $state(0);
+	let overviewBoxHeights = $state<Record<string, number>>({});
+	let overviewEls = $state<Record<string, HTMLParagraphElement | null>>({});
 	let overviewLineHeight = $state(0);
-	let overviewEl = $state<HTMLParagraphElement | null>(null);
 	/** Describes the vote currently being posted; the form reads only this. */
 	let pending = $state<{ movieId: string; value: SwipeChoice }>({ movieId: '', value: 'yes' });
 	let form = $state<HTMLFormElement | undefined>(undefined);
@@ -182,17 +200,21 @@
 	const total = $derived(answered.length + queue.length);
 	const position = $derived(Math.min(answered.length + 1, total));
 
+	/** The back on top: the one paragraph the line box is ever read from. */
+	const topOverviewEl = $derived(current ? (overviewEls[current.id] ?? null) : null);
+	const topOverviewBoxHeight = $derived(current ? (overviewBoxHeights[current.id] ?? 0) : 0);
+
 	/**
-	 * The clamp the back's overview actually gets: as many whole lines as fit the
-	 * space left for it. Falls back to six — what the markup ships with, so the
-	 * server-rendered card and the first client frame agree — until the box has
-	 * been measured.
+	 * The clamp one card's overview gets: as many whole lines as fit the space left
+	 * for it ON THAT CARD. Falls back to six — what the markup ships with, so the
+	 * server-rendered card and the first client frame agree — until that card's box
+	 * has been measured.
 	 */
-	const overviewLines = $derived(
-		overviewBoxHeight > 0 && overviewLineHeight > 0
-			? Math.max(1, Math.floor(overviewBoxHeight / overviewLineHeight))
-			: 6
-	);
+	function overviewLines(card: Card): number {
+		const box = overviewBoxHeights[card.id] ?? 0;
+		if (box <= 0 || overviewLineHeight <= 0) return 6;
+		return Math.max(1, Math.floor(box / overviewLineHeight));
+	}
 
 	const progress = $derived(commitProgress(dragX, cardWidth));
 	const rotation = $derived(rotationFor(dragX, cardWidth));
@@ -229,8 +251,8 @@
 	// from a font size written down twice. Re-read whenever the box resizes: the
 	// reader's own text scaling moves the card and the line together.
 	$effect(() => {
-		const el = overviewEl;
-		void overviewBoxHeight;
+		const el = topOverviewEl;
+		void topOverviewBoxHeight;
 		if (!el) return;
 		const measured = parseFloat(getComputedStyle(el).lineHeight);
 		if (measured > 0) overviewLineHeight = measured;
@@ -431,6 +453,18 @@
 	 * hand-over, so making the deck's 3D conditional would put churn on that frame
 	 * rather than take it off. A commit changes where a card is and where it is
 	 * painted. It does not change what a card is.
+	 *
+	 * The MARKUP now says so outright, and that is not a tidy-up: it is the fix for
+	 * the blink. Both halves of a card that used to be printed only on the top one —
+	 * the ⓘ corner and the whole of the back — are mounted on every card in every
+	 * role, and the difference between roles is opacity, hit-testing and tab order.
+	 * Rendered by role, a resting top card composited as seven layers and an exiting
+	 * or under-card as four, so every single commit tore three layers off the card
+	 * leaving and built three on the card arriving — on the hand-over frame, inside
+	 * `preserve-3d` contexts that then have to be depth-sorted again against layers
+	 * that already existed. Paint order was never wrong; the deck was being rebuilt
+	 * underneath it. Now the layer tree of a card is the same at depth 0, at depth 1
+	 * and in flight, and a commit is only ever a change of transform, z and opacity.
 	 */
 	function cardStyle(entry: Entry): string {
 		if (entry.exit) {
@@ -446,9 +480,20 @@
 	}
 
 	/* ── the flip ─────────────────────────────────────────────────── */
+	/**
+	 * The card the screen is actually for: on top, not on its way out. It is the
+	 * only one that can turn over, and the only one whose ⓘ can be seen or pressed.
+	 *
+	 * This decides what a card's parts DO, never whether it has them — every card
+	 * in the stack is built the same (see the invariant in `cardStyle`).
+	 */
+	function isLive(entry: Entry): boolean {
+		return entry.exit === null && entry.depth === 0;
+	}
+
 	/** Only the top card, and never one already flying away, can show its back. */
 	function facingBack(entry: Entry): boolean {
-		return entry.exit === null && entry.depth === 0 && flippedId === entry.card.id;
+		return isLive(entry) && flippedId === entry.card.id;
 	}
 
 	function flip(movieId: string) {
@@ -583,13 +628,25 @@
 		</div>
 
 		<!-- The elastic middle. `overflow-hidden` is the hard stop: whatever the
-		     clamp misses by a pixel is cut, never scrolled. -->
-		<div class="mt-2 min-h-0 flex-1 overflow-hidden" bind:clientHeight={overviewBoxHeight}>
+		     clamp misses by a pixel is cut, never scrolled.
+
+		     Both measurements are written under this card's own id, and every card in
+		     the stack takes them — the back is mounted on all of them now, so the
+		     bindings are per card rather than one pair that would follow whichever
+		     card happened to be on top. A card therefore arrives at the top already
+		     measured. -->
+		<div
+			class="mt-2 min-h-0 flex-1 overflow-hidden"
+			bind:clientHeight={() => overviewBoxHeights[card.id] ?? 0,
+			(height) => (overviewBoxHeights[card.id] = height)}
+		>
 			{#if card.details?.overview}
+				{@const lines = overviewLines(card)}
 				<p
-					bind:this={overviewEl}
+					bind:this={() => overviewEls[card.id] ?? null,
+					(el) => (overviewEls[card.id] = el)}
 					class="line-clamp-6 text-[0.76rem] leading-snug text-ink"
-					style="-webkit-line-clamp:{overviewLines};line-clamp:{overviewLines}"
+					style="-webkit-line-clamp:{lines};line-clamp:{lines}"
 				>
 					{card.details.overview}
 				</p>
@@ -718,6 +775,7 @@
 				{#each entries as entry (entry.card.id)}
 					{@const hint = hints(entry)}
 					{@const showing = facingBack(entry)}
+					{@const live = isLive(entry)}
 					<div class="absolute inset-0" style={layerStyle(entry)}>
 						<!--
 							The card is not a control — the buttons below are, and the arrow
@@ -774,53 +832,74 @@
 											class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep"
 										>
 											{@render face(entry.card, hint.yes, hint.no)}
-											{#if entry.exit === null && entry.depth === 0}
-												<!--
-													The corner token that turns the card over, in the one
-													corner of the face nothing else is printed in. Its twin —
-													the way back — is a slot in the back's header row, so the
-													two can never meet on the same corner as the trailer
-													button. With no JavaScript this is what it looks like: a
-													link to the film's own page, which prints the same facts.
-												-->
-												<a
-													href="/g/{data.token}/movies/{entry.card.id}"
-													data-card-tap="flip"
-													data-movie-id={entry.card.id}
-													onclick={(event) => onCardTapClick(event, entry.card)}
-													tabindex={showing ? -1 : undefined}
-													class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {showing
-														? 'pointer-events-none'
-														: ''}"
-												>
-													<Info size={15} />
-													<span class="sr-only">What is {entry.card.title} about?</span>
-												</a>
-											{/if}
+											<!--
+												The corner token that turns the card over, in the one corner of
+												the face nothing else is printed in. Its twin — the way back — is
+												a slot in the back's header row, so the two can never meet on the
+												same corner as the trailer button. With no JavaScript this is what
+												it looks like: a link to the film's own page, which prints the
+												same facts.
+
+												It is printed on EVERY card, whatever that card is doing, and the
+												ones it does not belong to hide it in style rather than not having
+												it: a token that appears when a card reaches the top and is thrown
+												away when it leaves is compositor layers built and destroyed on the
+												hand-over frame, which is the one frame that must not be rebuilding
+												anything (see `cardStyle`). `opacity-0` cannot be seen, and it is
+												computed in the same render as the exit transform, so a card in
+												flight leaves without its corner from the FIRST frame rather than
+												one frame in. Pressing and Tab are shut off with it, and the reader
+												never meets a spare one: a card that is not the live one is
+												`aria-hidden` whole, and so is a face that is turned away.
+											-->
+											<a
+												href="/g/{data.token}/movies/{entry.card.id}"
+												data-card-tap="flip"
+												data-movie-id={entry.card.id}
+												onclick={(event) => onCardTapClick(event, entry.card)}
+												tabindex={live && !showing ? undefined : -1}
+												class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {live
+													? ''
+													: 'opacity-0'} {live && !showing ? '' : 'pointer-events-none'}"
+											>
+												<Info size={15} />
+												<span class="sr-only">What is {entry.card.title} about?</span>
+											</a>
 										</div>
 									</div>
-									{#if entry.exit === null && entry.depth === 0}
-										<!--
-											The back is turned twice — once by itself, once by the container
-											that flips — so on screen it is NOT mirrored (which is why its
-											print reads the right way round). Its lip is therefore the same
-											lip as the front's, written once in the stylesheet below, and it
-											falls down-and-right on screen whichever way the card is facing.
-											The card's own thickness turns with the card; the shadow it casts
-											on the felt does not.
-										-->
+									<!--
+										The back is turned twice — once by itself, once by the container
+										that flips — so on screen it is NOT mirrored (which is why its
+										print reads the right way round). Its lip is therefore the same
+										lip as the front's, written once in the stylesheet below, and it
+										falls down-and-right on screen whichever way the card is facing.
+										The card's own thickness turns with the card; the shadow it casts
+										on the felt does not.
+
+										EVERY card in the stack has one, top, behind or leaving, because a
+										card is not a different object in a different slot (see `cardStyle`).
+										No style is needed to keep it out of sight and none is applied: the
+										flip is by movie id and only the top card can hold it, exits snap
+										face up, so this face is turned away for every role but one — and a
+										face turned away states its own rotation, which is what makes the
+										browser drop it (see `.card-face` below). What it buys is that
+										nothing about the card's layer tree changes when the deck advances.
+										The print it carries costs three hidden backs' worth of text, and it
+										reaches nobody: `aria-hidden` here for anything but the card actually
+										showing its back, and every link inside it is `tabindex="-1"` and
+										unpressable until it is.
+									-->
+									<div
+										class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
+										aria-hidden={!showing}
+									>
+										<!-- The print, inset in the same frame the artwork sits in. -->
 										<div
-											class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
-											aria-hidden={!showing}
+											class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-board"
 										>
-											<!-- The print, inset in the same frame the artwork sits in. -->
-											<div
-												class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-board"
-											>
-												{@render back(entry.card, showing)}
-											</div>
+											{@render back(entry.card, showing)}
 										</div>
-									{/if}
+									</div>
 								</div>
 							</div>
 						</div>
