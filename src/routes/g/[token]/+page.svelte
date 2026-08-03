@@ -260,8 +260,15 @@
 				>
 			</p>
 		{:else if myRunoffStep === 'veto'}
-			<a href="/g/{token}/veto" class="token token-lg token-cherry w-full justify-between">
-				<span class="flex items-center gap-2"><Ban size={18} /> Veto a film — or skip</span>
+			<!-- Brass, like the pairs step below it, and NOT cherry: the red card
+			     belongs to the veto screen itself. On the board this is simply the
+			     next thing you do, and a red plate labelled "or skip" read as an
+			     optional extra you were free to ignore — so people who didn't want to
+			     veto never went in, and never recorded the answer that lets them
+			     through to the pairs. Both moves live behind this one button, so it
+			     names them both. -->
+			<a href="/g/{token}/veto" class="token token-lg token-brass w-full justify-between">
+				<span class="flex items-center gap-2"><Ban size={18} /> Veto a film, or pass</span>
 				<ArrowRight size={20} />
 			</a>
 		{:else if myRunoffStep === 'pairs'}
