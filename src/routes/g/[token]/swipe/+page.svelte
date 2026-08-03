@@ -776,7 +776,23 @@
 					{@const hint = hints(entry)}
 					{@const showing = facingBack(entry)}
 					{@const live = isLive(entry)}
-					<div class="absolute inset-0" style={layerStyle(entry)}>
+					<!--
+						A layer that is not the deck's is not in the deck's way either. A card in
+						flight keeps its layer for the length of the animation plus a margin, and
+						that layer is a full-size transparent box sitting at `EXIT_Z` — over the
+						whole stack. The CARD inside it was made inert; the box was not. So for the
+						320ms after every single commit, every press and every drag aimed at the
+						card that had just been promoted landed on the layer of the card that had
+						just left, and the new top card could be neither dragged nor tapped until
+						that box was dropped. Nothing inside a card in flight wants a pointer — it
+						cannot be dragged, its ⓘ and its back's links are switched off, and its
+						seal is decorative — so the whole layer stops hit-testing, and the deck
+						underneath answers the first touch it is given.
+					-->
+					<div
+						class="absolute inset-0 {entry.exit ? 'pointer-events-none' : ''}"
+						style={layerStyle(entry)}
+					>
 						<!--
 							The card is not a control — the buttons below are, and the arrow
 							keys are handled on the window. It carries the drag gesture only,
