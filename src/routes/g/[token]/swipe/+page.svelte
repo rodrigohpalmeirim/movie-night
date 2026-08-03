@@ -17,7 +17,12 @@
 	pressed onto: one object leaves the screen, never a stamp that unsticks itself
 	at the moment of release.
 
-	The WHOLE card turns over — stock, edge and all, one object rotating about its
+	The card is flat: poster edge to edge on the front, kraft print edge to edge on
+	the back, no lip on either. A raised edge on this table means pressable, and
+	the card is not a control — the tokens under it are. What it does own is the
+	soft shadow it casts on the felt, which is lift, not an invitation to press.
+
+	The WHOLE card turns over — stock, print and all, one object rotating about its
 	vertical axis, not a panel swapped inside a frame. A ⓘ token in the corner of
 	the face turns it to a printed kraft back — what the film is about, who is in
 	it, and a link out to the trailer — and a matching token in the back's own
@@ -829,92 +834,85 @@
 							-->
 							<div class="absolute inset-0 [perspective:900px]">
 								<!--
-									THE CARD ITSELF, turning as one object: board stock, ink edge and
-									two-ply lip on BOTH faces, so what comes round is a whole card and
-									not a panel swapped inside a frame. A committed card gets no flip
-									transition — it snaps face up as it leaves, so the seal is on the
-									poster from the first frame.
+									THE CARD ITSELF, turning as one object: two whole faces on one
+									stock, so what comes round is a card and not a panel swapped
+									inside a frame. A committed card gets no flip transition — it
+									snaps face up as it leaves, so the seal is on the poster from the
+									first frame.
 								-->
 								<div
 									class="card-flip absolute inset-0 {showing ? 'is-flipped' : ''}"
 									style={entry.exit ? 'transition:none' : ''}
 								>
+									<!--
+										The face IS the artwork: the poster runs edge to edge, clipped by
+										the card's own corners, with the wash and the seal over it. The
+										card is not pressable — the tokens below are — so it is not
+										raised either: no lip, no ink half-step, nothing that says press
+										me. What it keeps is the soft shadow it casts on the felt, which
+										is lift, not a control.
+									-->
 									<div
-										class="card-face absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
+										class="card-face absolute inset-0 overflow-hidden rounded-md bg-felt-deep"
 										aria-hidden={showing}
 									>
-										<!-- The artwork, inset in its own frame. -->
-										<div
-											class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-felt-deep"
-										>
-											{@render face(entry.card, hint.yes, hint.no)}
-											<!--
-												The corner token that turns the card over, in the one corner of
-												the face nothing else is printed in. Its twin — the way back — is
-												a slot in the back's header row, so the two can never meet on the
-												same corner as the trailer button. With no JavaScript this is what
-												it looks like: a link to the film's own page, which prints the
-												same facts.
+										{@render face(entry.card, hint.yes, hint.no)}
+										<!--
+											The corner token that turns the card over, in the one corner of the face
+											nothing else is printed in. Its twin — the way back — is a slot in the
+											back's header row, so the two can never meet on the same corner as the
+											trailer button. With no JavaScript this is what it looks like: a link to
+											the film's own page, which prints the same facts.
 
-												It is printed on EVERY card, whatever that card is doing, and the
-												ones it does not belong to hide it in style rather than not having
-												it: a token that appears when a card reaches the top and is thrown
-												away when it leaves is compositor layers built and destroyed on the
-												hand-over frame, which is the one frame that must not be rebuilding
-												anything (see `cardStyle`). `opacity-0` cannot be seen, and it is
-												computed in the same render as the exit transform, so a card in
-												flight leaves without its corner from the FIRST frame rather than
-												one frame in. Pressing and Tab are shut off with it, and the reader
-												never meets a spare one: a card that is not the live one is
-												`aria-hidden` whole, and so is a face that is turned away.
-											-->
-											<a
-												href="/g/{data.token}/movies/{entry.card.id}"
-												data-card-tap="flip"
-												data-movie-id={entry.card.id}
-												onclick={(event) => onCardTapClick(event, entry.card)}
-												tabindex={live && !showing ? undefined : -1}
-												class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {live
-													? ''
-													: 'opacity-0'} {live && !showing ? '' : 'pointer-events-none'}"
-											>
-												<Info size={15} />
-												<span class="sr-only">What is {entry.card.title} about?</span>
-											</a>
-										</div>
+											It is printed on EVERY card, whatever that card is doing, and the ones it
+											does not belong to hide it in style rather than not having it: a token that
+											appears when a card reaches the top and is thrown away when it leaves is
+											compositor layers built and destroyed on the hand-over frame, which is the
+											one frame that must not be rebuilding anything (see `cardStyle`).
+											`opacity-0` cannot be seen, and it is computed in the same render as the
+											exit transform, so a card in flight leaves without its corner from the
+											FIRST frame rather than one frame in. Pressing and Tab are shut off with
+											it, and the reader never meets a spare one: a card that is not the live one
+											is `aria-hidden` whole, and so is a face that is turned away.
+										-->
+										<a
+											href="/g/{data.token}/movies/{entry.card.id}"
+											data-card-tap="flip"
+											data-movie-id={entry.card.id}
+											onclick={(event) => onCardTapClick(event, entry.card)}
+											tabindex={live && !showing ? undefined : -1}
+											class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {live
+												? ''
+												: 'opacity-0'} {live && !showing ? '' : 'pointer-events-none'}"
+										>
+											<Info size={15} />
+											<span class="sr-only">What is {entry.card.title} about?</span>
+										</a>
 									</div>
 									<!--
-										The back is turned twice — once by itself, once by the container
-										that flips — so on screen it is NOT mirrored (which is why its
-										print reads the right way round). Its lip is therefore the same
-										lip as the front's, written once in the stylesheet below, and it
-										falls down-and-right on screen whichever way the card is facing.
-										The card's own thickness turns with the card; the shadow it casts
-										on the felt does not.
+										The back is turned twice — once by itself, once by the container that flips
+										— so on screen it is NOT mirrored, which is why its print reads the right
+										way round. Kraft stock, edge to edge, clipped by the same corners as the
+										face: a card is one flat object whichever way it is facing, and the only
+										shadow near it is the one it casts on the felt, which does not turn with it.
 
-										EVERY card in the stack has one, top, behind or leaving, because a
-										card is not a different object in a different slot (see `cardStyle`).
-										No style is needed to keep it out of sight and none is applied: the
-										flip is by movie id and only the top card can hold it, exits snap
-										face up, so this face is turned away for every role but one — and a
-										face turned away states its own rotation, which is what makes the
-										browser drop it (see `.card-face` below). What it buys is that
-										nothing about the card's layer tree changes when the deck advances.
-										The print it carries costs three hidden backs' worth of text, and it
-										reaches nobody: `aria-hidden` here for anything but the card actually
+										EVERY card in the stack has one, top, behind or leaving, because a card is
+										not a different object in a different slot (see `cardStyle`). No style is
+										needed to keep it out of sight and none is applied: the flip is by movie id
+										and only the top card can hold it, exits snap face up, so this face is
+										turned away for every role but one — and a face turned away states its own
+										rotation, which is what makes the browser drop it (see `.card-face` below).
+										What it buys is that nothing about the card's layer tree changes when the
+										deck advances. The print it carries costs three hidden backs' worth of text,
+										and it reaches nobody: `aria-hidden` here for anything but the card actually
 										showing its back, and every link inside it is `tabindex="-1"` and
 										unpressable until it is.
 									-->
 									<div
-										class="card-face card-face-back absolute inset-0 rounded-md border-2 border-ink bg-board p-2"
+										class="card-face card-face-back absolute inset-0 overflow-hidden rounded-md bg-board"
 										aria-hidden={!showing}
 									>
-										<!-- The print, inset in the same frame the artwork sits in. -->
-										<div
-											class="relative h-full w-full overflow-hidden rounded-[3px] border-2 border-ink bg-board"
-										>
-											{@render back(entry.card, showing)}
-										</div>
+										{@render back(entry.card, showing)}
 									</div>
 								</div>
 							</div>
@@ -1006,40 +1004,28 @@
 	}
 
 	/*
-		The card's edge, written ONCE for both faces: two plies of board-shade
-		stepping down-and-right and a half-step of ink behind them — the same
-		extrusion every tile and token on the table has.
-
-		It belongs to the FACES and not to the frame around them, because the edge
-		is the side of the card: it has to narrow with the card as the card turns
-		away from you. Painted on the untransformed frame instead it would keep its
-		full size while the faces shrank, and a full card-sized silhouette would be
-		left hanging on the felt beside a card standing on its side.
+		The two faces, written ONCE: FLAT stock, no lip and no printed edge. On this
+		table an extrusion means pressable, and the card is not a control — the
+		tokens under it are. The only shadow it owns is the soft one it casts on the
+		felt, which belongs to the element the gesture moves rather than to a face,
+		so it stays on the table while the card turns above it.
 
 		Each face states its own turn — including the front's, whose `rotateY(0deg)`
 		is a no-op in geometry and the whole fix in practice. Gecko only tests a
-		face's backside when that face is itself 3D-transformed; with no transform
-		of its own the front face was drawn even while facing away, mirrored, under
-		the back — and its lip, which falls outside the back's box, showed past the
-		card's left edge. That is the edge on BOTH sides of a flipped card. With the
-		rotation written down, exactly one face is ever painted, so exactly one lip
-		is ever painted, and the hand-over happens at 90° where the card is edge-on.
+		face's backside when that face is itself 3D-transformed; with no transform of
+		its own the front face was drawn even while facing away, mirrored, under the
+		back. With the rotation written down, exactly one face is ever painted, and
+		the hand-over happens at 90° where the card is edge-on.
 
-		The lip is deliberately not pre-mirrored for the back. That face is turned
-		twice — its own `rotateY(180deg)` plus the container's when flipped — so the
-		total is a full turn and the visible back is NOT mirrored (which is exactly
-		why its print reads the right way round rather than backwards). Negating the
-		x offsets there would compensate for nothing; it would simply paint the lip
-		down-and-LEFT.
+		The back is turned twice — its own `rotateY(180deg)` plus the container's
+		when flipped — so the total is a full turn and the visible back is NOT
+		mirrored, which is exactly why its print reads the right way round rather
+		than backwards.
 	*/
 	.card-face {
 		transform: rotateY(0deg);
 		backface-visibility: hidden;
 		-webkit-backface-visibility: hidden;
-		box-shadow:
-			1.5px 3px 0 0 var(--color-board-shade),
-			3px 6px 0 0 var(--color-board-shade),
-			4px 8px 0 0 var(--color-ink);
 	}
 
 	/* After `.card-face`, so this turn is the one that lands on the back. */
