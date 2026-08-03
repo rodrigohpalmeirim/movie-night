@@ -32,7 +32,8 @@
 	a tap means something else on is the trailer button. From the keyboard ArrowUp
 	turns it over and back, Escape only ever face up. Which leaves the back to be
 	discovered, so it is shown: the first card of a session is dealt back up and
-	turns itself over a moment after it arrives, once, and nothing does that again.
+	turns itself over on the frame after it arrives, once, and nothing does that
+	again — no dwell, because the reveal is the turn and not the pause before it.
 	The flip never fights the gesture: it rides a layer inside the element the drag
 	transforms, and the first few pixels of a drag turn the card face up mid-drag,
 	without interrupting it, so a vote is always stamped onto the poster.
@@ -123,18 +124,15 @@
 	const EXIT_Z = 30;
 
 	/**
-	 * How long the first card of a session is left showing its back before it turns
-	 * itself over. Long enough to read as "there is print on the other side of
-	 * this", short enough that it is never a splash screen: the poster is what the
-	 * swipe is about.
-	 */
-	const INTRO_FLIP_MS = 900;
-	/**
 	 * How long a card takes to turn over. Written down here because the class that
 	 * runs the turn has to be taken off again afterwards; the animation's own
 	 * duration is in the stylesheet below, and the two are the same number.
+	 *
+	 * There is no third number for the intro reveal: it does not wait at all (see
+	 * the intro effect). The back is on screen for the frame it is dealt on, and
+	 * the card is already coming round on the next.
 	 */
-	const FLIP_MS = 440;
+	const FLIP_MS = 350;
 	/**
 	 * The card the intro reveal deals back up: the first of the session, read ONCE
 	 * at init and deliberately not reactive. `untrack` says so out loud — the stack
@@ -168,8 +166,8 @@
 	 * arrives face up without anyone having to remember to clear a flag.
 	 *
 	 * It starts on the FIRST card of the session: the deck is dealt back up and
-	 * turns itself over a moment later (see the intro effect), which is how anyone
-	 * finds out there is a back at all now that no token advertises it.
+	 * turns itself over on the very next frame (see the intro effect), which is how
+	 * anyone finds out there is a back at all now that no token advertises it.
 	 */
 	let flippedId = $state<string | null>(introId);
 	/**
@@ -321,17 +319,24 @@
 	 *
 	 * The first card is dealt back up (`flippedId` starts on it, so the server's
 	 * HTML and the first client render agree and hydration has nothing to argue
-	 * with) and turns over shortly after mount: the back is genuinely seen, then
-	 * the poster comes round on the ordinary flip. That glimpse is the whole
-	 * discoverability story for tap-to-flip — nothing else on the card advertises
-	 * that it has a back.
+	 * with) and starts turning over IMMEDIATELY: there is no dwell, because the
+	 * reveal is the turn, not the pause before it. The back is what the card is
+	 * dealt as, and the poster is what it becomes while you watch — which is the
+	 * whole discoverability story for tap-to-flip, since nothing else on the card
+	 * advertises that it has a back.
+	 *
+	 * Two frames, and only two: one for the back to be on screen as a from-state
+	 * (usually it has been since before this script ran — it is in the server's
+	 * HTML), the next to attach the animation. Skip them and the turn would be
+	 * requested on the frame the card mounts, where a browser is entitled to show
+	 * the card face up rather than coming round.
 	 *
 	 * It runs ONCE: nothing it reads is read reactively, so an invalidation mid
 	 * session cannot deal the current card back up again. If a thumb gets there
 	 * first the card is already face up (`TAP_SLOP` clears the flip mid-drag) and
-	 * a tap has toggled it deliberately — hence the id check in the timeout, which
-	 * only ever turns over the card the intro itself dealt. Under
-	 * prefers-reduced-motion there is no reveal at all: the card starts face up.
+	 * a tap has toggled it deliberately — hence the id check, which only ever turns
+	 * over the card the intro itself dealt. Under prefers-reduced-motion there is
+	 * no reveal at all: the card starts face up.
 	 */
 	$effect(() => {
 		if (!introId) return;
@@ -339,10 +344,16 @@
 			flippedId = null;
 			return;
 		}
-		const timer = setTimeout(() => {
-			if (flippedId === introId) turn(introId, false);
-		}, INTRO_FLIP_MS);
-		return () => clearTimeout(timer);
+		let shown = 0;
+		const dealt = requestAnimationFrame(() => {
+			shown = requestAnimationFrame(() => {
+				if (flippedId === introId) turn(introId, false);
+			});
+		});
+		return () => {
+			cancelAnimationFrame(dealt);
+			cancelAnimationFrame(shown);
+		};
 	});
 
 	$effect(() => () => {
@@ -1109,13 +1120,13 @@
 		transform: rotateY(180deg);
 	}
 
-	/* 440ms is `FLIP_MS` in the script, which times the class off again. */
+	/* 350ms is `FLIP_MS` in the script, which times the class off again. */
 	.card-flip.is-turning-back {
-		animation: card-turn-to-back 440ms ease-in-out;
+		animation: card-turn-to-back 350ms ease-in-out;
 	}
 
 	.card-flip.is-turning-face {
-		animation: card-turn-to-face 440ms ease-in-out;
+		animation: card-turn-to-face 350ms ease-in-out;
 	}
 
 	/*
@@ -1191,10 +1202,10 @@
 		will-change: transform;
 	}
 
-	/* Same 440ms and same easing as the turn above: one motion, not two. */
+	/* Same 350ms and same easing as the turn above: one motion, not two. */
 	.swipe-card.is-turning-back::after,
 	.swipe-card.is-turning-face::after {
-		animation: card-cast-lift 440ms ease-in-out;
+		animation: card-cast-lift 350ms ease-in-out;
 	}
 
 	/*
