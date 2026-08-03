@@ -199,17 +199,16 @@
 		<div>
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">This device</h3>
 			<p class="mt-2 text-xs leading-relaxed text-ink-soft">
-				Signed in as {data.settings.me.displayName}.
+				Signed in as {data.settings.me.displayName}. Handing the phone on? This forgets who you are on
+				this device and goes back to the name picker. Your votes stay where they are.
 			</p>
 		</div>
+		<!-- No confirm step, unlike the regenerate above: nothing is spent by taking
+		     this door. It clears the cookie and lands on the picker, where picking a
+		     name — the same one, even — is the way back. The guarded two-stage
+		     pattern is for the one-way moves only, and the picker is not one. -->
 		<form method="POST" action="?/forget">
-			<Confirm
-				label="Not you?"
-				confirmLabel="Sign out on this device"
-				question="This forgets who you are on this device and returns to the name picker. Your votes stay."
-				variant="quiet"
-			size="md"
-			/>
+			<button class="token w-full">Not you?</button>
 		</form>
 	</section>
 
