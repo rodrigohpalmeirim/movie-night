@@ -220,9 +220,13 @@
 				{#each reveal.finalists as movie (movie.id)}
 					{@const count = reveal.veto.counts[movie.id] ?? 0}
 					{#if count > 0}
+						<!-- Same shape as the veto screen's rows: the count and its seal are
+						     a fixed cluster on the right, and the title takes what is left and
+						     wraps. Left to negotiate, a long title squeezed "2 vetoes" into a
+						     column one word wide. -->
 						<li class="flex items-center justify-between gap-2">
-							<span class="font-medium">{movie.title}</span>
-							<span class="flex items-center gap-2">
+							<span class="min-w-0 flex-1 font-medium break-words">{movie.title}</span>
+							<span class="flex shrink-0 items-center gap-2">
 								<span class="stencil text-xs text-ink-soft uppercase"
 									>{count} veto{count === 1 ? '' : 'es'}</span
 								>

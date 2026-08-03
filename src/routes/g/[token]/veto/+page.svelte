@@ -105,7 +105,12 @@
 	<form method="POST" action="?/submit" use:enhance={submission.submit} class="space-y-4">
 		<input type="hidden" name="round_id" value={round.id} />
 
-		<fieldset class="space-y-2.5">
+		<!-- `min-w-0` is load-bearing, not tidying: a fieldset's UA style is
+		     `min-inline-size: min-content`, so it refuses to shrink below the widest
+		     thing in it and one long title plus the VETOED seal pushed the whole
+		     column off the side of the phone, seal and all. Zeroed, the rows are
+		     bounded by the screen and the title truncates instead. -->
+		<fieldset class="min-w-0 space-y-2.5">
 			<legend class="eyebrow mb-2.5 text-chalk">Tonight's finalists</legend>
 
 			<!-- Finalists deal in top to bottom. Keyed by movie id, so marking a
@@ -119,9 +124,12 @@
 					<span class="min-w-0 flex-1">
 						<span class="block truncate text-sm font-semibold text-ink">{movie.title}</span>
 						<!-- Ink-soft is a kraft-only grey; on the cherry plate it drops under
-						     AA, so a struck row prints its meta in full ink. -->
+						     AA, so a struck row prints its meta in full ink. Truncated like the
+						     title above it: the seal takes its width out of this column, and a
+						     meta line that wrapped there would make the row taller the moment
+						     it was marked. -->
 						<span
-							class="stencil block text-[0.7rem] text-ink-soft uppercase group-has-[input:checked]:text-ink"
+							class="stencil block truncate text-[0.7rem] text-ink-soft uppercase group-has-[input:checked]:text-ink"
 						>
 							{movie.year ?? ''} · {formatRuntime(movie.runtimeMin)}
 						</span>
