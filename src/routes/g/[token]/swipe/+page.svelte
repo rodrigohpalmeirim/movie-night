@@ -908,16 +908,30 @@
 		stepping down-and-right and a half-step of ink behind them — the same
 		extrusion every tile and token on the table has.
 
-		It is deliberately not pre-mirrored for the back. The back face is turned
-		twice — `rotateY(180deg)` of its own, plus the container's when flipped —
-		so the total is a full turn and the visible back is NOT mirrored (which is
-		exactly why its print reads the right way round rather than backwards).
-		Negating the x offsets there would therefore not compensate for anything;
-		it would simply paint the lip down-and-LEFT. One declaration, both faces,
-		and the swap happens at 90° where the card is edge-on and neither lip is
-		on screen.
+		It belongs to the FACES and not to the frame around them, because the edge
+		is the side of the card: it has to narrow with the card as the card turns
+		away from you. Painted on the untransformed frame instead it would keep its
+		full size while the faces shrank, and a full card-sized silhouette would be
+		left hanging on the felt beside a card standing on its side.
+
+		Each face states its own turn — including the front's, whose `rotateY(0deg)`
+		is a no-op in geometry and the whole fix in practice. Gecko only tests a
+		face's backside when that face is itself 3D-transformed; with no transform
+		of its own the front face was drawn even while facing away, mirrored, under
+		the back — and its lip, which falls outside the back's box, showed past the
+		card's left edge. That is the edge on BOTH sides of a flipped card. With the
+		rotation written down, exactly one face is ever painted, so exactly one lip
+		is ever painted, and the hand-over happens at 90° where the card is edge-on.
+
+		The lip is deliberately not pre-mirrored for the back. That face is turned
+		twice — its own `rotateY(180deg)` plus the container's when flipped — so the
+		total is a full turn and the visible back is NOT mirrored (which is exactly
+		why its print reads the right way round rather than backwards). Negating the
+		x offsets there would compensate for nothing; it would simply paint the lip
+		down-and-LEFT.
 	*/
 	.card-face {
+		transform: rotateY(0deg);
 		backface-visibility: hidden;
 		-webkit-backface-visibility: hidden;
 		box-shadow:
@@ -926,6 +940,7 @@
 			4px 8px 0 0 var(--color-ink);
 	}
 
+	/* After `.card-face`, so this turn is the one that lands on the back. */
 	.card-face-back {
 		transform: rotateY(180deg);
 	}
