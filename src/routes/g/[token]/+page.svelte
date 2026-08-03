@@ -314,9 +314,13 @@
 		{#if me?.attending !== true}
 			<p class="notice notice-brass">
 				<TriangleAlert size={17} class="mt-px shrink-0" />
+				<!-- The roster right below this is editable through the runoff (the RSVP
+				     action takes `open` and `runoff` alike, from anyone, for anyone), so
+				     the way out of this state is one tap on this same screen. The old copy
+				     sent people looking for someone else to do it for them. -->
 				<span
-					>You're not marked as attending, so you can't vote in the runoff. Ask someone to mark you
-					in — your standing swipes already count.</span
+					>You're not marked as attending, so you can't vote in the runoff. Tap In next to your name
+					in the list below and you're in — your standing swipes count either way.</span
 				>
 			</p>
 		{:else if myRunoffStep === 'veto'}
