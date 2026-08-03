@@ -53,9 +53,12 @@
 	style rather than left out. A part printed on promotion and thrown away on
 	commit is a layer tree rebuilt on the very frame the deck hands over.
 
-	All motion is CSS transitions on inline transforms; `prefers-reduced-motion`
-	drops the fly-out and the spring entirely (app.css also zeroes durations
-	globally, so this is belt and braces).
+	All motion is CSS on transforms: transitions on the inline ones for the drag,
+	the spring and the fly-out, and a keyframe animation for the turn, which passes
+	through a midpoint — the card swells towards you halfway round — that no
+	transition could hold. `prefers-reduced-motion` drops the fly-out, the spring,
+	the turn and the intro reveal entirely (app.css also zeroes durations globally,
+	so this is belt and braces).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -124,6 +127,12 @@
 	 */
 	const INTRO_FLIP_MS = 900;
 	/**
+	 * How long a card takes to turn over. Written down here because the class that
+	 * runs the turn has to be taken off again afterwards; the animation's own
+	 * duration is in the stylesheet below, and the two are the same number.
+	 */
+	const FLIP_MS = 440;
+	/**
 	 * The card the intro reveal deals back up: the first of the session, read ONCE
 	 * at init and deliberately not reactive. `untrack` says so out loud — the stack
 	 * is rebuilt by every live invalidation, and the intro is a fact about arriving
@@ -160,6 +169,12 @@
 	 * finds out there is a back at all now that no token advertises it.
 	 */
 	let flippedId = $state<string | null>(introId);
+	/**
+	 * Which card is mid-turn and which way it is going, or null between turns. The
+	 * animation that turns a card is attached from here and nowhere else — see
+	 * `turn`, which is where the reason lives.
+	 */
+	let turning = $state<{ id: string; dir: 'to-back' | 'to-face' } | null>(null);
 	let cardWidth = $state(0);
 	let reduceMotion = $state(false);
 	/**
@@ -215,6 +230,11 @@
 	let tapTarget: HTMLAnchorElement | null = null;
 	const velocity = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
+	/**
+	 * The running turn's timer, whose only job is to take the animation off again
+	 * once it has played. One at a time: a card is only ever turning one way.
+	 */
+	let turnTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const answeredIds = $derived(new Set(answered.map((a) => a.card.id)));
 	const restoredIds = $derived(new Set(restored.map((c) => c.id)));
@@ -317,16 +337,24 @@
 			return;
 		}
 		const timer = setTimeout(() => {
-			if (flippedId === introId) flippedId = null;
+			if (flippedId === introId) turn(introId, false);
 		}, INTRO_FLIP_MS);
 		return () => clearTimeout(timer);
 	});
 
-	$effect(() => () => cancelExitTimers());
+	$effect(() => () => {
+		cancelExitTimers();
+		cancelTurnTimer();
+	});
 
 	function cancelExitTimers() {
 		for (const timer of exitTimers) clearTimeout(timer);
 		exitTimers.clear();
+	}
+
+	function cancelTurnTimer() {
+		if (turnTimer !== null) clearTimeout(turnTimer);
+		turnTimer = null;
 	}
 
 	/** The one path to a vote: gesture, buttons and keys all land here. */
@@ -336,7 +364,12 @@
 
 		// A vote is stamped on the artwork, so a card never leaves back-first. The
 		// gesture has usually flipped it already; this covers the buttons and keys.
+		// It SNAPS: not through `turn`, and any turn already running is dropped, so
+		// the card that flies off is face up on the first frame rather than partway
+		// through coming round.
 		flippedId = null;
+		turning = null;
+		cancelTurnTimer();
 		pending = { movieId: card.id, value };
 		// Hand the card to the exit layer *before* the cursor moves, so the keyed
 		// `each` sees it move slot rather than disappear: same DOM node, poster
@@ -400,7 +433,7 @@
 			// touching the drag. `dragX` is untouched, the pointer is still captured,
 			// and the same gesture carries straight on to its commit — the poster
 			// simply arrives in time to be stamped.
-			flippedId = null;
+			if (flippedId !== null) turn(flippedId, false);
 		}
 	}
 
@@ -454,7 +487,9 @@
 		// same toggle a tap on the card is, and Escape only ever turns it face up.
 		// Left and right are the vote, so up is the one that reads as "lift the
 		// card and look" without being a third meaning for a key that already votes.
-		if (event.key === 'Escape' && flippedId !== null) flippedId = null;
+		// Both turn it the way a tap does — through `turn`, so the card comes round
+		// rather than swapping faces under the reader.
+		if (event.key === 'Escape' && flippedId !== null) turn(flippedId, false);
 		else if (event.key === 'ArrowUp' && current) flip(current.id);
 		else if (event.key === 'ArrowRight') commit('yes');
 		else if (event.key === 'ArrowLeft') commit('no');
@@ -563,8 +598,47 @@
 		return isLive(entry) && flippedId === entry.card.id;
 	}
 
+	/**
+	 * TURNING THE CARD, animated. Every turn anyone can see starts here: the tap,
+	 * the key, the first pixels of a drag and the intro reveal.
+	 *
+	 * The turn is a keyframe animation and not a transition, because it passes
+	 * through a midpoint — the card grows towards you as it comes round and settles
+	 * back to its own size — and a transition has no midpoint to hit. Which is why
+	 * the fact that a card is turning has to be STATE: the resting poses stay plain
+	 * classes, and the animation is attached only while a turn is actually running.
+	 * Written into the resting state instead it would replay on every card that
+	 * mounts, and cards mount constantly as the deck advances.
+	 *
+	 * `commit` deliberately does not come through here: a card that has been voted
+	 * on snaps face up as it leaves, so the seal is on the poster from frame one.
+	 */
+	function turn(movieId: string, showBack: boolean) {
+		flippedId = showBack ? movieId : null;
+		if (reduceMotion) return;
+		turning = { id: movieId, dir: showBack ? 'to-back' : 'to-face' };
+		cancelTurnTimer();
+		turnTimer = setTimeout(() => {
+			turnTimer = null;
+			turning = null;
+		}, FLIP_MS + 60);
+	}
+
 	function flip(movieId: string) {
-		flippedId = flippedId === movieId ? null : movieId;
+		turn(movieId, flippedId !== movieId);
+	}
+
+	/**
+	 * The animation a card wears WHILE IT IS TURNING, and only then — one card at a
+	 * time, by movie id, like every other cursor here. A card in flight is excluded
+	 * outright: it snaps.
+	 *
+	 * Style only, like every other difference between a card's roles. What a card is
+	 * MADE of does not change (see the invariant in `cardStyle`).
+	 */
+	function turnClass(entry: Entry): string {
+		if (entry.exit || turning === null || turning.id !== entry.card.id) return '';
+		return turning.dir === 'to-back' ? 'is-turning-back' : 'is-turning-face';
 	}
 
 	/**
@@ -872,13 +946,16 @@
 								<!--
 									THE CARD ITSELF, turning as one object: two whole faces on one
 									stock, so what comes round is a card and not a panel swapped
-									inside a frame. A committed card gets no flip transition — it
+									inside a frame. It carries the turn ONLY while it is turning
+									(see `turn`), and a committed card is given none at all — it
 									snaps face up as it leaves, so the seal is on the poster from the
 									first frame.
 								-->
 								<div
-									class="card-flip absolute inset-0 {showing ? 'is-flipped' : ''}"
-									style={entry.exit ? 'transition:none' : ''}
+									class="card-flip absolute inset-0 {showing ? 'is-flipped' : ''} {turnClass(
+										entry
+									)}"
+									style={entry.exit ? 'animation:none' : ''}
 								>
 									<!--
 										The face IS the artwork: the poster runs edge to edge, clipped by
@@ -998,17 +1075,75 @@
 		the flip owns `transform` here, and a card being dragged mid-turn simply
 		carries both.
 
-		Under prefers-reduced-motion the global block in app.css zeroes every
-		transition duration, which turns this into exactly what it should be: an
-		instant swap between two faces, with no rotation to sit through.
+		THE TWO POSES ARE PLAIN CLASSES and the turn between them is an animation
+		attached only while a card is actually turning (see `turn` in the script).
+		Both halves of that matter. The turn needs a midpoint — the card grows
+		towards you as it comes round, so it reads as leaving the table rather than
+		spinning on it — and a transition cannot hold one. And the resting poses must
+		stay poses: an animation written into them plays on every card that mounts,
+		and at depth 1 a card mounts on every single commit, so the deck would turn a
+		card over behind the one being swiped.
+
+		Under prefers-reduced-motion there is no turn at all, just the other face: the
+		script does not attach the animation, the block below cuts it anyway, and the
+		global block in app.css zeroes every duration on the page for good measure.
 	*/
 	.card-flip {
 		transform-style: preserve-3d;
-		transition: transform 420ms cubic-bezier(0.2, 0.7, 0.3, 1);
+		transform: rotateY(0deg);
 	}
 
 	.card-flip.is-flipped {
 		transform: rotateY(180deg);
+	}
+
+	/* 440ms is `FLIP_MS` in the script, which times the class off again. */
+	.card-flip.is-turning-back {
+		animation: card-turn-to-back 440ms ease-in-out;
+	}
+
+	.card-flip.is-turning-face {
+		animation: card-turn-to-face 440ms ease-in-out;
+	}
+
+	/*
+		The card comes towards you and settles back: rotateY does the turning, the
+		scale does the lift, and the two are written into one transform so they cannot
+		fight over the property. The scale peaks where the card is edge-on, which is
+		also where the easing of each half meets — the one frame of the turn where
+		nothing is visible, so nothing shows for it.
+
+		The way back UNWINDS the same turn (180° → 90° → 0°) rather than carrying on
+		round: turning a card back is the gesture reversed, not a second lap.
+	*/
+	@keyframes card-turn-to-back {
+		from {
+			transform: scale(1) rotateY(0deg);
+		}
+		50% {
+			transform: scale(1.06) rotateY(90deg);
+		}
+		to {
+			transform: scale(1) rotateY(180deg);
+		}
+	}
+
+	@keyframes card-turn-to-face {
+		from {
+			transform: scale(1) rotateY(180deg);
+		}
+		50% {
+			transform: scale(1.06) rotateY(90deg);
+		}
+		to {
+			transform: scale(1) rotateY(0deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.card-flip {
+			animation: none !important;
+		}
 	}
 
 	/*
