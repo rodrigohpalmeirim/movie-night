@@ -20,7 +20,9 @@
 	The card is flat: poster edge to edge on the front, kraft print edge to edge on
 	the back, no lip on either. A raised edge on this table means pressable, and
 	the card is not a control — the tokens under it are. What it does own is the
-	soft shadow it casts on the felt, which is lift, not an invitation to press.
+	soft shadow it casts on the felt, which is lift, not an invitation to press —
+	and it belongs to the card: it follows the drag, and it swells and drops as the
+	card turns over, rather than lying on the felt while the card leaves it.
 
 	The WHOLE card turns over — stock, print and all, one object rotating about its
 	vertical axis, not a panel swapped inside a frame. A TAP ANYWHERE ON IT turns
@@ -54,8 +56,9 @@
 	commit is a layer tree rebuilt on the very frame the deck hands over.
 
 	All motion is CSS on transforms: transitions on the inline ones for the drag,
-	the spring and the fly-out, and a keyframe animation for the turn, which passes
-	through a midpoint — the card swells towards you halfway round — that no
+	the spring and the fly-out, and keyframe animations for the turn — one for the
+	card, one for the shadow it casts — which pass through a midpoint (the card
+	swells towards you halfway round and its shadow spreads under it) that no
 	transition could hold. `prefers-reduced-motion` drops the fly-out, the spring,
 	the turn and the intro reveal entirely (app.css also zeroes durations globally,
 	so this is belt and braces).
@@ -633,6 +636,12 @@
 	 * time, by movie id, like every other cursor here. A card in flight is excluded
 	 * outright: it snaps.
 	 *
+	 * It goes on TWO elements, which are the two things a turn moves: the flipping
+	 * layer, which rotates and swells, and the drag layer, whose cast shadow swells
+	 * and drops with it (the shadow is that element's pseudo-element, deliberately
+	 * outside the 3D — see the stylesheet). One state, one duration, one easing, so
+	 * the shadow cannot drift out of step with the card it belongs to.
+	 *
 	 * Style only, like every other difference between a card's roles. What a card is
 	 * MADE of does not change (see the invariant in `cardStyle`).
 	 */
@@ -916,16 +925,18 @@
 						<!--
 							THE HAND: the drag lives here, and only here. This element carries
 							the gesture's translate/rotate — and the shadow the card casts on the
-							table, which stays put on the felt while the card turns above it.
-							Drag and flip COMPOSE rather than overwrite each other: this
-							transform moves the card, the one two levels down turns it over, and
-							neither ever writes the other's property.
+							table, as a pseudo-element, so the shadow follows the thumb by being
+							moved by the same transform. It does not sit still while the card
+							turns above it either: it wears the turn's own state (see
+							`turnClass`) and swells, drops and softens on keyframes of its own,
+							in step with the card. Drag and flip COMPOSE rather than overwrite
+							each other: this transform moves the card, the one two levels down
+							turns it over, and neither ever writes the other's property.
 						-->
 						<div
-							class="swipe-card relative h-full w-full rounded-md shadow-[0_16px_24px_rgb(0_0_0/0.32)] select-none {entry.exit ||
-							entry.depth > 0
-								? 'pointer-events-none'
-								: 'touch-pan-y'}"
+							class="swipe-card relative h-full w-full rounded-md select-none {turnClass(
+								entry
+							)} {entry.exit || entry.depth > 0 ? 'pointer-events-none' : 'touch-pan-y'}"
 							style={cardStyle(entry)}
 							onpointerdown={(event) => onPointerDown(event, entry.card)}
 							onpointermove={onPointerMove}
@@ -976,7 +987,8 @@
 										— so on screen it is NOT mirrored, which is why its print reads the right
 										way round. Kraft stock, edge to edge, clipped by the same corners as the
 										face: a card is one flat object whichever way it is facing, and the only
-										shadow near it is the one it casts on the felt, which does not turn with it.
+										shadow near it is the one it casts on the felt — which is not printed on
+										either face, so it never turns; it swells with the turn from outside the 3D.
 
 										EVERY card in the stack has one, top, behind or leaving, because a card is
 										not a different object in a different slot (see `cardStyle`). No style is
@@ -1140,8 +1152,72 @@
 		}
 	}
 
+	/*
+		THE SHADOW THE CARD CASTS, which belongs to the card and not to the felt.
+
+		It hangs off the element the GESTURE transforms, so it follows the thumb for
+		free: one transform moves the card and its shadow together, and there is
+		nothing to keep in sync during a drag. What it no longer does is sit still
+		while the card turns above it — it wears the same `is-turning-*` state the
+		flip does and spreads on keyframes of its own, so the swell reads as one
+		object lifting off the table.
+
+		Deliberately OUTSIDE the 3D. Put on the faces it would ride the turn for
+		nothing, but a shadow is cast on the table rather than printed on the stock,
+		and Gecko draws box-shadow oddly on 3D-transformed elements — this screen has
+		paid for that lesson once already. Out here the shadow is also purely
+		compositable: the blur is painted once, and only `transform` and `opacity`
+		are ever animated, so turning a card never repaints one.
+
+		`z-index: -1` puts it behind both faces, which are opaque, so the only part
+		of it anyone sees is the part that falls on the felt — exactly what the
+		shadow utility that used to be on this element painted. `border-radius:
+		inherit` keeps the card's corners stated once, up in the markup. And the
+		layer is asked for on the frame it mounts, like the card's own above it: a
+		turn is not the moment to negotiate a new one.
+	*/
+	.swipe-card::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		border-radius: inherit;
+		box-shadow: 0 16px 24px rgb(0 0 0 / 0.32);
+		pointer-events: none;
+		will-change: transform;
+	}
+
+	/* Same 440ms and same easing as the turn above: one motion, not two. */
+	.swipe-card.is-turning-back::after,
+	.swipe-card.is-turning-face::after {
+		animation: card-cast-lift 440ms ease-in-out;
+	}
+
+	/*
+		Bigger, lower and fainter halfway round, back to rest by the end — what a
+		shadow does as the thing casting it rises. It grows slightly less than the
+		card does (1.09 against 1.13), because the card is coming towards the eye and
+		the shadow only spreads on the table, and the whole layer scales, so the
+		offset and the blur soften with it rather than being animated a second time.
+	*/
+	@keyframes card-cast-lift {
+		from {
+			transform: translateY(0) scale(1);
+			opacity: 1;
+		}
+		50% {
+			transform: translateY(10px) scale(1.09);
+			opacity: 0.72;
+		}
+		to {
+			transform: translateY(0) scale(1);
+			opacity: 1;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
-		.card-flip {
+		.card-flip,
+		.swipe-card::after {
 			animation: none !important;
 		}
 	}
@@ -1149,9 +1225,10 @@
 	/*
 		The two faces, written ONCE: FLAT stock, no lip and no printed edge. On this
 		table an extrusion means pressable, and the card is not a control — the
-		tokens under it are. The only shadow it owns is the soft one it casts on the
-		felt, which belongs to the element the gesture moves rather than to a face,
-		so it stays on the table while the card turns above it.
+		tokens under it are. Neither face carries a shadow at all: the only one the
+		card owns is the soft one it casts on the felt, which hangs off the element
+		the gesture moves (see `.swipe-card::after`) and is animated from there in
+		step with the turn — out of the 3D, where Gecko is to be trusted with it.
 
 		Each face states its own turn — including the front's, whose `rotateY(0deg)`
 		is a no-op in geometry and the whole fix in practice. Gecko only tests a
