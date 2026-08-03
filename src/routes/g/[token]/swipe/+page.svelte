@@ -33,11 +33,12 @@
 	silently skip cards.
 
 	The drag and the spring are CSS transitions on inline transforms. The fly-out
-	is not: it is a keyframe animation whose first frame is the transform the
-	thumb released the card at, frozen at commit, because a card has to leave from
-	where it was let go and only an explicit `from` can promise that.
+	is not: the transform the thumb released the card at becomes the element's own
+	base transform, and the flight away from it is a Web Animations effect built
+	from those same numbers. A card has to leave from where it was let go, and
+	nothing about where that was is left for a stylesheet to resolve.
 	`prefers-reduced-motion` drops the fly-out and the spring entirely (app.css
-	also zeroes durations globally, so this is belt and braces).
+	also zeroes transition durations globally, so this is belt and braces).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -62,6 +63,7 @@
 		SPRING_EASE,
 		SPRING_MS,
 		TAP_SLOP,
+		cardWidthOr,
 		commitProgress,
 		createVelocityTracker,
 		decideRelease,
@@ -80,10 +82,11 @@
 	 *
 	 * The flight has to begin exactly where the thumb let go, and the only place
 	 * that knows where that was is the instant of commit — a frame later `dragX`
-	 * is back at zero and the gesture's rotation with it. Writing the release
-	 * transform down here, rather than leaving the browser to infer a starting
-	 * point from whatever it last computed for the node, is what stops the card
-	 * snapping back to the centre of the stack for a frame before it flies.
+	 * is back at zero and the gesture's rotation with it. These two numbers are
+	 * then used twice over: once as the exiting element's own base transform, and
+	 * once as the first keyframe of `flyOut`. Both, because a card that is going
+	 * to be thrown off screen must not spend so much as one frame back in the
+	 * middle of the stack, whether or not the animation ever gets going.
 	 */
 	type Exit = { card: Card; dir: SwipeChoice; fromX: number; fromDeg: number };
 	/** One rendered layer of the stack. `exit` set = committed, on its way out. */
@@ -154,6 +157,13 @@
 	 * does deliver them cannot act a second time.
 	 */
 	let tapTarget: HTMLAnchorElement | null = null;
+	/**
+	 * Each rendered card's own element, by movie id. The fly-out is driven from
+	 * here rather than from a stylesheet, so the commit needs to reach the node it
+	 * is throwing. Not state: nothing renders it, and the keyed `each` keeps it
+	 * honest — a card's entry is nulled when its node goes.
+	 */
+	const cardNodes: Record<string, HTMLElement | null> = {};
 	const velocity = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
 
@@ -237,6 +247,7 @@
 	function commit(value: SwipeChoice) {
 		const card = current;
 		if (!card) return;
+		const node = cardNodes[card.id] ?? null;
 
 		// A vote is stamped on the artwork, so a card never leaves back-first. The
 		// gesture has usually flipped it already; this covers the buttons and keys.
@@ -246,17 +257,16 @@
 		// rotation derived from it are both reset a few lines down. A commit from
 		// a button or a key has never been dragged, so this is 0/0 and the card
 		// leaves from rest, exactly as before.
-		const fromX = dragX;
-		const fromDeg = rotation;
+		const exit: Exit = { card, dir: value, fromX: dragX, fromDeg: rotation };
 		// Hand the card to the exit layer *before* the cursor moves, so the keyed
 		// `each` sees it move slot rather than disappear: same DOM node, poster
 		// already decoded, seal still stamped on it, and a flight that starts at
 		// the transform just recorded.
 		if (!reduceMotion) {
-			exits = [...exits, { card, dir: value, fromX, fromDeg }];
+			exits = [...exits, exit];
 			const timer = setTimeout(() => {
 				exitTimers.delete(timer);
-				exits = exits.filter((exit) => exit.card.id !== card.id);
+				exits = exits.filter((e) => e.card.id !== card.id);
 			}, EXIT_MS + 60);
 			exitTimers.add(timer);
 		}
@@ -268,7 +278,53 @@
 		// card before the request leaves — so flush deliberately rather than
 		// racing Svelte's own microtask.
 		flushSync();
+		// The node is now wearing its release pose. Throw it from there — after the
+		// flush, so the flight is never started against a style write still to come.
+		if (node && !reduceMotion) flyOut(node, exit);
 		form?.requestSubmit();
+	}
+
+	/**
+	 * The flight of a committed card, handed to the browser as numbers.
+	 *
+	 * Both ends are stated outright — the transform the thumb released the card at
+	 * and the transform that clears the screen — and neither is a CSS custom
+	 * property. A `@keyframes` step that reads `var(--exit-from-x)` is one failed
+	 * variable lookup away from having no first step at all, and a keyframe
+	 * animation with no first step starts from the element's base style: the middle
+	 * of the stack. That is the bug this replaces, exactly as reported — the card
+	 * back at the centre of the deck for the whole of its flight — and the only way
+	 * to be sure of it in every engine is to ask a stylesheet to resolve nothing.
+	 *
+	 * An animation object also cannot be taken away by a restyle: it does not live
+	 * in the style attribute that the group's SSE stream re-renders mid-flight.
+	 * There is no fallback path to keep either, because under
+	 * `prefers-reduced-motion` no card is ever handed to the exit layer at all.
+	 */
+	function flyOut(node: HTMLElement, exit: Exit) {
+		// Off the card's own width plus half a viewport, so it clears any screen.
+		const clear = cardWidthOr(cardWidth) * 1.1 + window.innerWidth * 0.5;
+		const toX = exit.dir === 'yes' ? clear : -clear;
+		const toDeg = exit.dir === 'yes' ? EXIT_ROTATION_DEG : -EXIT_ROTATION_DEG;
+		node.animate(
+			[
+				{
+					offset: 0,
+					transform: `translate3d(${exit.fromX}px, 0, 0) rotate(${exit.fromDeg}deg)`,
+					opacity: 1,
+					easing: EXIT_EASE
+				},
+				// The ink fades over the last 40% and fades LINEARLY, so the card is
+				// still fully drawn while the seal is still on screen.
+				{ offset: 0.6, opacity: 1, easing: 'linear' },
+				{
+					offset: 1,
+					transform: `translate3d(${toX}px, 0, 0) rotate(${toDeg}deg)`,
+					opacity: 0
+				}
+			],
+			{ duration: EXIT_MS, fill: 'both' }
+		);
 	}
 
 	function undo() {
@@ -382,20 +438,13 @@
 	/** Inner layer: the drag itself, and the flight off screen. */
 	function cardStyle(entry: Entry): string {
 		if (entry.exit) {
-			// Percentages are of the card's own width, so this clears any viewport.
-			const toX = entry.exit.dir === 'yes' ? 'calc(110% + 50vw)' : 'calc(-110% - 50vw)';
-			const toDeg = entry.exit.dir === 'yes' ? EXIT_ROTATION_DEG : -EXIT_ROTATION_DEG;
-			// A KEYFRAME animation, not a transition: its first frame is stated, not
-			// inferred. A transition can only start from the value the browser last
-			// *computed* for the node, which is not necessarily the transform the
-			// drag last *wrote* — pointermove and pointerup arrive in the same input
-			// batch, ahead of the frame's style pass, and the commit rewrites the
-			// whole declaration block (transition included) in one go. That is the
-			// hole the card fell through: it re-appeared at the middle of the stack
-			// for a frame and flew from there. `--exit-from-*` closes it by naming
-			// the release transform outright. `will-change` stays set so the
-			// compositor layer survives the flight.
-			return `--exit-from-x:${entry.exit.fromX.toFixed(1)}px;--exit-from-deg:${entry.exit.fromDeg.toFixed(2)}deg;--exit-to-x:${toX};--exit-to-deg:${toDeg}deg;animation:swipe-card-exit ${EXIT_MS}ms ${EXIT_EASE} both;will-change:transform`;
+			// The pose the card was released at, as the element's OWN transform. The
+			// flight animates away from here, so this is where the card sits for the
+			// frame between the handover and the animation's first tick — and where it
+			// would stay if the animation never got going at all. No transition: this
+			// is a starting point being stated, not a move being made. `will-change`
+			// stays set so the compositor layer survives the flight.
+			return `transform:translate3d(${entry.exit.fromX.toFixed(1)}px,0,0) rotate(${entry.exit.fromDeg.toFixed(2)}deg);will-change:transform`;
 		}
 		if (entry.depth > 0) return 'transform:translate3d(0px,0,0) rotate(0deg)';
 		const spring = dragging || reduceMotion ? 'none' : `transform ${SPRING_MS}ms ${SPRING_EASE}`;
@@ -697,6 +746,7 @@
 								? 'pointer-events-none'
 								: 'touch-pan-y'}"
 							style={cardStyle(entry)}
+							bind:this={cardNodes[entry.card.id]}
 							onpointerdown={(event) => onPointerDown(event, entry.card)}
 							onpointermove={onPointerMove}
 							onpointerup={onPointerUp}
@@ -842,40 +892,6 @@
 	.swipe-card :global(img) {
 		-webkit-user-drag: none;
 		user-select: none;
-	}
-
-	/*
-		The flight of a committed card.
-
-		Both ends are written down. The card must leave from exactly where the
-		thumb released it — position AND tilt — and a transition cannot promise
-		that: it starts from whatever the browser last computed for the element,
-		which in the frame a release lands in is not what the drag last wrote. So
-		the release transform is frozen into `--exit-from-x`/`--exit-from-deg` at
-		commit and this animation begins there. Timing and easing come from the
-		inline style, so `EXIT_MS`/`EXIT_EASE` stay the single source of truth.
-
-		The ink fades over the last 40% and fades LINEARLY, so the card is still
-		fully drawn while the seal is still on screen. `-global-` because the
-		animation is named from an inline style, which Svelte does not rewrite.
-		Under prefers-reduced-motion there is no exit layer at all (and app.css
-		zeroes animation durations anyway).
-	*/
-	@keyframes -global-swipe-card-exit {
-		from {
-			transform: translate3d(var(--exit-from-x), 0, 0) rotate(var(--exit-from-deg));
-			opacity: 1;
-		}
-
-		60% {
-			opacity: 1;
-			animation-timing-function: linear;
-		}
-
-		to {
-			transform: translate3d(var(--exit-to-x), 0, 0) rotate(var(--exit-to-deg));
-			opacity: 0;
-		}
 	}
 
 	/*
