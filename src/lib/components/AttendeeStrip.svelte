@@ -94,6 +94,10 @@
 				!rsvp.isPending(person.memberId) &&
 				!!person.markedBy &&
 				person.markedBy.id !== person.memberId}
+			<!-- Whether the line under the name has anything the token can't carry.
+			     It is always *set*, never conditionally mounted — see below. -->
+			{@const detail =
+				!editable || attending === null || proxied || (showProgress && attending === true)}
 			<li class="deal-in flex items-center gap-2 px-3 py-2.5" style="--deal:{i}">
 				<div class="min-w-0 flex-1">
 					<p class="truncate text-sm font-medium text-ink">
@@ -104,23 +108,32 @@
 					</p>
 					<!--
 						The pressed token already says in-or-out, so the line under the name
-						only appears when it has something the token cannot carry: no answer
+						only reads when it has something the token cannot carry: no answer
 						yet, who set a proxy RSVP, or the runoff progress.
+
+						But it is always THERE, hidden rather than unmounted, because the
+						line is what sets the row's height: mounting it on the press (and
+						again when the server confirms a proxy RSVP over SSE) made the row
+						grow and shrink under the finger. Hidden, the standing still holds
+						the space open, so the roster is a ruled pad with fixed lines and
+						nothing reflows. `visibility` and not `opacity`, so the hidden text
+						is gone from the accessibility tree too — the tokens' own
+						`aria-pressed` already says in-or-out there.
 					-->
-					{#if !editable || attending === null || proxied || (showProgress && attending)}
-						<p class="stencil text-[0.7rem] tracking-[0.02em] text-ink-soft">
-							{#if attending === null}
-								No answer yet
-							{:else if attending}
-								In{#if proxied} — marked by {person.markedBy?.displayName}{/if}
-							{:else}
-								Out{#if proxied} — marked by {person.markedBy?.displayName}{/if}
-							{/if}
-							{#if showProgress && attending}
-								· {person.submitted ? 'voted' : 'not voted yet'}
-							{/if}
-						</p>
-					{/if}
+					<p
+						class="stencil text-[0.7rem] tracking-[0.02em] text-ink-soft {detail ? '' : 'invisible'}"
+					>
+						{#if attending === null}
+							No answer yet
+						{:else if attending}
+							In{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+						{:else}
+							Out{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+						{/if}
+						{#if showProgress && attending}
+							· {person.submitted ? 'voted' : 'not voted yet'}
+						{/if}
+					</p>
 				</div>
 
 				{#if showProgress && person.submitted && attending}
@@ -128,7 +141,9 @@
 					     at the pool list's compact size — the same object the runoff's own
 					     "you're done" card and the pairs screen already print. Nothing
 					     marks an unfinished ballot: the absence is the state, and the line
-					     under the name spells it out. -->
+					     under the name spells it out. The seal comes and goes with the
+					     standing, but it is shorter than the name-and-line block beside it,
+					     so it is never what the row's height is measured from. -->
 					<span class="shrink-0">
 						<Stamp word="Done" tone="jade" size="0.72rem" rotate={-7} />
 						<span class="sr-only">has finished voting</span>
