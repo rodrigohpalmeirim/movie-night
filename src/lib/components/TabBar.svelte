@@ -19,8 +19,8 @@
 <script lang="ts">
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import Clapperboard from '$lib/icons/Clapperboard.svelte';
-	import Layers2 from '$lib/icons/Layers2.svelte';
+	import Film from '$lib/icons/Film.svelte';
+	import Popcorn from '$lib/icons/Popcorn.svelte';
 	import ScrollText from '$lib/icons/ScrollText.svelte';
 	import SlidersHorizontal from '$lib/icons/SlidersHorizontal.svelte';
 
@@ -30,13 +30,13 @@
 		{
 			href: `/g/${token}`,
 			label: 'Round',
-			icon: Clapperboard,
+			icon: Popcorn,
 			match: (p: string) => p === `/g/${token}`
 		},
 		{
 			href: `/g/${token}/pool`,
 			label: 'Pool',
-			icon: Layers2,
+			icon: Film,
 			badge: swipeCount,
 			match: (p: string) => p.startsWith(`/g/${token}/pool`) || p.startsWith(`/g/${token}/movies`)
 		},
