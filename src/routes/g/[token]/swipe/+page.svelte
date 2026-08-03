@@ -32,6 +32,11 @@
 	server-provided stack rebuilds mid-session, and a numeric index into it would
 	silently skip cards.
 
+	Which card is in front is stated as a number on every layer, and that number is
+	never animated: a deck whose paint order is left to document order, to mount
+	order, or to an interpolation shows the wrong card in front on the frame it
+	advances.
+
 	All motion is CSS transitions on inline transforms; `prefers-reduced-motion`
 	drops the fly-out and the spring entirely (app.css also zeroes durations
 	globally, so this is belt and braces).
@@ -71,8 +76,30 @@
 	let { data }: { data: PageServerData } = $props();
 
 	type Card = PageServerData['stack'][number];
-	/** One rendered layer of the stack. `exit` set = committed, on its way out. */
-	type Entry = { card: Card; depth: number; exit: SwipeChoice | null };
+	/**
+	 * One rendered layer of the stack. `exit` set = committed, on its way out; `z`
+	 * is where the layer sits in the pile (see `STACK_TOP_Z`/`EXIT_Z`).
+	 */
+	type Entry = { card: Card; depth: number; exit: SwipeChoice | null; z: number };
+
+	/**
+	 * WHO IS IN FRONT OF WHOM, and the only place it is decided.
+	 *
+	 * The live deck descends from the top slot — one value per depth, never two
+	 * slots sharing one — and every card in flight sits above the whole of it,
+	 * newest in front. Both are plain numbers on the entry, so paint order is
+	 * DATA: it does not depend on the order the layers happen to sit in the DOM
+	 * (which runs the wrong way — leaving cards are emitted first, so by default
+	 * they paint first, i.e. UNDERNEATH the deck they are leaving), and it does
+	 * not depend on when a layer was mounted.
+	 *
+	 * `STACK_TOP_Z` is 20 so the top card's relationship to the fixed tab bar
+	 * (`z-20`, later in the document, therefore in front) is exactly as before,
+	 * and `EXIT_Z` is above both: a card thrown across the screen passes over the
+	 * chrome, as it always has.
+	 */
+	const STACK_TOP_Z = 20;
+	const EXIT_Z = 30;
 
 	/** Answers this session, newest last — powers Undo and drives the cursor. */
 	let answered = $state<Array<{ card: Card; value: SwipeChoice }>>([]);
@@ -173,11 +200,15 @@
 	/**
 	 * Leaving cards, then the top card, then the one beneath it. Order is stable
 	 * per movie id so the keyed `each` reuses DOM nodes: a card is promoted by a
-	 * style change, never by a remount.
+	 * style change, never by a remount. A commit appends to `exits` as the queue
+	 * advances, so every entry keeps its index and the `each` never has to MOVE a
+	 * layer either — which is also why this order cannot be the paint order. It is
+	 * the mount order, and it runs front-to-back: each entry says outright, in
+	 * `z`, where it is painted.
 	 */
 	const entries: Entry[] = $derived([
-		...exits.map((exit) => ({ card: exit.card, depth: 0, exit: exit.dir })),
-		...queue.slice(0, 2).map((card, i) => ({ card, depth: i, exit: null }))
+		...exits.map((exit, i) => ({ card: exit.card, depth: 0, exit: exit.dir, z: EXIT_Z + i })),
+		...queue.slice(0, 2).map((card, i) => ({ card, depth: i, exit: null, z: STACK_TOP_Z - i }))
 	]);
 
 	// Warm the two posters after the one on screen: the card under the top card is
@@ -343,19 +374,34 @@
 	}
 
 	/* ── inline styles ────────────────────────────────────────────── */
-	/** Outer layer: depth in the stack. Transitioning it is what promotes a card. */
+	/**
+	 * Outer layer: depth in the stack, and the slot the layer is painted in.
+	 * Transitioning the depth is what promotes a card; the slot is APPLIED, never
+	 * transitioned.
+	 *
+	 * Hence `transform` and `opacity` by name rather than `all`: `z-index` is an
+	 * animatable integer, so `transition: all` hands the deck's paint order to an
+	 * interpolation. A promoted card then spends the frame the deck advances in
+	 * still wearing the value of the slot it has just LEFT — and a card that is
+	 * only as far forward as the card behind it loses to that card, because a tie
+	 * is broken by document order and the card behind comes later. One frame of
+	 * the wrong card in front, on every single commit.
+	 */
 	function layerStyle(entry: Entry): string {
-		const settle = dragging || reduceMotion ? 'none' : `all ${PROMOTE_MS}ms ${PROMOTE_EASE}`;
-		if (entry.exit) return `z-index:30;transform:scale(1) translateY(0px);opacity:1`;
+		const settle =
+			dragging || reduceMotion
+				? 'none'
+				: `transform ${PROMOTE_MS}ms ${PROMOTE_EASE},opacity ${PROMOTE_MS}ms ${PROMOTE_EASE}`;
+		if (entry.exit) return `z-index:${entry.z};transform:scale(1) translateY(0px);opacity:1`;
 		if (entry.depth === 0) {
-			return `z-index:20;transform:scale(1) translateY(0px);opacity:1;transition:${settle}`;
+			return `z-index:${entry.z};transform:scale(1) translateY(0px);opacity:1;transition:${settle}`;
 		}
 		// The card underneath rises towards the top slot as the drag approaches a
 		// commit, so a swipe reveals where it is going.
 		const scale = 0.94 + 0.06 * progress;
 		const lift = 8 - 8 * progress;
 		const fade = 0.7 + 0.3 * progress;
-		return `z-index:10;transform:scale(${scale.toFixed(3)}) translateY(${lift.toFixed(2)}px);opacity:${fade.toFixed(3)};transition:${settle}`;
+		return `z-index:${entry.z};transform:scale(${scale.toFixed(3)}) translateY(${lift.toFixed(2)}px);opacity:${fade.toFixed(3)};transition:${settle}`;
 	}
 
 	/** Inner layer: the drag itself, and the flight off screen. */
