@@ -45,6 +45,37 @@
 	const myRunoffStep = $derived(
 		!me ? null : !me.vetoSubmitted ? 'veto' : me.pairsDone < me.pairsTotal ? 'pairs' : 'done'
 	);
+
+	/**
+	 * THE HAND — how the finalists are fanned out, per finalist count.
+	 *
+	 * A group can ask for 2 to 5 finalists (`n_finalists`, capped at 5 in
+	 * groups.ts), so the fan has to look deliberate across that whole range
+	 * rather than at one count. Fewer finalists get BIGGER cards turned FURTHER,
+	 * so a hand of two reads as two cards crossed on the felt instead of a sparse
+	 * pair; five get smaller cards and a tighter overlap, so the whole hand still
+	 * fits a phone in one glance instead of running off the side into a scroller,
+	 * which is what the old rack did at exactly five. Every hand ends up spanning
+	 * roughly the same two thirds of the column.
+	 *
+	 * `width` is a share of the COLUMN with a rem cap, so the fan scales with the
+	 * screen and cannot overflow it: everything else is expressed as a fraction of
+	 * that one number. `overlap` is how much of a card the next one covers, and
+	 * `tilt` the degrees between neighbours (the fan is centred on 0°, so a card's
+	 * own angle is its distance from the middle of the hand times this).
+	 */
+	const HANDS: Record<number, { width: string; overlap: number; tilt: number }> = {
+		1: { width: 'min(42%, 8rem)', overlap: 0, tilt: 0 },
+		2: { width: 'min(38%, 6.75rem)', overlap: 0.42, tilt: 12 },
+		3: { width: 'min(32%, 6rem)', overlap: 0.44, tilt: 10 },
+		4: { width: 'min(26%, 5.5rem)', overlap: 0.46, tilt: 9 },
+		5: { width: 'min(23%, 5rem)', overlap: 0.5, tilt: 8 }
+	};
+	const finalistCount = $derived(round?.finalists?.length ?? 0);
+	/** Tightest hand for anything unexpectedly larger; the table covers 1–5. */
+	const hand = $derived(HANDS[Math.min(finalistCount, 5)] ?? HANDS[5]);
+	/** A card's own angle: its distance from the middle of the hand, in tilts. */
+	const tiltOf = (i: number) => ((i - (finalistCount - 1) / 2) * hand.tilt).toFixed(2);
 </script>
 
 {#if form?.message}
@@ -231,24 +262,53 @@
 			</Menu>
 		</div>
 
-		{#if round.finalists}
-			<!-- The finalists racked up like cards in a holder — dealt into the
-			     rack left to right on arrival. Keyed by movie id, so the SSE
-			     refresh reuses these nodes and never re-deals them. -->
-			<ul class="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2">
-				{#each round.finalists as movie, i (movie.id)}
-					<li class="deal-in w-[4.75rem] shrink-0" style="--deal:{i}">
-						<div class="tile p-1">
-							<div class="aspect-[2/3] overflow-hidden rounded-[3px] border border-ink">
-								<Poster path={movie.posterPath} title={movie.title} size="w185" />
-							</div>
-						</div>
-						<p class="stencil mt-2.5 truncate text-[0.7rem] text-chalk-dim uppercase">
-							{movie.title}
-						</p>
-					</li>
-				{/each}
-			</ul>
+		{#if round.finalists && round.finalists.length > 0}
+			<!--
+				THE FINALISTS, AS A HAND FANNED OUT ON THE FELT.
+
+				Not a rack of framed thumbnails: the same flat card the swipe screen
+				deals — poster to the very edge, one hairline of ink for the cut, and
+				the soft shadow it casts on the table. No lip, because a raised edge on
+				this table means pressable and these are not controls; nothing here is
+				a link, exactly as before.
+
+				They overlap and turn about a pivot below the bottom edge, which is
+				where a hand of cards is actually held, so the tops fan apart and the
+				outer cards settle a little lower. Widths, overlap and turn all come
+				from `HANDS` above, so two finalists and five both look dealt.
+
+				Dealt left to right on arrival — the existing `.deal-in`, and the
+				per-card angle rides the separate `rotate` property so the entrance's
+				own transform cannot overwrite it. Keyed by movie id, so the SSE
+				refresh reuses these nodes and never re-deals them.
+			-->
+			<div class="pb-1.5">
+				<ul class="flex justify-center" style="--fan-w:{hand.width}">
+					{#each round.finalists as movie, i (movie.id)}
+						<li
+							class="fan-card deal-in"
+							style="--deal:{i};--tilt:{tiltOf(i)}deg;z-index:{i}{i > 0
+								? `;margin-left:calc(var(--fan-w) * -${hand.overlap})`
+								: ''}"
+						>
+							<Poster path={movie.posterPath} title={movie.title} size="w185" />
+						</li>
+					{/each}
+				</ul>
+
+				<!-- The hand read out in print, left to right, so the titles the old
+				     rack captioned are still on the screen — a fanned card only shows
+				     a strip of its neighbour, and none of them shows its spine. Hidden
+				     from assistive tech on purpose: every poster above already carries
+				     its film's title in its alt text, in this same order, so reading
+				     this too would say the whole hand twice. -->
+				<p
+					class="stencil mx-auto mt-2.5 max-w-[21rem] text-center text-[0.72rem] leading-snug text-chalk-dim uppercase"
+					aria-hidden="true"
+				>
+					{round.finalists.map((movie) => movie.title).join(' · ')}
+				</p>
+			</div>
 		{/if}
 
 		{#if me?.attending !== true}
@@ -433,3 +493,43 @@
 		</form>
 	</div>
 {/if}
+
+<style>
+	/*
+		ONE CARD IN THE FANNED HAND (see the markup above for what the hand is).
+
+		Geometry is all derived from `--fan-w`, the one width the script hands down:
+		the card's own width, its 2:3 stock, and how far the next card covers it
+		(that one is an inline margin, because it is per card). Written here rather
+		than as five arbitrary utilities so the whole shape of a card is in one
+		place and reads as a card.
+
+		The turn is the `rotate` PROPERTY, not a transform: `.deal-in` animates
+		`transform`, and the two compose instead of fighting — so a card's angle
+		survives its own entrance, and under prefers-reduced-motion (which zeroes
+		the animation globally in app.css) the fan is simply already fanned.
+
+		The pivot is below the bottom edge — where a hand of cards is held between
+		finger and thumb — so turning a card sweeps its top corner outwards and
+		drops it slightly, which is what makes five of these read as one arc rather
+		than five tilted rectangles.
+
+		FLAT, like the swipe screen's card: poster to the very edge, one hairline of
+		ink for the die-cut, and no lip — a raised edge here means pressable. What
+		it does own is the soft shadow it casts on the felt, which is also what
+		separates the overlap: each card's shadow falls across the one it covers.
+	*/
+	.fan-card {
+		position: relative;
+		width: var(--fan-w);
+		aspect-ratio: 2 / 3;
+		flex-shrink: 0;
+		overflow: hidden;
+		border: 1px solid var(--color-ink);
+		border-radius: 4px;
+		background-color: var(--color-felt-deep);
+		transform-origin: 50% 120%;
+		rotate: var(--tilt, 0deg);
+		box-shadow: 0 5px 12px rgb(0 0 0 / 0.4);
+	}
+</style>
