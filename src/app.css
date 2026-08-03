@@ -945,6 +945,36 @@ html[data-page-transition='back']::view-transition-new(root) {
 }
 
 /*
+ * ...and the tray is PINNED, not merely named.
+ *
+ * Naming it is only half the fix. A name lifts the bar out of the root
+ * snapshot so it stops sliding with the table — but the group it gets instead
+ * still INTERPOLATES geometry between the two captures, and the tab bar's
+ * captured position is not stable: it is `position: fixed; bottom: 0`, so it
+ * hangs off the bottom of the LAYOUT viewport, while the snapshot containing
+ * block the group is drawn in is the full viewport including the strip that
+ * retractable browser UI covers.
+ *
+ * So on a phone: scroll a long screen (the decided round, with its poster and
+ * its open scorepad, is the tallest one in the app) and the URL bar retracts —
+ * the layout viewport grows and the bar is captured hard against the bottom of
+ * the snapshot containing block. Tap through, the navigation resets the scroll
+ * to the top, the URL bar comes back, the layout viewport shrinks, and the
+ * second capture puts the bar ~50px higher. The group then animates between
+ * the two: the tray slides, and for part of that slide it is drawn in the strip
+ * the URL bar now covers — which is exactly the "the bar dropped off the screen
+ * and came back" the eye reports.
+ *
+ * `animation: none` drops that interpolation, so both captures are drawn at the
+ * new geometry and the tray cannot move. What still runs is the cross-fade of
+ * the two images — the latch travelling to the tapped tab, and the felt tint
+ * changing with the table — which is the whole reason it has a group.
+ */
+::view-transition-group(tab-bar) {
+	animation: none;
+}
+
+/*
  * "Prefers less motion" means no motion: the swipe fly-out, the promote
  * spring, the seal slam, the deal-in stagger and the page transitions are
  * all cut outright rather than sped up. This block (plus onNavigate's own
