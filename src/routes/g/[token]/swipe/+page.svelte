@@ -1125,6 +1125,10 @@
 		also where the easing of each half meets — the one frame of the turn where
 		nothing is visible, so nothing shows for it.
 
+		1.13 at the midpoint, not a hair over 1: on a card this size a lift you have
+		to be told about is not a lift. It has to read as the card leaving the table
+		to turn — which is also why the shadow below spreads at the same instant.
+
 		The way back UNWINDS the same turn (180° → 90° → 0°) rather than carrying on
 		round: turning a card back is the gesture reversed, not a second lap.
 	*/
@@ -1133,7 +1137,7 @@
 			transform: scale(1) rotateY(0deg);
 		}
 		50% {
-			transform: scale(1.06) rotateY(90deg);
+			transform: scale(1.13) rotateY(90deg);
 		}
 		to {
 			transform: scale(1) rotateY(180deg);
@@ -1145,7 +1149,7 @@
 			transform: scale(1) rotateY(180deg);
 		}
 		50% {
-			transform: scale(1.06) rotateY(90deg);
+			transform: scale(1.13) rotateY(90deg);
 		}
 		to {
 			transform: scale(1) rotateY(0deg);
