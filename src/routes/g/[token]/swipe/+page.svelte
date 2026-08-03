@@ -833,13 +833,15 @@
 {/snippet}
 
 <!--
-	`overflow-x: clip` and not `hidden`: a committed card flies a full viewport
-	past the stack's right edge, which grows the document and lets the page be
-	dragged sideways for the length of the animation. Clipping contains it without
-	making this a scroll container, so nothing inside gains a scrollbar and the
-	fixed tab bar is unaffected.
+	NOTHING here clips, deliberately. A committed card flies a full viewport past
+	the stack and that has to be contained — unclipped it grows the document and
+	lets the page be dragged sideways for the length of the animation — but the
+	containment belongs to the VIEWPORT and lives on `html` in app.css. Clipping it
+	here cut the card off at this column's edge, which is the width of the content
+	and not of the screen: invisible on a phone, and on a desktop a card that
+	disappeared at a line in the middle of the felt.
 -->
-<div class="space-y-4 overflow-x-clip">
+<div class="space-y-4">
 	<div class="space-y-2">
 		<div class="flex items-baseline justify-between gap-3">
 			<a

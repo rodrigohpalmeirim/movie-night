@@ -138,6 +138,24 @@
 
 	html {
 		background-color: var(--color-felt);
+		/* Sideways overflow is contained at the VIEWPORT, which is the only edge
+		   that is really there. A committed swipe card flies a full viewport past
+		   the stack, and unclipped that grows the document and lets the whole page
+		   be dragged sideways for the length of the animation. The swipe screen used
+		   to clip it locally, but every container on this app is a centred column
+		   (`max-w-lg`), so on a wide screen the card vanished at an invisible line
+		   mid-flight instead of leaving the screen.
+
+		   `clip`, not `hidden`: no scroll container is created, so nothing gains a
+		   scrollbar, the fixed tab bar is untouched, sticky positioning still
+		   resolves against the viewport, and the inner `overflow-x-auto` rails (the
+		   round's poster strip, the dev bar, the scoresheets) still scroll. Only the
+		   x axis, so the page scrolls down exactly as before — `overflow-y: visible`
+		   survives next to `clip`, where it would have been forced to `auto` next to
+		   `hidden`. The page-transition slides move a snapshot ±18px inside the
+		   snapshot containing block, which is the viewport itself, so they are no
+		   business of this rule. */
+		overflow-x: clip;
 	}
 
 	body {
