@@ -648,16 +648,6 @@
 		text-transform: uppercase;
 	}
 
-	/* Marquee band: ink plate, brass type, double rule. Announces a result. */
-	.marquee {
-		border: 2px solid var(--color-brass);
-		border-radius: 6px;
-		outline: 2px solid var(--color-brass);
-		outline-offset: 3px;
-		background-color: var(--color-ink);
-		color: var(--color-brass);
-	}
-
 	/* ── SIGNATURE: the ink seal ──────────────────────────────────────
 	   One stamp grammar for every mark a person makes: yes and nope on the
 	   swipe card, veto on a disqualified film, and PICKED slammed across

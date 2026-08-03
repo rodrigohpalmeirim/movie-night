@@ -401,14 +401,31 @@
 			</div>
 		{:else if revealed.winner}
 			<!--
-				The winner moment. A marquee plate announces it, and the film arrives
-				as a ticket stub with the round's seal slammed across the artwork —
-				the same stamp the swipe screen uses, in brass, once.
+				The winner moment. The night is announced on the felt, and the film
+				arrives under it as a ticket stub with the round's seal slammed across
+				the artwork — the same stamp the swipe screen uses, in brass, once.
+
+				THE ANNOUNCEMENT. What the night decided is a NAME, so the name gets the
+				big face. The other two states of this page already announce themselves
+				exactly this way — brass stencil eyebrow over a slab headline — and this
+				is that same sentence at full volume: "tonight you're watching" is the
+				words you say BEFORE a title, so they stay small, and the title itself is
+				struck straight onto the felt at display size, centred over the stub it
+				belongs to, with a brass tack ruled under it.
+
+				It used to be the other way round: the boilerplate had an inked marquee
+				plate to itself and the film — the payoff of the whole app — was 1.5rem of
+				caption at the bottom of the ticket. The stub keeps the poster, the seal
+				and the small print; the title has moved up here, so it is said once.
 			-->
-			<!-- The reveal is a two-beat deal: the marquee lands, then the stub —
+			<!-- The reveal is a two-beat deal: the announcement lands, then the stub —
 			     and the PICKED seal's own slam lands last, on top of both. -->
-			<div class="deal-in marquee px-4 py-2.5 text-center">
-				<p class="eyebrow text-[0.72rem] tracking-[0.26em]">Tonight you're watching</p>
+			<div class="deal-in text-center">
+				<p class="eyebrow text-brass">Tonight you're watching</p>
+				<h2 class="display mx-auto mt-1.5 max-w-[19rem] text-[1.95rem] leading-[0.98] text-balance text-board">
+					{revealed.winner.title}
+				</h2>
+				<div class="mx-auto mt-3 h-[3px] w-14 rounded-full bg-brass"></div>
 			</div>
 
 			<div class="deal-in mx-auto max-w-[18.5rem] pt-1" style="--deal:2">
@@ -444,10 +461,10 @@
 					</div>
 					<div class="perf"></div>
 					<div class="ticket-bottom px-2.5 pt-0.5 pb-2.5">
-					<h2 class="display px-0.5 text-[1.5rem] leading-[1.05] text-ink">
-						{revealed.winner.title}
-					</h2>
-					<p class="stencil mt-1.5 px-0.5 text-[0.72rem] text-ink-soft uppercase">
+					<!-- Small print on the receipt. The title is not repeated here: it is
+					     the announcement above, and the poster's alt text carries it for
+					     anyone reading the stub on its own. -->
+					<p class="stencil px-0.5 text-[0.72rem] text-ink-soft uppercase">
 						{movieMeta(revealed.winner.year, revealed.winner.runtimeMin)}
 						{#if revealed.winner.suggestedBy}
 							· suggested by {revealed.winner.suggestedBy.displayName}
