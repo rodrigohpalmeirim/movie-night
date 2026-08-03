@@ -5,6 +5,13 @@
 	vetoes, and which tiebreak rule (if any) decided it, including the
 	seeded-random proof."
 
+	The round's random seed is NOT printed. It is still recorded on the round and
+	still the last link of the tiebreak chain (see `$lib/tally/prng.ts`), so a
+	seeded result remains reproducible and auditable from the data — but a bare
+	32-bit number on the scorepad answered a question nobody at the table was
+	asking, and the sentence above it already names the rule that decided the
+	night. Presentation only: nothing about the tally changed.
+
 	Drawn as the scorepad that comes with the game: ink on board stock, ruled
 	rows, condensed stencil headers, numbers right-aligned and tabular. It is
 	always rendered inside a board component (the round page's disclosure, or a
@@ -269,13 +276,6 @@
 			{:else}
 				Only one film cleared the approval floor, so it won outright.
 			{/if}
-		</p>
-		<p class="mt-1.5 text-xs leading-relaxed text-ink-soft">
-			Random seed for this round:
-			<code class="rounded bg-ink px-1.5 py-0.5 font-mono text-[0.7rem] tabular-nums text-board"
-				>{reveal.randomSeed}</code
-			>
-			— kept so any seeded tiebreak can be reproduced and checked.
 		</p>
 	</section>
 </div>
