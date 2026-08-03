@@ -23,14 +23,17 @@
 	soft shadow it casts on the felt, which is lift, not an invitation to press.
 
 	The WHOLE card turns over — stock, print and all, one object rotating about its
-	vertical axis, not a panel swapped inside a frame. A ⓘ token in the corner of
-	the face turns it to a printed kraft back — what the film is about, who is in
-	it, and a link out to the trailer — and a matching token in the back's own
-	header turns it face up again. The flip never fights the gesture: it rides a
-	layer inside the element the drag transforms, and the first few pixels of a
-	drag turn the card face up mid-drag, without interrupting it, so a vote is
-	always stamped onto the poster. Without JavaScript that corner is simply a
-	link to the movie's own page, which prints the same facts.
+	vertical axis, not a panel swapped inside a frame. A TAP ANYWHERE ON IT turns
+	it to a printed kraft back — what the film is about, who is in it, and a link
+	out to the trailer — and a tap anywhere turns it face up again: the card is the
+	affordance, so there is no token on it to aim at, and the only thing inside it
+	a tap means something else on is the trailer button. From the keyboard ArrowUp
+	turns it over and back, Escape only ever face up. Which leaves the back to be
+	discovered, so it is shown: the first card of a session is dealt back up and
+	turns itself over a moment after it arrives, once, and nothing does that again.
+	The flip never fights the gesture: it rides a layer inside the element the drag
+	transforms, and the first few pixels of a drag turn the card face up mid-drag,
+	without interrupting it, so a vote is always stamped onto the poster.
 
 	The cursor is *by movie id*, not by array position: the group's SSE stream
 	calls `invalidateAll()` on every write — including our own vote — so the
@@ -45,10 +48,10 @@
 	one — a commit moves a card and repaints it, and changes nothing about what it is.
 
 	Which is why every card in the stack is BUILT the same, whether it is on top,
-	behind, or on its way off screen: both faces and the ⓘ corner are there for the
-	whole of a card's life, and the ones a card's current role has no use for are
-	hidden with style rather than left out. A part printed on promotion and thrown
-	away on commit is a layer tree rebuilt on the very frame the deck hands over.
+	behind, or on its way off screen: both faces are there for the whole of a
+	card's life, and the one a card's current role has no use for is hidden with
+	style rather than left out. A part printed on promotion and thrown away on
+	commit is a layer tree rebuilt on the very frame the deck hands over.
 
 	All motion is CSS transitions on inline transforms; `prefers-reduced-motion`
 	drops the fly-out and the spring entirely (app.css also zeroes durations
@@ -56,13 +59,12 @@
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { flushSync } from 'svelte';
+	import { flushSync, untrack } from 'svelte';
 	import Poster from '$lib/components/Poster.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import Check from '$lib/icons/Check.svelte';
-	import Info from '$lib/icons/Info.svelte';
 	import Play from '$lib/icons/Play.svelte';
 	import StampIcon from '$lib/icons/Stamp.svelte';
 	import Undo2 from '$lib/icons/Undo2.svelte';
@@ -114,6 +116,21 @@
 	const STACK_TOP_Z = 20;
 	const EXIT_Z = 30;
 
+	/**
+	 * How long the first card of a session is left showing its back before it turns
+	 * itself over. Long enough to read as "there is print on the other side of
+	 * this", short enough that it is never a splash screen: the poster is what the
+	 * swipe is about.
+	 */
+	const INTRO_FLIP_MS = 900;
+	/**
+	 * The card the intro reveal deals back up: the first of the session, read ONCE
+	 * at init and deliberately not reactive. `untrack` says so out loud — the stack
+	 * is rebuilt by every live invalidation, and the intro is a fact about arriving
+	 * on this screen, not about whatever the server most recently dealt.
+	 */
+	const introId: string | null = untrack(() => data.stack[0]?.id ?? null);
+
 	/** Answers this session, newest last — powers Undo and drives the cursor. */
 	let answered = $state<Array<{ card: Card; value: SwipeChoice }>>([]);
 	/**
@@ -137,8 +154,12 @@
 	 * this screen. That is what makes the flip reset itself when the deck
 	 * advances: the id stops matching the top card, so the next film always
 	 * arrives face up without anyone having to remember to clear a flag.
+	 *
+	 * It starts on the FIRST card of the session: the deck is dealt back up and
+	 * turns itself over a moment later (see the intro effect), which is how anyone
+	 * finds out there is a back at all now that no token advertises it.
 	 */
-	let flippedId = $state<string | null>(null);
+	let flippedId = $state<string | null>(introId);
 	let cardWidth = $state(0);
 	let reduceMotion = $state(false);
 	/**
@@ -180,7 +201,8 @@
 	 */
 	let dragMoved = false;
 	/**
-	 * The control inside the card the press landed on, if any.
+	 * The link inside the card the press landed on, if any — the trailer button is
+	 * the only one there is.
 	 *
 	 * The card captures the pointer for the length of a drag, and a captured
 	 * pointer's click is dispatched at the CAPTURING element — so a tap on a link
@@ -269,6 +291,35 @@
 		const sync = () => (reduceMotion = query.matches);
 		query.addEventListener('change', sync);
 		return () => query.removeEventListener('change', sync);
+	});
+
+	/**
+	 * THE INTRO REVEAL, and the only thing on this screen that happens by itself.
+	 *
+	 * The first card is dealt back up (`flippedId` starts on it, so the server's
+	 * HTML and the first client render agree and hydration has nothing to argue
+	 * with) and turns over shortly after mount: the back is genuinely seen, then
+	 * the poster comes round on the ordinary flip. That glimpse is the whole
+	 * discoverability story for tap-to-flip — nothing else on the card advertises
+	 * that it has a back.
+	 *
+	 * It runs ONCE: nothing it reads is read reactively, so an invalidation mid
+	 * session cannot deal the current card back up again. If a thumb gets there
+	 * first the card is already face up (`TAP_SLOP` clears the flip mid-drag) and
+	 * a tap has toggled it deliberately — hence the id check in the timeout, which
+	 * only ever turns over the card the intro itself dealt. Under
+	 * prefers-reduced-motion there is no reveal at all: the card starts face up.
+	 */
+	$effect(() => {
+		if (!introId) return;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			flippedId = null;
+			return;
+		}
+		const timer = setTimeout(() => {
+			if (flippedId === introId) flippedId = null;
+		}, INTRO_FLIP_MS);
+		return () => clearTimeout(timer);
 	});
 
 	$effect(() => () => cancelExitTimers());
@@ -369,8 +420,15 @@
 			return;
 		}
 		dragX = 0; // springs back
-		// It never travelled: it was a tap on something, so do what that something says.
-		if (!dragMoved && tapped) activateCardTap(tapped);
+		// It never travelled, so it was a tap. On the trailer button it opens the
+		// trailer; ANYWHERE else on the card it turns the card over, which is the
+		// whole affordance now that there is no token to aim at. Only the live top
+		// card ever gets this far — a press is refused on any other (see
+		// `onPointerDown`), so `current` is the card that was tapped.
+		if (!dragMoved) {
+			if (tapped) openTrailer(tapped);
+			else if (current) flip(current.id);
+		}
 	}
 
 	function onPointerCancel(event: PointerEvent) {
@@ -392,9 +450,12 @@
 		if (target?.isContentEditable) return;
 		if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
 
-		// Escape turns a card that is showing its back face up again — the same
-		// thing the corner token does, from the keyboard.
+		// The flip from the keyboard: ArrowUp turns the card over and back, the
+		// same toggle a tap on the card is, and Escape only ever turns it face up.
+		// Left and right are the vote, so up is the one that reads as "lift the
+		// card and look" without being a third meaning for a key that already votes.
 		if (event.key === 'Escape' && flippedId !== null) flippedId = null;
+		else if (event.key === 'ArrowUp' && current) flip(current.id);
 		else if (event.key === 'ArrowRight') commit('yes');
 		else if (event.key === 'ArrowLeft') commit('no');
 		else if (event.key === 'u' || event.key === 'U') undo();
@@ -460,9 +521,9 @@
 	 * painted. It does not change what a card is.
 	 *
 	 * The MARKUP now says so outright, and that is not a tidy-up: it is the fix for
-	 * the blink. Both halves of a card that used to be printed only on the top one —
-	 * the ⓘ corner and the whole of the back — are mounted on every card in every
-	 * role, and the difference between roles is opacity, hit-testing and tab order.
+	 * the blink. The half of a card that used to be printed only on the top one —
+	 * the whole of the back — is mounted on every card in every role, and the
+	 * difference between roles is opacity, hit-testing and tab order.
 	 * Rendered by role, a resting top card composited as seven layers and an exiting
 	 * or under-card as four, so every single commit tore three layers off the card
 	 * leaving and built three on the card arriving — on the hand-over frame, inside
@@ -487,7 +548,8 @@
 	/* ── the flip ─────────────────────────────────────────────────── */
 	/**
 	 * The card the screen is actually for: on top, not on its way out. It is the
-	 * only one that can turn over, and the only one whose ⓘ can be seen or pressed.
+	 * only one that can turn over, and the only one whose back can be read or whose
+	 * trailer can be reached.
 	 *
 	 * This decides what a card's parts DO, never whether it has them — every card
 	 * in the stack is built the same (see the invariant in `cardStyle`).
@@ -505,35 +567,25 @@
 		flippedId = flippedId === movieId ? null : movieId;
 	}
 
-	/** A tap that landed on one of the card's own links, resolved on release. */
-	function activateCardTap(link: HTMLAnchorElement) {
-		if (link.dataset.cardTap === 'flip') flip(link.dataset.movieId ?? '');
-		// The trailer opens exactly as the markup promises — the anchor's own href,
-		// a new tab, no opener — just driven from here rather than from a click the
-		// pointer capture may have eaten.
-		else if (link.dataset.cardTap === 'trailer') window.open(link.href, '_blank', 'noopener');
+	/**
+	 * The trailer, opened exactly as the markup promises — the anchor's own href, a
+	 * new tab, no opener — just driven from the release rather than from a click the
+	 * pointer capture may have eaten.
+	 */
+	function openTrailer(link: HTMLAnchorElement) {
+		window.open(link.href, '_blank', 'noopener');
 	}
 
 	/**
-	 * The click side of the same two links.
+	 * The click side of the trailer link, the one link left inside a card.
 	 *
-	 * A KEYBOARD activation (`detail === 0`: no coordinates, no gesture) is the
-	 * one click that has to act on its own — and the ⓘ, which is a link to the
-	 * film's own page for the no-JavaScript case, flips in place instead once
-	 * JavaScript is running. A POINTER click is only ever the tail of a gesture
-	 * already handled on release, so it is cancelled.
+	 * From the KEYBOARD (`detail === 0`: no coordinates, no gesture) it is simply a
+	 * link and is left alone. A POINTER click is only ever the tail of a gesture
+	 * already resolved on release, so it is cancelled: the tap opened the trailer
+	 * from there, and a second activation would open a second tab.
 	 */
-	function onCardTapClick(event: MouseEvent, card: Card) {
-		const link = event.currentTarget as HTMLAnchorElement;
-		if (event.detail !== 0) {
-			event.preventDefault();
-			return;
-		}
-		if (link.dataset.cardTap === 'flip') {
-			event.preventDefault();
-			flip(card.id);
-		}
-		// The trailer link is left alone: from the keyboard it is simply a link.
+	function onCardTapClick(event: MouseEvent) {
+		if (event.detail !== 0) event.preventDefault();
 	}
 
 	/** Stamp/tint strength for a layer: full on a committed card, live on the top one. */
@@ -600,36 +652,19 @@
 	{@const trailer = trailerUrl(card.details?.trailerKey)}
 	<div class="flex h-full w-full flex-col bg-board p-3 text-ink">
 		<!--
-			The way back is a slot in the header row, not a token floating over the
-			print: it has its own column beside the title, so it cannot come down on
-			the trailer button at the foot of the card — or on the title — at any
-			width. The ⓘ that turned the card over lives in the opposite corner, on
-			the face, where nothing else is printed.
+			The header takes the full width of the stock: there is no token to make
+			room for beside it, because the way back is the card itself — a tap
+			anywhere on it turns it over again.
 		-->
-		<div class="flex shrink-0 items-start gap-2">
-			<div class="min-w-0 flex-1">
-				<h3 class="stencil text-[0.8rem] leading-[1.15] font-semibold text-ink uppercase">
-					{card.title}
-				</h3>
-				{#if card.details?.tagline}
-					<p class="display mt-1 line-clamp-2 text-[0.7rem] leading-[1.2] text-ink-soft">
-						{card.details.tagline}
-					</p>
-				{/if}
-			</div>
-			<a
-				href="/g/{data.token}/movies/{card.id}"
-				data-card-tap="flip"
-				data-movie-id={card.id}
-				onclick={(event) => onCardTapClick(event, card)}
-				tabindex={showing ? undefined : -1}
-				class="card-corner token token-sm relative h-8 w-8 shrink-0 rounded-full p-0 {showing
-					? ''
-					: 'pointer-events-none'}"
-			>
-				<X size={15} />
-				<span class="sr-only">Turn {card.title} back over</span>
-			</a>
+		<div class="shrink-0">
+			<h3 class="stencil text-[0.8rem] leading-[1.15] font-semibold text-ink uppercase">
+				{card.title}
+			</h3>
+			{#if card.details?.tagline}
+				<p class="display mt-1 line-clamp-2 text-[0.7rem] leading-[1.2] text-ink-soft">
+					{card.details.tagline}
+				</p>
+			{/if}
 		</div>
 
 		<!-- The elastic middle. `overflow-hidden` is the hard stop: whatever the
@@ -689,7 +724,7 @@
 				target="_blank"
 				rel="noopener"
 				data-card-tap="trailer"
-				onclick={(event) => onCardTapClick(event, card)}
+				onclick={onCardTapClick}
 				tabindex={showing ? undefined : -1}
 				class="token token-sm token-brass mt-2.5 w-full shrink-0 {showing
 					? ''
@@ -780,7 +815,6 @@
 				{#each entries as entry (entry.card.id)}
 					{@const hint = hints(entry)}
 					{@const showing = facingBack(entry)}
-					{@const live = isLive(entry)}
 					<!--
 						A layer that is not the deck's is not in the deck's way either. A card in
 						flight keeps its layer for the length of the animation plus a margin, and
@@ -790,18 +824,20 @@
 						card that had just been promoted landed on the layer of the card that had
 						just left, and the new top card could be neither dragged nor tapped until
 						that box was dropped. Nothing inside a card in flight wants a pointer — it
-						cannot be dragged, its ⓘ and its back's links are switched off, and its
-						seal is decorative — so the whole layer stops hit-testing, and the deck
-						underneath answers the first touch it is given.
+						cannot be dragged or turned over, its back's trailer link is switched off,
+						and its seal is decorative — so the whole layer stops hit-testing, and the
+						deck underneath answers the first touch it is given.
 					-->
 					<div
 						class="absolute inset-0 {entry.exit ? 'pointer-events-none' : ''}"
 						style={layerStyle(entry)}
 					>
 						<!--
-							The card is not a control — the buttons below are, and the arrow
-							keys are handled on the window. It carries the drag gesture only,
-							hence the presentation role and no keyboard handler.
+							The card is not a control — the buttons below are, and every key
+							is handled on the window. It carries the pointer gesture only: a
+							drag, or a tap that turns it over. Hence the presentation role, no
+							tab stop and no keyboard handler of its own; from the keyboard the
+							card is turned over with ArrowUp, back with ArrowUp or Escape.
 						-->
 						<!--
 							THE HAND: the drag lives here, and only here. This element carries
@@ -857,37 +893,6 @@
 										aria-hidden={showing}
 									>
 										{@render face(entry.card, hint.yes, hint.no)}
-										<!--
-											The corner token that turns the card over, in the one corner of the face
-											nothing else is printed in. Its twin — the way back — is a slot in the
-											back's header row, so the two can never meet on the same corner as the
-											trailer button. With no JavaScript this is what it looks like: a link to
-											the film's own page, which prints the same facts.
-
-											It is printed on EVERY card, whatever that card is doing, and the ones it
-											does not belong to hide it in style rather than not having it: a token that
-											appears when a card reaches the top and is thrown away when it leaves is
-											compositor layers built and destroyed on the hand-over frame, which is the
-											one frame that must not be rebuilding anything (see `cardStyle`).
-											`opacity-0` cannot be seen, and it is computed in the same render as the
-											exit transform, so a card in flight leaves without its corner from the
-											FIRST frame rather than one frame in. Pressing and Tab are shut off with
-											it, and the reader never meets a spare one: a card that is not the live one
-											is `aria-hidden` whole, and so is a face that is turned away.
-										-->
-										<a
-											href="/g/{data.token}/movies/{entry.card.id}"
-											data-card-tap="flip"
-											data-movie-id={entry.card.id}
-											onclick={(event) => onCardTapClick(event, entry.card)}
-											tabindex={live && !showing ? undefined : -1}
-											class="card-corner token token-sm absolute right-2 bottom-2 h-8 w-8 rounded-full p-0 {live
-												? ''
-												: 'opacity-0'} {live && !showing ? '' : 'pointer-events-none'}"
-										>
-											<Info size={15} />
-											<span class="sr-only">What is {entry.card.title} about?</span>
-										</a>
 									</div>
 									<!--
 										The back is turned twice — once by itself, once by the container that flips
@@ -961,11 +966,14 @@
 				<Undo2 size={14} />
 				Undo last<span class="sr-only"> answer (keyboard: U)</span>
 			</button>
-			<p class="max-w-44 text-right text-[0.7rem] leading-snug text-chalk-dim">
+			<p class="max-w-52 text-right text-[0.7rem] leading-snug text-chalk-dim">
 				Swipe right for yes, left for no —
 				<span class="inline-flex items-center gap-0.5 align-[-2px]" aria-hidden="true">
 					<ArrowLeft size={12} /> / <ArrowRight size={12} />
-				</span><span class="sr-only">the left and right arrow keys</span> work too
+				</span><span class="sr-only">the left and right arrow keys</span> work too. Tap the card to
+				see what the film is about<span class="sr-only">
+					— or press the up arrow key to turn it over and back</span
+				>.
 			</p>
 		</div>
 	{/if}
@@ -1031,19 +1039,5 @@
 	/* After `.card-face`, so this turn is the one that lands on the back. */
 	.card-face-back {
 		transform: rotateY(180deg);
-	}
-
-	/*
-		A 2rem token is the right SIZE on a card held in one hand; 2rem is not a
-		target. The halo is the target: it takes both flip affordances out to 44px
-		without changing what is printed. It is transparent and unstyled, so it
-		hit-tests but never shows, and a press on it reports the anchor as the
-		event target — which is what the tap resolver reads on release.
-	*/
-	.card-corner::after {
-		content: '';
-		position: absolute;
-		inset: -6px;
-		border-radius: 9999px;
 	}
 </style>
