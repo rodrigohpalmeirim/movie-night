@@ -6,7 +6,7 @@
  * wrong shape for a groove — one day per pixel is a value nobody could set on
  * purpose, and `null` has no place on a numeric scale at all. So the rail moves
  * along a curated list instead: a dozen waits a group would actually agree to,
- * climbing from "any time" to "never", which is the honest direction because
+ * climbing from "no cooldown" to "forever", which is the honest direction because
  * never IS the longest wait (voting-spec: "Optionally allow a watched movie back
  * after a cooldown (default: never, configurable)"). The default therefore sits
  * at the far end of the rail rather than somewhere in its middle.
@@ -34,7 +34,7 @@ export interface CooldownStop {
 }
 
 export const COOLDOWN_LADDER: readonly CooldownStop[] = [
-	{ days: 0, label: 'Any time' },
+	{ days: 0, label: 'No cooldown' },
 	{ days: 7, label: '1 week' },
 	{ days: 14, label: '2 weeks' },
 	{ days: 30, label: '1 month' },
@@ -45,7 +45,7 @@ export const COOLDOWN_LADDER: readonly CooldownStop[] = [
 	{ days: 548, label: '18 months' },
 	{ days: 730, label: '2 years' },
 	{ days: 1095, label: '3 years' },
-	{ days: null, label: 'Never' }
+	{ days: null, label: 'Forever' }
 ];
 
 /**
@@ -65,7 +65,7 @@ export const COOLDOWN_NEVER_INDEX = COOLDOWN_LADDER.length - 1;
  * helpfully clamp into range.
  */
 export function cooldownStop(index: unknown): CooldownStop | null {
-	// An empty field is not rung zero, whatever `Number('')` says. "Any time" is a
+	// An empty field is not rung zero, whatever `Number('')` says. "No cooldown" is a
 	// deliberate answer and it has to be posted deliberately.
 	if (typeof index === 'string' && index.trim() === '') return null;
 	const parsed = typeof index === 'string' ? Number(index) : index;

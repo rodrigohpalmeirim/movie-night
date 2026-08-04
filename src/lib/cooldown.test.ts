@@ -21,7 +21,7 @@ describe('the re-watch cooldown ladder', () => {
 		const finite = COOLDOWN_LADDER.slice(0, -1).map((stop) => stop.days as number);
 		expect(finite.every((days, i) => i === 0 || days > finite[i - 1])).toBe(true);
 		expect(COOLDOWN_LADDER[COOLDOWN_NEVER_INDEX].days).toBeNull();
-		expect(COOLDOWN_LADDER[COOLDOWN_NEVER_INDEX].label).toBe('Never');
+		expect(COOLDOWN_LADDER[COOLDOWN_NEVER_INDEX].label).toBe('Forever');
 		// Every rung the rail can reach is inside the knob's validated range.
 		expect(finite.every((days) => days >= 0 && days <= 3650)).toBe(true);
 	});

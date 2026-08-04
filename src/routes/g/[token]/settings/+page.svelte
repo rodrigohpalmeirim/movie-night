@@ -162,7 +162,7 @@
 		veto_threshold:
 			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Off removes the step entirely: nobody is asked to strike a film, and the runoff is the head-to-heads alone.',
 		rewatch_cooldown:
-			'How long a watched film waits before it can be suggested again, with its standing votes restored. Never keeps it out for good.'
+			'How long a watched film waits before it can be suggested again, with its standing votes restored. Forever keeps it out for good.'
 	};
 	const KNOB_LABELS: Record<string, string> = {
 		n_finalists: 'Finalists',
@@ -316,7 +316,7 @@
 					     included, which prints as a percentage but travels as its 0–1.
 
 					     Where the rail's own number is not the answer, the answer is said out
-					     loud too: rung 11 is "Never", not eleven of anything, and 0.4 is
+					     loud too: rung 11 is "Forever", not eleven of anything, and 0.4 is
 					     announced as the 40% the label prints. -->
 					<input
 						id="knob-{knob}"
