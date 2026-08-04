@@ -42,6 +42,7 @@ import {
 	loadAttendeeIds,
 	loadAttendance,
 	memberRunoffProgress,
+	roundVetoesEnabled,
 	vetoPrefillFor,
 	MIN_ELECTORATE,
 	NO_ELECTORATE_MESSAGE
@@ -194,6 +195,12 @@ export interface RevealView {
 	matrix: HeadToHead[];
 	copeland: Record<MovieId, number>;
 	condorcetWinnerId: MovieId | null;
+	/**
+	 * Whether this round had a veto step at all. Outside the `veto` block on
+	 * purpose: that block is the veto *tally*, and this is the house rule the night
+	 * was played under — the scorepad prints no veto section when it is false.
+	 */
+	vetoesEnabled: boolean;
 	veto: {
 		counts: Record<MovieId, number>;
 		disqualifiedIds: MovieId[];
@@ -209,6 +216,12 @@ export interface RoundView {
 	closesAt: string | null;
 	createdBy: MemberRef | null;
 	runoffAt: string | null;
+	/**
+	 * Whether THIS round has a veto step, from its own frozen knobs — the round
+	 * screen's step flow goes straight to the pairs when it is false. A config fact
+	 * about the night, not an aggregate: it says nothing about how anyone voted.
+	 */
+	vetoesEnabled: boolean;
 	/** Populated from RUNOFF onward; the finalist set itself is not a tally. */
 	finalists: MovieCard[] | null;
 	participants: ParticipantView[];
@@ -389,6 +402,7 @@ export function buildRoundView(input: {
 		closesAt: round.closesAt?.toISOString() ?? null,
 		createdBy: memberRef(byId.get(round.createdBy)),
 		runoffAt: round.runoffAt?.toISOString() ?? null,
+		vetoesEnabled: roundVetoesEnabled(round),
 		finalists,
 		participants,
 		participation: {
@@ -435,6 +449,7 @@ export function buildRevealView(input: {
 	const winner = round.winnerId ? db.select().from(movies).where(eq(movies.id, round.winnerId)).get() : undefined;
 
 	const base = {
+		vetoesEnabled: roundVetoesEnabled(round),
 		outcome: (round.winnerId === null ? 'no_clear_favourite' : 'winner') as 'winner' | 'no_clear_favourite',
 		winner: winner ? movieCard(winner, byId) : null,
 		tiebreakRuleUsed: round.tiebreakRuleUsed,

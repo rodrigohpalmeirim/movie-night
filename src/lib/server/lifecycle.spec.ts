@@ -684,6 +684,206 @@ describe('veto', () => {
 	});
 });
 
+describe('vetoes switched off (VETOES_ENABLED = false)', () => {
+	/**
+	 * Every attendee's whole ballot, when there is no veto to cast. `prefer` wins
+	 * every pair it appears in, so the round has a Condorcet winner by name rather
+	 * than whichever id happened to sort first.
+	 */
+	function castEveryPair(w: TestWorld, roundId: string, memberName: string, prefer = 'Alien') {
+		const round = getRound(w.db, w.group.id, roundId)!;
+		const memberId = w.member(memberName).id;
+		const favourite = w.movie(prefer).id;
+		for (const pair of memberRunoffProgress({ db: w.db, round, memberId }).matchups) {
+			unwrap(
+				castPairVote({
+					db: w.db,
+					groupId: w.group.id,
+					roundId,
+					memberId,
+					a: pair.a,
+					b: pair.b,
+					winner: pair.a === favourite || pair.b === favourite ? favourite : pair.a
+				})
+			);
+		}
+	}
+
+	test('the round is frozen without a veto step, and refuses a veto', () => {
+		const { w, round } = runoffWorld({ vetoes_enabled: false });
+		world = w;
+		expect(round.configSnapshot?.vetoes_enabled).toBe(false);
+
+		const progress = memberRunoffProgress({ db: w.db, round, memberId: w.member('Ana').id });
+		expect(progress.vetoStep).toBe(false);
+		// Every finalist goes into the round robin: nothing can be disqualified.
+		expect(progress.matchups.length).toBe(3);
+
+		// Refused, not accepted-and-ignored — including the explicit pass.
+		expect(
+			code(
+				castVeto({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: w.member('Ana').id,
+					movieId: w.movie('Alien').id
+				})
+			)
+		).toBe('vetoes_disabled');
+		expect(
+			code(
+				castVeto({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: w.member('Ana').id,
+					movieId: null
+				})
+			)
+		).toBe('vetoes_disabled');
+		// ...and there is nothing to pre-fill either.
+		expect(
+			vetoPrefillFor({ db: w.db, groupId: w.group.id, round, memberId: w.member('Ana').id })
+		).toBeNull();
+	});
+
+	/**
+	 * THE GATE. With a veto step, "finished" needs a recorded veto decision; without
+	 * one it must be the pairs alone, or `runoff_submitted_at` could never be set and
+	 * the reveal would warn forever that nobody had voted.
+	 */
+	test('the pairs alone finish the runoff', () => {
+		const { w, round } = runoffWorld({ vetoes_enabled: false });
+		world = w;
+		castEveryPair(w, round.id, 'Ana');
+
+		const ana = w.member('Ana').id;
+		const progress = memberRunoffProgress({ db: w.db, round, memberId: ana });
+		expect(progress.complete).toBe(true);
+		expect(progress.vetoSubmitted).toBe(false);
+		expect(
+			w.db
+				.select()
+				.from(attendance)
+				.where(and(eq(attendance.roundId, round.id), eq(attendance.memberId, ana)))
+				.get()?.runoffSubmittedAt
+		).not.toBeNull();
+
+		const view = buildRoundView({ db: w.db, group: w.group, config: w.config, me: w.member('Ana'), round });
+		expect(view?.vetoesEnabled).toBe(false);
+		expect(view?.participation.submitted).toBe(1);
+	});
+
+	test('Phase 2 is handed an empty veto set, and the reveal says the step was off', () => {
+		const { w, round } = runoffWorld({ vetoes_enabled: false });
+		world = w;
+		for (const name of MEMBERS) castEveryPair(w, round.id, name);
+
+		const evaluated = unwrap(evaluateRunoff({ db: w.db, groupId: w.group.id, round }));
+		expect(evaluated.veto.disqualifiedIds).toEqual([]);
+		expect(evaluated.veto.vetoesIgnored).toBe(false);
+		expect(evaluated.veto.survivingIds).toEqual(round.finalistIds!);
+		expect(Object.values(evaluated.veto.counts).every((count) => count === 0)).toBe(true);
+
+		const advanced = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+		);
+		expect(advanced.round.state).toBe('decided');
+		expect(advanced.round.winnerId).toBe(w.movie('Alien').id);
+		const decided = buildRoundView({
+			db: w.db,
+			group: w.group,
+			config: w.config,
+			me: w.member('Ana'),
+			round: advanced.round
+		});
+		expect(decided?.reveal?.vetoesEnabled).toBe(false);
+	});
+
+	/**
+	 * THE MID-ROUND RULE, both directions. The knob is read from the round's frozen
+	 * `config_snapshot`, exactly like VETO_THRESHOLD, so a settings change applies
+	 * from the next finalist computation and never to a runoff in progress.
+	 */
+	test('switching vetoes off mid-runoff leaves the live round its veto step', () => {
+		const { w, round } = runoffWorld();
+		world = w;
+		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { vetoes_enabled: false } }));
+		w.reloadGroup();
+
+		// Nobody is stranded: the step this round was told to run still runs.
+		const fresh = getRound(w.db, w.group.id, round.id)!;
+		expect(memberRunoffProgress({ db: w.db, round: fresh, memberId: w.member('Ana').id }).vetoStep).toBe(
+			true
+		);
+		unwrap(
+			castVeto({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: round.id,
+				memberId: w.member('Ana').id,
+				movieId: null
+			})
+		);
+		expect(
+			unwrap(evaluateRunoff({ db: w.db, groupId: w.group.id, round: fresh })).veto.counts
+		).toBeDefined();
+
+		// The NEXT round is the one that loses the step.
+		unwrap(advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id }));
+		const next = unwrap(
+			createRound({
+				db: w.db,
+				groupId: w.group.id,
+				actorId: w.member('Ana').id,
+				now: new Date(BASE_NOW.getTime() + 86_400_000)
+			})
+		);
+		for (const name of MEMBERS) {
+			unwrap(
+				setRsvp({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: next.id,
+					memberId: w.member(name).id,
+					attending: true,
+					actorId: w.member(name).id
+				})
+			);
+		}
+		const advanced = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: next.id })
+		);
+		expect(advanced.round.configSnapshot?.vetoes_enabled).toBe(false);
+	});
+
+	test('switching vetoes on mid-runoff demands nothing from a round already without one', () => {
+		const { w, round } = runoffWorld({ vetoes_enabled: false });
+		world = w;
+		castEveryPair(w, round.id, 'Ana');
+		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { vetoes_enabled: true } }));
+		w.reloadGroup();
+
+		const fresh = getRound(w.db, w.group.id, round.id)!;
+		const progress = memberRunoffProgress({ db: w.db, round: fresh, memberId: w.member('Ana').id });
+		// Still finished, and still no veto to give: the round's own snapshot decides.
+		expect(progress.vetoStep).toBe(false);
+		expect(progress.complete).toBe(true);
+		expect(
+			code(
+				castVeto({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: round.id,
+					memberId: w.member('Ana').id,
+					movieId: null
+				})
+			)
+		).toBe('vetoes_disabled');
+	});
+});
+
 describe('snapshot semantics (the veto flip is forward-looking only)', () => {
 	test('a veto flip does not change the frozen tallies of its own round', () => {
 		// VETO_THRESHOLD 2 keeps the vetoed movie in the round robin, which is the

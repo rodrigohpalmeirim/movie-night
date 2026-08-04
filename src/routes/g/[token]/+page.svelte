@@ -42,8 +42,20 @@
 	const myAttending = $derived(rsvp.value(me?.attending ?? null));
 
 	const waitingCount = $derived(data.unsubmittedAttendeeIds.length);
+	/**
+	 * Where I am in tonight's runoff. The veto is a step only where the round was
+	 * frozen with one (`round.vetoesEnabled`) — otherwise the flow is the pairs and
+	 * nothing else, and there is no veto to change once they are done.
+	 */
+	const vetoStep = $derived(round?.vetoesEnabled === true);
 	const myRunoffStep = $derived(
-		!me ? null : !me.vetoSubmitted ? 'veto' : me.pairsDone < me.pairsTotal ? 'pairs' : 'done'
+		!me
+			? null
+			: vetoStep && !me.vetoSubmitted
+				? 'veto'
+				: me.pairsDone < me.pairsTotal
+					? 'pairs'
+					: 'done'
 	);
 
 	/**
@@ -346,9 +358,11 @@
 				<div class="min-w-0 flex-1">
 					<p class="text-sm font-semibold text-ink">You're done — thanks.</p>
 					<div class="mt-0.5 flex gap-3 text-xs">
-						<a href="/g/{token}/veto" class="font-semibold text-ink-soft underline"
-							>Change your veto</a
-						>
+						{#if vetoStep}
+							<a href="/g/{token}/veto" class="font-semibold text-ink-soft underline"
+								>Change your veto</a
+							>
+						{/if}
 						<!-- `?review` opens the pair deck at pair one with every answer
 						     already marked, so reviewing and changing are one door rather
 						     than two: a member steps through and re-taps only what they

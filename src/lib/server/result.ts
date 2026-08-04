@@ -18,6 +18,8 @@ export type ErrorCode =
 	| 'illegal_transition'
 	| 'not_enough_attendees'
 	| 'wrong_phase'
+	/** The round's frozen knobs have no veto step, so there is nothing to record. */
+	| 'vetoes_disabled'
 	| 'not_attending'
 	| 'no_winner_to_watch'
 	| 'rewatch_cooldown'
@@ -41,6 +43,9 @@ export const HTTP_STATUS: Record<ErrorCode, number> = {
 	illegal_transition: 409,
 	not_enough_attendees: 422,
 	wrong_phase: 409,
+	// 409, not 400: the request is well formed and would be legal in a group whose
+	// veto step is on — what refuses it is the round's own frozen house rule.
+	vetoes_disabled: 409,
 	not_attending: 403,
 	no_winner_to_watch: 409,
 	rewatch_cooldown: 409,

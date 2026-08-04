@@ -8,7 +8,7 @@
 import { fail as formFail, redirect } from '@sveltejs/kit';
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
-import { castVeto, getCurrentRound } from '$lib/server/services/rounds.js';
+import { castVeto, getCurrentRound, roundVetoesEnabled } from '$lib/server/services/rounds.js';
 import { buildRoundView } from '$lib/server/services/views.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -21,6 +21,11 @@ export const load: PageServerLoad = (event) => {
 	const round = getCurrentRound(actor.db, actor.group.id);
 	// Nothing to veto outside RUNOFF; send them back to the round screen.
 	if (!round || round.state !== 'runoff') redirect(303, `/g/${event.params.token}`);
+	// This round has no veto step (see `roundVetoesEnabled`), so this screen is not a
+	// screen tonight. Straight on to the pairs, which is where the round screen's own
+	// CTA points — a bookmark, a stale tab or someone else's link lands on the next
+	// real step instead of a dead end.
+	if (!roundVetoesEnabled(round)) redirect(303, `/g/${event.params.token}/pairs`);
 	return {
 		token: event.params.token,
 		round: buildRoundView({

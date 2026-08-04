@@ -230,53 +230,64 @@
 		</section>
 	{/if}
 
-	<!-- Vetoes -->
-	<section>
-		<h3 class="eyebrow border-b-2 border-ink pb-1.5">Vetoes</h3>
-		<!--
-			Counts per film only. Who vetoed what is never published: the specs
-			authorise the veto count as a tally, not individual veto ballots.
-		-->
-		{#if vetoTotal === 0}
-			<p class="mt-2 text-sm text-ink-soft">Nobody vetoed anything.</p>
-		{:else}
-			<ul class="mt-2 space-y-1.5 text-sm">
-				{#each reveal.finalists as movie (movie.id)}
-					{@const count = reveal.veto.counts[movie.id] ?? 0}
-					{#if count > 0}
-						<!-- Same shape as the veto screen's rows: the count and its seal are
-						     a fixed cluster on the right, and the title takes what is left and
-						     wraps. Left to negotiate, a long title squeezed "2 vetoes" into a
-						     column one word wide. -->
-						<li class="flex items-center justify-between gap-2">
-							<span class="min-w-0 flex-1 font-medium break-words">{movie.title}</span>
-							<span class="flex shrink-0 items-center gap-2">
-								<span class="stencil text-xs text-ink-soft uppercase"
-									>{count} veto{count === 1 ? '' : 'es'}</span
-								>
-								{#if reveal.veto.disqualifiedIds.includes(movie.id)}
-									{#if vetoesSetAside}
-										<Stamp word="Set aside" tone="brass" size="0.72rem" rotate={-5} />
-									{:else}
-										<Stamp word="Out" tone="cherry" size="0.72rem" rotate={-5} />
-									{/if}
-									<span class="sr-only"
-										>{vetoesSetAside ? 'veto set aside' : 'disqualified by veto'}</span
+	<!--
+		Vetoes — printed only on nights that had a veto step.
+
+		Same rule as the stars column above: the scorepad prints what happened, not
+		every column it knows how to print. Where the group has vetoes switched off
+		there was no step, so there is nothing to report — and "Nobody vetoed
+		anything" would be a small lie about a question nobody was asked. Its absence
+		is the honest answer, and it keeps every night's sheet in a veto-less group
+		from carrying a line that only ever says the same thing.
+	-->
+	{#if reveal.vetoesEnabled}
+		<section>
+			<h3 class="eyebrow border-b-2 border-ink pb-1.5">Vetoes</h3>
+			<!--
+				Counts per film only. Who vetoed what is never published: the specs
+				authorise the veto count as a tally, not individual veto ballots.
+			-->
+			{#if vetoTotal === 0}
+				<p class="mt-2 text-sm text-ink-soft">Nobody vetoed anything.</p>
+			{:else}
+				<ul class="mt-2 space-y-1.5 text-sm">
+					{#each reveal.finalists as movie (movie.id)}
+						{@const count = reveal.veto.counts[movie.id] ?? 0}
+						{#if count > 0}
+							<!-- Same shape as the veto screen's rows: the count and its seal are
+							     a fixed cluster on the right, and the title takes what is left and
+							     wraps. Left to negotiate, a long title squeezed "2 vetoes" into a
+							     column one word wide. -->
+							<li class="flex items-center justify-between gap-2">
+								<span class="min-w-0 flex-1 font-medium break-words">{movie.title}</span>
+								<span class="flex shrink-0 items-center gap-2">
+									<span class="stencil text-xs text-ink-soft uppercase"
+										>{count} veto{count === 1 ? '' : 'es'}</span
 									>
-								{/if}
-							</span>
-						</li>
-					{/if}
-				{/each}
-			</ul>
-			{#if vetoesSetAside}
-				<p class="mt-2 text-xs text-ink-soft">
-					Nothing was actually removed from the comparison — see “Vetoes were set aside tonight” at
-					the top.
-				</p>
+									{#if reveal.veto.disqualifiedIds.includes(movie.id)}
+										{#if vetoesSetAside}
+											<Stamp word="Set aside" tone="brass" size="0.72rem" rotate={-5} />
+										{:else}
+											<Stamp word="Out" tone="cherry" size="0.72rem" rotate={-5} />
+										{/if}
+										<span class="sr-only"
+											>{vetoesSetAside ? 'veto set aside' : 'disqualified by veto'}</span
+										>
+									{/if}
+								</span>
+							</li>
+						{/if}
+					{/each}
+				</ul>
+				{#if vetoesSetAside}
+					<p class="mt-2 text-xs text-ink-soft">
+						Nothing was actually removed from the comparison — see “Vetoes were set aside tonight” at
+						the top.
+					</p>
+				{/if}
 			{/if}
-		{/if}
-	</section>
+		</section>
+	{/if}
 
 	<!-- Tiebreak + audit trail -->
 	<section>

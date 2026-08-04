@@ -29,6 +29,7 @@ import {
 	standingVotes,
 	toTallyConfig,
 	vetoes,
+	withConfigDefaults,
 	type Attendance,
 	type Db,
 	type GroupConfig,
@@ -53,7 +54,8 @@ import {
 	type MovieInput,
 	type Phase1Result,
 	type RunoffResult,
-	type StandingVoteInput
+	type StandingVoteInput,
+	type VetoInput
 } from '../../tally/index.js';
 
 /* ------------------------------------------------------------------ */
@@ -190,6 +192,67 @@ export function snapshotToStandingVotes(snapshot: SnapshotVote[] | null): Standi
 		value: row.value,
 		starred: row.starred ?? false
 	}));
+}
+
+/* ------------------------------------------------------------------ */
+/* Does THIS round have a veto step?                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * **THE MID-ROUND RULE FOR `vetoes_enabled`, IN ONE PLACE.**
+ *
+ * The answer comes from the round's OWN frozen knobs (`config_snapshot`), never
+ * from the group's current config — which is the veto-freeze convention this
+ * codebase already runs on for `veto_threshold` (app-spec: "Knob changes take
+ * effect at the next finalist computation; they never retro-affect a round already
+ * in RUNOFF or later"). Everything about the veto step reads this one function:
+ * whether a veto write is accepted, whether the pre-fill is computed, whether a
+ * member's runoff is finishable without one, whether the screen exists, and what
+ * the reveal publishes.
+ *
+ * Matching the existing convention is not just tidiness — it is what makes both
+ * directions safe, with no special case for either:
+ *
+ *  - **Switching OFF mid-runoff strands nobody.** The live round was frozen with
+ *    vetoes on, so it keeps its veto step to the end: the screen still opens, the
+ *    write is still accepted, and the pairs gate still expects one. Had the setting
+ *    applied immediately, every attendee who had not yet vetoed would have been
+ *    left holding a step the server would refuse — a runoff waiting forever on
+ *    submissions that could no longer be made.
+ *  - **Switching ON mid-runoff demands nothing retroactively.** The round was
+ *    frozen with vetoes off, so it has no veto step and never grows one; members
+ *    already counted as finished stay finished.
+ *
+ * A round whose knobs are not frozen yet (`config_snapshot === null`, i.e. still
+ * OPEN) answers with the default. Nothing consults it there: there is no veto step
+ * before RUNOFF, and `castVeto` is phase-gated to RUNOFF regardless.
+ */
+export function roundVetoesEnabled(round: Round): boolean {
+	return withConfigDefaults(round.configSnapshot).vetoes_enabled;
+}
+
+/**
+ * The round's veto rows as the tally wants them — or none at all, when this round
+ * has no veto step.
+ *
+ * The empty case is first-class rather than a synthetic "everybody passed": a pass
+ * is a recorded answer by a person (voting-spec: "Record veto-pass skips
+ * explicitly"), and inventing rows nobody cast would put fictional answers in the
+ * table, publish "3 vetoes were passed" at the reveal, and mark members finished
+ * before they had done anything. An empty veto set needs no invention — the tally
+ * has always had to handle the night nobody vetoed.
+ *
+ * It is also belt-and-braces for the reveal: rows from a round that DID have a veto
+ * step can never be silently re-honoured if the group later turns vetoes off,
+ * because the round's own snapshot is what this reads.
+ */
+export function loadRoundVetoes(db: Db, round: Round): VetoInput[] {
+	if (!roundVetoesEnabled(round)) return [];
+	return db
+		.select({ memberId: vetoes.memberId, movieId: vetoes.movieId })
+		.from(vetoes)
+		.where(eq(vetoes.roundId, round.id))
+		.all();
 }
 
 /* ------------------------------------------------------------------ */
@@ -511,11 +574,9 @@ export function evaluateRunoff(input: { db: Db; groupId: string; round: Round })
 			movies: loadTallyMovies(db, input.groupId),
 			// Frozen: a veto cast during this round can never move these numbers.
 			standingVotes: snapshotToStandingVotes(round.standingSnapshot),
-			vetoes: db
-				.select({ memberId: vetoes.memberId, movieId: vetoes.movieId })
-				.from(vetoes)
-				.where(eq(vetoes.roundId, round.id))
-				.all(),
+			// Empty for a round frozen without a veto step, so Phase 2 disqualifies
+			// nothing and the fewer-than-two exception cannot fire.
+			vetoes: loadRoundVetoes(db, round),
 			pairVotes: db
 				.select({
 					memberId: pairVotes.memberId,
@@ -734,6 +795,12 @@ export function castVeto(input: {
 	const gate = requireRunoffAttendee(input.db, input.groupId, input.roundId, input.memberId);
 	if (!gate.ok) return gate;
 	const round = gate.value;
+	// This round was frozen without a veto step, so there is nothing to record —
+	// including the pass. Refused rather than accepted-and-ignored: a stored row for
+	// a step that does not exist would be a lie the reveal could later read.
+	if (!roundVetoesEnabled(round)) {
+		return fail('vetoes_disabled', 'This group has vetoes switched off, so there is no veto to cast');
+	}
 
 	const movieId = input.movieId === undefined || input.movieId === '' ? null : input.movieId;
 	if (movieId !== null && typeof movieId !== 'string') {
@@ -1000,6 +1067,9 @@ export interface MemberRunoffProgress {
 	done: number;
 	total: number;
 	nextPair: Matchup | null;
+	/** Whether this round has a veto step at all (`roundVetoesEnabled`). */
+	vetoStep: boolean;
+	/** Always false where `vetoStep` is false: there is no answer to have given. */
 	vetoSubmitted: boolean;
 	myVetoMovieId: string | null;
 	myPairVotes: Array<{ a: string; b: string; winnerId: string | null }>;
@@ -1025,11 +1095,7 @@ export function memberRunoffProgress(input: {
 	const survivingIds = round.configSnapshot
 		? computeVeto(
 				finalistIds,
-				db
-					.select({ memberId: vetoes.memberId, movieId: vetoes.movieId })
-					.from(vetoes)
-					.where(eq(vetoes.roundId, round.id))
-					.all(),
+				loadRoundVetoes(db, round),
 				loadAttendeeIds(db, round.id),
 				toTallyConfig(round.configSnapshot)
 			).survivingIds
@@ -1051,16 +1117,26 @@ export function memberRunoffProgress(input: {
 	const outstanding = order.filter((pair) => !cast.has(pairKey(pair.a, pair.b)));
 	const done = matchups.length - outstanding.length;
 
+	// THE PAIRS GATE. "Finished" is "has answered every step this round actually
+	// has": the veto decision plus the pairs where there is a veto step, the pairs
+	// alone where there is not. Without the first clause a round frozen without
+	// vetoes could never mark anybody finished — `runoff_submitted_at` would stay
+	// null for every attendee, the reveal would forever warn that nobody had voted,
+	// and the round screen would keep sending people to a veto step that does not
+	// exist. The step is *absent*, which is not the same as passed by everyone.
+	const vetoStep = roundVetoesEnabled(round);
+
 	return {
 		matchups,
 		order,
 		done,
 		total: matchups.length,
 		nextPair: outstanding[0] ?? null,
+		vetoStep,
 		vetoSubmitted: myVeto !== undefined,
 		myVetoMovieId: myVeto?.movieId ?? null,
 		myPairVotes: mine.map((row) => ({ a: row.movieAId, b: row.movieBId, winnerId: row.winnerId })),
-		complete: myVeto !== undefined && outstanding.length === 0
+		complete: (!vetoStep || myVeto !== undefined) && outstanding.length === 0
 	};
 }
 
@@ -1132,6 +1208,8 @@ export function vetoPrefillFor(input: {
 }): string | null {
 	const finalistIds = input.round.finalistIds ?? [];
 	if (finalistIds.length === 0) return null;
+	// No step, nothing to pre-fill.
+	if (!roundVetoesEnabled(input.round)) return null;
 
 	// Abandoning a round "discards the round's vetoes and pair votes", so an
 	// abandoned night must not pre-fill the next one.
