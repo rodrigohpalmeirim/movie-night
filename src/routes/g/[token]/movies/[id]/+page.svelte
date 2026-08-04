@@ -16,6 +16,7 @@
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import Check from '$lib/icons/Check.svelte';
 	import Play from '$lib/icons/Play.svelte';
+	import Star from '$lib/icons/Star.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { formatDate, movieMeta, trailerUrl } from '$lib/images.js';
@@ -30,6 +31,17 @@
 	);
 	const vote = $derived(
 		answer.value(form && 'myVote' in form && form.myVote ? form.myVote : data.myVote)
+	);
+
+	/**
+	 * The star is its own control group: it posts no `value` at all — a star is an
+	 * upgraded yes, so the server keeps the answer that is already there — and the
+	 * answer pair's latch reads `value`, which would draw a "no" for a form that
+	 * never mentioned one.
+	 */
+	const starLatch = createLatch<boolean>((body) => body.get('starred') === 'true');
+	const starred = $derived(
+		starLatch.value(form && 'myStarred' in form ? form.myStarred === true : data.myStarred)
 	);
 
 	/**
@@ -175,6 +187,31 @@
 				Yes
 			</button>
 		</form>
+
+		{#if vote === 'yes'}
+			<!--
+				The star, and only on a yes: it is not a third answer, it is the loudest
+				version of this one, so it appears under the pair rather than beside it and
+				it goes away with the answer it belongs to. Same brass token as the pool
+				list's corner star, latched the same way — this screen simply has the room
+				to say the word and what it buys.
+			-->
+			<form method="POST" action="?/vote" use:enhance={starLatch.submit} class="pop-settle">
+				<button
+					name="starred"
+					value={starred ? 'false' : 'true'}
+					aria-pressed={starred}
+					class="token w-full {starred ? 'token-brass token-latched' : ''}"
+				>
+					<Star size={16} class={starred ? 'fill-current' : ''} />
+					{starred ? 'Starred' : 'Star it'}
+				</button>
+			</form>
+			<p class="text-xs leading-relaxed text-chalk-dim">
+				One star per film, as many films as you like. If two end the night level on yeses, the starred
+				one goes through.
+			</p>
+		{/if}
 	</section>
 
 	{#if hasNotes && details}
