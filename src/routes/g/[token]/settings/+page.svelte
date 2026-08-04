@@ -12,6 +12,12 @@
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import {
+		COOLDOWN_FIELD,
+		COOLDOWN_LADDER,
+		cooldownIndex,
+		cooldownLabel
+	} from '$lib/cooldown.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Check from '$lib/icons/Check.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
@@ -68,6 +74,13 @@
 		}
 	}
 
+	/** The two knobs that are a SHARE of something, printed as a percentage. */
+	const SHARE_KNOBS = ['approval_floor', 'coverage_floor'];
+	/** The one knob whose rail walks a ladder of labels instead of its own units. */
+	const LADDER_KNOB = 'rewatch_cooldown';
+
+	type ConfigKey = keyof PageServerData['settings']['config'];
+
 	/**
 	 * What each slider currently reads, so the number beside its label can move with
 	 * the thumb. Seeded ONCE from the loaded settings and then owned by the thumb.
@@ -78,34 +91,85 @@
 	 * is also what `keepValues` below asks for — after a successful save this state
 	 * and the server agree, and after a refused one it still shows what the member
 	 * typed, exactly like the text fields that keep their value.
+	 *
+	 * Two knobs are seeded through a translation, and both translations are the same
+	 * promise: A RAIL SHOWS WHAT IT CAN REACH. The cooldown's stored days become the
+	 * nearest rung of its ladder, and every other knob is clamped into its own range,
+	 * because a stored number outside it (a `veto_threshold` of 12, saved when the
+	 * ceiling was 50) would otherwise print beside a thumb parked somewhere else —
+	 * the browser clamps the input, not the label. Saving then writes what the rail
+	 * shows, which is the one place such a value is ever rounded.
 	 */
 	// svelte-ignore state_referenced_locally
 	let knobValues = $state<Record<string, number>>(
 		Object.fromEntries(
-			Object.entries(data.knobRanges)
-				.filter(([, range]) => !range.nullable)
-				.map(([knob]) => [knob, Number(data.settings.config[knob as keyof PageServerData['settings']['config']])])
+			Object.entries(data.knobRanges).map(([knob, range]) => [
+				knob,
+				knob === LADDER_KNOB
+					? cooldownIndex(data.settings.config.rewatch_cooldown)
+					: Math.min(
+							Math.max(Number(data.settings.config[knob as ConfigKey]), range.min),
+							range.max
+						)
+			])
 		)
 	);
 
-	/** Whole numbers as they are; a floor as the two decimals its 0.05 step needs. */
-	const format = (value: number, integer: boolean) =>
-		integer ? String(value) : value.toFixed(2);
+	/**
+	 * What a knob prints beside its label. A share prints as the percentage everybody
+	 * says out loud — "40%", not "0.40" — while the field still posts the 0–1 the
+	 * server has always stored; the step is 0.05, so every stop is a whole 5%. The
+	 * cooldown prints its rung's words. Everything else is the count it is.
+	 */
+	function printed(knob: string, value: number) {
+		if (knob === LADDER_KNOB) return cooldownLabel(value);
+		if (SHARE_KNOBS.includes(knob)) return `${Math.round(value * 100)}%`;
+		return String(value);
+	}
+
+	/** The range in the help line, in the same units the number above it prints. */
+	function allowed(knob: string, range: { min: number; max: number }) {
+		// The ladder IS its range: every wait it allows is written on the rail.
+		if (knob === LADDER_KNOB) return '';
+		if (SHARE_KNOBS.includes(knob)) return ' Allowed: 0–100%.';
+		return ` Allowed: ${range.min}–${range.max}.`;
+	}
+
+	/**
+	 * How many gaps to rule along a rail — see `--rail-steps`. A count knob marks
+	 * every stop it has, and the ladder marks every rung, because those are the
+	 * numbers a group is choosing BETWEEN. The shares would come to twenty-one marks
+	 * on a phone's width, which is hatching rather than a scale, so they are ruled at
+	 * every tenth: ten gaps, a mark every 10%, and the odd 5% stops sit between two.
+	 */
+	function railSteps(knob: string, range: { min: number; max: number }) {
+		if (knob === LADDER_KNOB) return COOLDOWN_LADDER.length - 1;
+		if (SHARE_KNOBS.includes(knob)) return 10;
+		return range.max - range.min;
+	}
+
+	/**
+	 * Vetoes off, in CSS alone: the switch is a native radio, so `:has()` on the row
+	 * around it can read which side is held down and take the threshold rail away
+	 * without a line of JavaScript — the same terms the switch itself is latched on.
+	 */
+	const WHEN_VETOES_OFF = 'group-has-[input[value=false]:checked]/veto:hidden';
 
 	const KNOB_HELP: Record<string, string> = {
 		n_finalists: 'How many films reach the head-to-head round. Max 5, so it stays 10 taps.',
-		approval_floor: 'Minimum share of yes-votes for a film to be promotable (0–1).',
-		coverage_floor: 'Minimum share of attendees who must have swiped a film (0–1).',
+		approval_floor: 'Minimum share of yes-votes for a film to be promotable.',
+		coverage_floor: 'Minimum share of attendees who must have swiped a film.',
 		veto_threshold:
-			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Unused while vetoes are off.',
-		rewatch_cooldown: 'Days before a watched film can return. Leave blank for never.'
+			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Off removes the step entirely: nobody is asked to strike a film, and the runoff is the head-to-heads alone.',
+		rewatch_cooldown:
+			'How long a watched film waits before it can be suggested again, with its standing votes restored. Never keeps it out for good.'
 	};
 	const KNOB_LABELS: Record<string, string> = {
 		n_finalists: 'Finalists',
 		approval_floor: 'Approval floor',
 		coverage_floor: 'Coverage floor',
 		veto_threshold: 'Veto threshold',
-		rewatch_cooldown: 'Re-watch cooldown (days)'
+		rewatch_cooldown: 'Re-watch cooldown'
 	};
 </script>
 
@@ -192,85 +256,91 @@
 		<section class="tile space-y-3.5 px-3 py-3">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Voting knobs</h3>
 
-			<!-- The one knob that is a rule rather than a quantity, so the one drawn as
-			     a pair of latched tokens instead of a slider: the state that is true is
-			     held pressed flush and inked, the other keeps its lift. Two native
-			     radios do the latching through `.token-latch`, which means the marked
-			     option is marked with JavaScript off — and it posts as an ordinary field
-			     in this same form, saved by the same button as everything else. -->
-			<fieldset class="min-w-0">
-				<legend class="field-label text-ink">Vetoes</legend>
-				<div class="flex gap-2">
-					{#each [{ value: 'true', label: 'On', ink: 'token-latch-jade' }, { value: 'false', label: 'Off', ink: 'token-latch-cherry' }] as option (option.value)}
-						<label
-							class="token token-latch {option.ink} flex-1 cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2"
-						>
-							<input
-								type="radio"
-								name="vetoes_enabled"
-								value={option.value}
-								checked={String(data.settings.config.vetoes_enabled) === option.value}
-								class="sr-only"
-							/>
-							{option.label}
-						</label>
-					{/each}
-				</div>
-				<p class="mt-1.5 text-xs leading-relaxed text-ink-soft">
-					Off removes the veto step entirely: nobody is asked to strike a film, and the runoff is the
-					head-to-heads alone. A round already in progress keeps the rule it started under.
-				</p>
-			</fieldset>
-
 			{#each Object.entries(data.knobRanges) as [knob, range] (knob)}
-				<div>
+				{@const isVeto = knob === 'veto_threshold'}
+				{@const isLadder = knob === LADDER_KNOB}
+				<!-- The veto row is the one that carries its own switch, so it is the one
+				     that is a `group`: everything inside it that only exists while vetoes
+				     do says so with `WHEN_VETOES_OFF`. -->
+				<div class={isVeto ? 'group/veto min-w-0' : 'min-w-0'}>
 					<!-- A slider hides its number, so the number is printed beside the
 					     label and moves with the thumb. `<output>` is the element for a
 					     value the page calculates, and it is rendered server-side from the
 					     stored setting: with scripting off it simply stays put while the
 					     thumb moves, which is a static number rather than a broken one. -->
-					<div class="mb-1 flex items-baseline justify-between gap-2">
+					<div class="mb-1 flex items-center justify-between gap-2">
 						<label for="knob-{knob}" class="field-label mb-0 text-ink">{KNOB_LABELS[knob]}</label>
-						{#if !range.nullable}
-							<output for="knob-{knob}" class="stencil text-sm font-semibold text-ink tabular-nums">
-								{format(knobValues[knob], range.integer)}
+						<div class="flex shrink-0 items-center gap-2">
+							{#if isVeto}
+								<!-- The one knob that is a rule rather than a quantity, so the one
+								     drawn as a pair of latched tokens instead of a slider — and drawn
+								     on the threshold's own label line, because the rule and the number
+								     it governs are one setting: On/Off, then how many. Sized like the
+								     roster's IN/OUT pair, which is the same gesture at the same weight.
+								     Two native radios do the latching through `.token-latch`, so the
+								     marked option is marked with JavaScript off, and it posts as an
+								     ordinary field in this same form, saved by the same button. -->
+								<fieldset class="flex shrink-0 gap-1.5">
+									<legend class="sr-only">Vetoes</legend>
+									{#each [{ value: 'true', label: 'On', ink: 'token-latch-jade' }, { value: 'false', label: 'Off', ink: 'token-latch-cherry' }] as option (option.value)}
+										<label
+											class="token token-sm token-latch {option.ink} cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2"
+										>
+											<input
+												type="radio"
+												name="vetoes_enabled"
+												value={option.value}
+												checked={String(data.settings.config.vetoes_enabled) === option.value}
+												class="sr-only"
+											/>
+											{option.label}
+										</label>
+									{/each}
+								</fieldset>
+							{/if}
+							<output
+								for="knob-{knob}"
+								class="stencil text-sm font-semibold text-ink tabular-nums {isVeto
+									? WHEN_VETOES_OFF
+									: ''}"
+							>
+								{printed(knob, knobValues[knob])}
 							</output>
-						{/if}
+						</div>
 					</div>
-					{#if range.nullable}
-						<!-- The one knob that stays a written-in field. A range input has no way
-						     to say "blank", and blank is what turns re-watches off — its own
-						     `null`, not the number 0, which would mean "immediately". The
-						     0–3650 span makes it the wrong shape for dragging anyway: one day
-						     per pixel is a value nobody could set on purpose. -->
-						<input
-							id="knob-{knob}"
-							name={knob}
-							type="number"
-							inputmode="decimal"
-							min={range.min}
-							max={range.max}
-							step={range.integer ? 1 : 0.05}
-							value={data.settings.config[knob as keyof typeof data.settings.config] ?? ''}
-							aria-describedby="help-{knob}"
-							class="field tabular-nums"
-						/>
-					{:else}
-						<input
-							id="knob-{knob}"
-							name={knob}
-							type="range"
-							min={range.min}
-							max={range.max}
-							step={range.integer ? 1 : 0.05}
-							value={knobValues[knob]}
-							oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
-							aria-describedby="help-{knob}"
-							class="rail"
-						/>
-					{/if}
+					<!-- The cooldown's rail is the one that does not slide along its own
+					     units. Days are unslidable (one day per pixel, and no position at
+					     all for "never"), so it walks the ladder in `$lib/cooldown.ts` and
+					     posts the RUNG; the save action turns that back into days through
+					     the same array. Everything else posts the number it shows — a share
+					     included, which prints as a percentage but travels as its 0–1.
+
+					     Where the rail's own number is not the answer, the answer is said out
+					     loud too: rung 11 is "Never", not eleven of anything, and 0.4 is
+					     announced as the 40% the label prints. -->
+					<input
+						id="knob-{knob}"
+						name={isLadder ? COOLDOWN_FIELD : knob}
+						type="range"
+						min={isLadder ? 0 : range.min}
+						max={isLadder ? COOLDOWN_LADDER.length - 1 : range.max}
+						step={isLadder || range.integer ? 1 : 0.05}
+						value={knobValues[knob]}
+						oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
+						aria-describedby="help-{knob}"
+						aria-valuetext={isLadder || SHARE_KNOBS.includes(knob)
+							? printed(knob, knobValues[knob])
+							: undefined}
+						style="--rail-steps:{railSteps(knob, range)}"
+						class="rail {isVeto ? WHEN_VETOES_OFF : ''}"
+					/>
+					<!-- The help text stays put when vetoes go off — it is the line that says
+					     what Off does — but the range it quotes belongs to the rail, so that
+					     half leaves with it. -->
 					<p id="help-{knob}" class="mt-1 text-xs leading-relaxed text-ink-soft">
-						{KNOB_HELP[knob]} Allowed: {range.min}–{range.max}{range.nullable ? ', or blank' : ''}.
+						{KNOB_HELP[knob]}<span class={isVeto ? WHEN_VETOES_OFF : ''}
+							>{allowed(knob, range)}</span
+						>
 					</p>
 				</div>
 			{/each}
