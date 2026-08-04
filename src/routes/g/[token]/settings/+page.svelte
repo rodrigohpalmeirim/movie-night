@@ -14,6 +14,7 @@
 	import { enhance } from '$app/forms';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Check from '$lib/icons/Check.svelte';
+	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate } from '$lib/images.js';
 	import { createLatch } from '$lib/latch.svelte.js';
@@ -198,27 +199,33 @@
 		<ul class="divide-y-2 divide-dashed divide-board-shade border-y-2 border-dashed border-board-shade">
 			{#each data.settings.members as member, i (member.id)}
 				{@const isMe = member.id === data.settings.me.id}
-				<li class="deal-in space-y-2 py-2" style="--deal:{i}">
-					<div class="flex items-baseline justify-between gap-2">
-						<span class="truncate text-sm font-medium text-ink"
+				<!-- A line reads name first: the name in ink, the date it was signed in
+				     stencilled underneath it like the removed pile's, and the guard at the
+				     end of the same line — two lines of print instead of three, so a roster
+				     of eight is a paragraph rather than a screen. -->
+				<li class="deal-in flex flex-wrap items-center gap-x-2 gap-y-2 py-1.5" style="--deal:{i}">
+					<span class="min-w-0 flex-1">
+						<span class="block truncate text-sm font-medium text-ink"
 							>{member.displayName}{#if isMe}<span
 									class="stencil ml-1 text-[0.65rem] tracking-[0.1em] text-ink-soft uppercase"
 									>(you)</span
 								>{/if}</span
 						>
-						<span class="stencil shrink-0 text-[0.7rem] text-ink-soft uppercase">
+						<span class="stencil block text-[0.7rem] text-ink-soft uppercase">
 							joined {formatDate(member.joinedAt)}
 						</span>
-					</div>
+					</span>
 					<!-- Guarded, like every other move that changes who the group is: the
 					     closed face is a small token at the end of the line, and the torn
 					     question card opens across the full width of the row, because that
-					     is where the consequences are spelled out. -->
+					     is where the consequences are spelled out. Hence the wrap: the form
+					     is a shrink-wrapped item until its disclosure is open, at which point
+					     it claims the whole line and drops below the name. -->
 					<form
 						method="POST"
 						action="?/removeMember"
 						use:enhance={removal.submit}
-						class="flex justify-end"
+						class="shrink-0 has-[details[open]]:w-full"
 					>
 						<input type="hidden" name="member_id" value={member.id} />
 						<Confirm
@@ -228,7 +235,7 @@
 								? 'You come off the roster and your votes stop counting, and this device signs out to the name picker. Your films stay in the pool, history still names you, and anyone here can put you back.'
 								: `${member.displayName} comes off the roster and their votes stop counting. Their films stay in the pool, history still names them, and you can restore them here.`}
 							variant="quiet"
-							size="md"
+							size="sm"
 							disabled={removal.isPending(member.id)}
 						/>
 					</form>
@@ -244,39 +251,54 @@
 			<!-- The other pile: names that are out of the group's present but still all
 			     over its past. Quieter than the roster — no rules, no dates in ink —
 			     and one tap back in, because restore is the undo and asking twice
-			     before undoing something is asking twice for nothing. -->
-			<div class="space-y-2">
-				<p class="eyebrow text-ink-soft">Removed</p>
-				<ul class="space-y-2">
-					{#each data.settings.removedMembers as member (member.id)}
-						<li class="flex items-center justify-between gap-2">
-							<span class="min-w-0">
-								<span class="block truncate text-sm font-medium text-ink-soft">
-									{member.displayName}
+			     before undoing something is asking twice for nothing.
+
+			     Folded shut, in the app's own expander: this pile is the exception, so
+			     it costs one summary line until somebody actually wants it. The count is
+			     on that line, because a folded list that does not say how much it is
+			     hiding is a list you have to open to learn nothing. -->
+			<details class="group/removed expand -mx-1">
+				<summary
+					class="eyebrow row-press flex cursor-pointer list-none items-center gap-1.5 rounded px-1 py-1.5 text-ink-soft select-none hover:text-ink focus-visible:outline-offset-[-3px]"
+				>
+					<ChevronRight
+						size={14}
+						class="transition-transform group-open/removed:rotate-90 motion-reduce:transition-none"
+					/>
+					Removed <span aria-hidden="true">·</span> {data.settings.removedMembers.length}
+				</summary>
+				<div class="space-y-2 px-1 pt-2">
+					<ul class="space-y-2">
+						{#each data.settings.removedMembers as member (member.id)}
+							<li class="flex items-center justify-between gap-2">
+								<span class="min-w-0">
+									<span class="block truncate text-sm font-medium text-ink-soft">
+										{member.displayName}
+									</span>
+									<span class="stencil block text-[0.7rem] text-ink-soft uppercase">
+										removed {formatDate(member.removedAt)}
+									</span>
 								</span>
-								<span class="stencil block text-[0.7rem] text-ink-soft uppercase">
-									removed {formatDate(member.removedAt)}
-								</span>
-							</span>
-							<form
-								method="POST"
-								action="?/restoreMember"
-								use:enhance={restore.submit}
-								class="shrink-0"
-							>
-								<input type="hidden" name="member_id" value={member.id} />
-								<button class="token token-sm" disabled={restore.isPending(member.id)}>
-									Restore<span class="sr-only"> {member.displayName}</span>
-								</button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-				<p class="text-xs leading-relaxed text-ink-soft">
-					Restoring brings back everything they voted, starred and suggested. Their name cannot be
-					taken by anyone else in the meantime.
-				</p>
-			</div>
+								<form
+									method="POST"
+									action="?/restoreMember"
+									use:enhance={restore.submit}
+									class="shrink-0"
+								>
+									<input type="hidden" name="member_id" value={member.id} />
+									<button class="token token-sm" disabled={restore.isPending(member.id)}>
+										Restore<span class="sr-only"> {member.displayName}</span>
+									</button>
+								</form>
+							</li>
+						{/each}
+					</ul>
+					<p class="text-xs leading-relaxed text-ink-soft">
+						Restoring brings back everything they voted, starred and suggested. Their name cannot be
+						taken by anyone else in the meantime.
+					</p>
+				</div>
+			</details>
 		{/if}
 
 		<form method="POST" action="?/renameSelf" use:enhance={keepValues}>

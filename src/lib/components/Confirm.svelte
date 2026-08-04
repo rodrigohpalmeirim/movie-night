@@ -39,8 +39,10 @@
 		disabled?: boolean;
 		variant?: 'primary' | 'danger' | 'quiet';
 		/** `lg` for the screen's main move, `md` for housekeeping that must not
-		 *  out-shout it — regenerating a link, removing a film, signing out. */
-		size?: 'lg' | 'md';
+		 *  out-shout it — regenerating a link, removing a film, signing out — and
+		 *  `sm` for a guard that has to fit at the end of a line it shares, like a
+		 *  name on the roster. */
+		size?: 'lg' | 'md' | 'sm';
 	} = $props();
 
 	const styles = {
@@ -48,7 +50,15 @@
 		danger: 'token-cherry',
 		quiet: ''
 	};
-	const face = $derived(`token ${size === 'lg' ? 'token-lg' : ''} w-full ${styles[variant]}`);
+	/**
+	 * The face's metrics, per size. Only `sm` gives up the full width: it is the
+	 * one that stands at the end of a row beside something else, so it takes the
+	 * width of its own words and is pushed to the end of the line. The question
+	 * card it opens is unaffected — that always fills whatever it is given, because
+	 * that is where the consequences are read.
+	 */
+	const faces = { lg: 'token-lg w-full', md: 'w-full', sm: 'token-sm ml-auto w-fit' };
+	const face = $derived(`token ${faces[size]} ${styles[variant]}`);
 </script>
 
 {#if disabled}
@@ -63,9 +73,7 @@
 		<summary class="block cursor-pointer list-none rounded-md select-none">
 			<!-- Closed face: the action. Open face: the way back out. -->
 			<span class="{face} group-open/confirm:hidden">{label}</span>
-			<span class="token {size === 'lg' ? 'token-lg' : ''} hidden w-full group-open/confirm:flex"
-				>Cancel</span
-			>
+			<span class="token {faces[size]} hidden group-open/confirm:flex">Cancel</span>
 		</summary>
 		<!-- The question card is torn from the pad, not laid on the table: dashed
 		     ink edge, and flat, because you read it rather than press it.
