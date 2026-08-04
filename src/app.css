@@ -432,6 +432,35 @@
 		box-shadow: var(--token-press-shadow);
 	}
 
+	/* `.token-latched`'s CSS-only twin: a token whose state is carried by a native
+	   radio inside it, latched by the browser rather than by a class the client
+	   computes. Same held press, same rule — the difference is only who reads the
+	   state, which means an On/Off pair in a plain form is correct before any
+	   JavaScript arrives and correct if none ever does. Wrap the radio in a
+	   <label class="token token-latch"> and give it the fill below. */
+	.token-latch:has(input:checked),
+	.token-latch:has(input:checked):active:not(:disabled) {
+		transform: var(--token-press-move);
+		box-shadow: var(--token-press-shadow);
+	}
+
+	/* The ink a latched token is filled with, face and ply together — the token
+	   half of `.tile-latch-cherry` / `.tile-latch-jade`, and the same pairing the
+	   round screen's RSVP tokens make with `.token-jade` / `.token-cherry`: the
+	   affirmative state prints as a dark jade plate, the negative one as a bright
+	   cherry one. An option that is not chosen keeps its full lift and its kraft
+	   face, so it still reads as pressable. */
+	.token-latch-jade:has(input:checked) {
+		--token-fill: var(--color-jade-deep);
+		--token-edge: var(--color-jade-deeper);
+		--token-text: var(--color-board);
+	}
+
+	.token-latch-cherry:has(input:checked) {
+		--token-fill: var(--color-cherry);
+		--token-edge: var(--color-cherry-deep);
+	}
+
 	/* The same latch on a whole pressable row whose state is carried by a
 	   native radio inside it. `:has()` reads the input's own `:checked`, so the
 	   browser latches the row with no JavaScript running at all — which is

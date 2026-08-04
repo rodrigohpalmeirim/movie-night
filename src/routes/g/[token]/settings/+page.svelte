@@ -72,7 +72,8 @@
 		n_finalists: 'How many films reach the head-to-head round. Max 5, so it stays 10 taps.',
 		approval_floor: 'Minimum share of yes-votes for a film to be promotable (0–1).',
 		coverage_floor: 'Minimum share of attendees who must have swiped a film (0–1).',
-		veto_threshold: 'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty.',
+		veto_threshold:
+			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Unused while vetoes are off.',
 		rewatch_cooldown: 'Days before a watched film can return. Leave blank for never.'
 	};
 	const KNOB_LABELS: Record<string, string> = {
@@ -166,6 +167,37 @@
 
 		<section class="tile space-y-3.5 px-3 py-3">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Voting knobs</h3>
+
+			<!-- The one knob that is a rule rather than a quantity, so the one drawn as
+			     a pair of latched tokens instead of a slider: the state that is true is
+			     held pressed flush and inked, the other keeps its lift. Two native
+			     radios do the latching through `.token-latch`, which means the marked
+			     option is marked with JavaScript off — and it posts as an ordinary field
+			     in this same form, saved by the same button as everything else. -->
+			<fieldset class="min-w-0">
+				<legend class="field-label text-ink">Vetoes</legend>
+				<div class="flex gap-2">
+					{#each [{ value: 'true', label: 'On', ink: 'token-latch-jade' }, { value: 'false', label: 'Off', ink: 'token-latch-cherry' }] as option (option.value)}
+						<label
+							class="token token-latch {option.ink} flex-1 cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2"
+						>
+							<input
+								type="radio"
+								name="vetoes_enabled"
+								value={option.value}
+								checked={String(data.settings.config.vetoes_enabled) === option.value}
+								class="sr-only"
+							/>
+							{option.label}
+						</label>
+					{/each}
+				</div>
+				<p class="mt-1.5 text-xs leading-relaxed text-ink-soft">
+					Off removes the veto step entirely: nobody is asked to strike a film, and the runoff is the
+					head-to-heads alone. A round already in progress keeps the rule it started under.
+				</p>
+			</fieldset>
+
 			{#each Object.entries(data.knobRanges) as [knob, range] (knob)}
 				<div>
 					<label for="knob-{knob}" class="field-label text-ink">{KNOB_LABELS[knob]}</label>
