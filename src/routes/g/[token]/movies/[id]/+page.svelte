@@ -73,11 +73,14 @@
 					<Poster path={data.movie.posterPath} title={data.movie.title} size="w342" eager />
 				</div>
 				{#if vote}
-					<!-- Your standing answer, stamped where you would stamp a card. -->
+					<!-- Your standing answer, stamped where you would stamp a card. A starred
+					     yes prints the brass STAR seal instead of the jade YES — same mark,
+					     same corner, said louder — so the seal always states what your vote
+					     currently IS, and the token below states what you can do about it. -->
 					<div class="pointer-events-none absolute -right-2.5 -bottom-3">
 						<Stamp
-							word={vote === 'yes' ? 'Yes' : 'Nope'}
-							tone={vote === 'yes' ? 'jade' : 'cherry'}
+							word={vote === 'yes' ? (starred ? 'Star' : 'Yes') : 'Nope'}
+							tone={vote === 'yes' ? (starred ? 'brass' : 'jade') : 'cherry'}
 							size="1rem"
 							rotate={-9}
 						/>
@@ -192,9 +195,11 @@
 			<!--
 				The star, and only on a yes: it is not a third answer, it is the loudest
 				version of this one, so it appears under the pair rather than beside it and
-				it goes away with the answer it belongs to. Same brass token as the pool
-				list's corner star, latched the same way — this screen simply has the room
-				to say the word and what it buys.
+				it goes away with the answer it belongs to. Latched like the answer pair —
+				held down and inked when it is on — so it reads as the state of your vote,
+				which is the same thing the brass seal on the artwork above is saying. This
+				is the only screen with the room to say the word and what it buys; the pool
+				only prints the seal.
 			-->
 			<form method="POST" action="?/vote" use:enhance={starLatch.submit} class="pop-settle">
 				<button

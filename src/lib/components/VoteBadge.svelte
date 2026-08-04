@@ -13,17 +13,33 @@
 
 	Not-yet-seen is no mark at all: an unfilled chip with a cut edge, because
 	nobody has stamped anything.
+
+	A STARRED yes is not a fourth state — it is the same yes said louder, so it is
+	the same badge in the same place, printed in the brass STAR seal the swipe card
+	presses when you push a card up instead of the jade YES. Same seal size, so a
+	row that gains a star never changes height.
 -->
 <script lang="ts">
 	import Stamp from './Stamp.svelte';
 
-	let { vote, class: className = '' }: { vote: 'yes' | 'no' | null; class?: string } = $props();
+	let {
+		vote,
+		starred = false,
+		class: className = ''
+	}: { vote: 'yes' | 'no' | null; starred?: boolean; class?: string } = $props();
 </script>
 
 {#if vote === 'yes'}
 	<span class="inline-flex items-center py-0.5 {className}">
-		<Stamp word="Yes" tone="jade" size="0.72rem" rotate={-4} />
-		<span class="sr-only">Your standing vote: yes</span>
+		<Stamp
+			word={starred ? 'Star' : 'Yes'}
+			tone={starred ? 'brass' : 'jade'}
+			size="0.72rem"
+			rotate={-4}
+		/>
+		<span class="sr-only"
+			>{starred ? 'Your standing vote: yes, and you starred this film' : 'Your standing vote: yes'}</span
+		>
 	</span>
 {:else if vote === 'no'}
 	<!-- Same word, tone and lean as the swipe card's refusal stamp. -->
