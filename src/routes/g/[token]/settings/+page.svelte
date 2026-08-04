@@ -68,6 +68,30 @@
 		}
 	}
 
+	/**
+	 * What each slider currently reads, so the number beside its label can move with
+	 * the thumb. Seeded ONCE from the loaded settings and then owned by the thumb.
+	 *
+	 * Deliberately not `$derived`: `load` re-runs on every save and on every SSE ping
+	 * the group emits, and a value recomputed from `data` would yank the thumb back
+	 * to the stored number mid-drag because somebody else swiped a card. Seeding once
+	 * is also what `keepValues` below asks for — after a successful save this state
+	 * and the server agree, and after a refused one it still shows what the member
+	 * typed, exactly like the text fields that keep their value.
+	 */
+	// svelte-ignore state_referenced_locally
+	let knobValues = $state<Record<string, number>>(
+		Object.fromEntries(
+			Object.entries(data.knobRanges)
+				.filter(([, range]) => !range.nullable)
+				.map(([knob]) => [knob, Number(data.settings.config[knob as keyof PageServerData['settings']['config']])])
+		)
+	);
+
+	/** Whole numbers as they are; a floor as the two decimals its 0.05 step needs. */
+	const format = (value: number, integer: boolean) =>
+		integer ? String(value) : value.toFixed(2);
+
 	const KNOB_HELP: Record<string, string> = {
 		n_finalists: 'How many films reach the head-to-head round. Max 5, so it stays 10 taps.',
 		approval_floor: 'Minimum share of yes-votes for a film to be promotable (0–1).',
@@ -200,19 +224,51 @@
 
 			{#each Object.entries(data.knobRanges) as [knob, range] (knob)}
 				<div>
-					<label for="knob-{knob}" class="field-label text-ink">{KNOB_LABELS[knob]}</label>
-					<input
-						id="knob-{knob}"
-						name={knob}
-						type="number"
-						inputmode="decimal"
-						min={range.min}
-						max={range.max}
-						step={range.integer ? 1 : 0.05}
-						value={data.settings.config[knob as keyof typeof data.settings.config] ?? ''}
-						aria-describedby="help-{knob}"
-						class="field tabular-nums"
-					/>
+					<!-- A slider hides its number, so the number is printed beside the
+					     label and moves with the thumb. `<output>` is the element for a
+					     value the page calculates, and it is rendered server-side from the
+					     stored setting: with scripting off it simply stays put while the
+					     thumb moves, which is a static number rather than a broken one. -->
+					<div class="mb-1 flex items-baseline justify-between gap-2">
+						<label for="knob-{knob}" class="field-label mb-0 text-ink">{KNOB_LABELS[knob]}</label>
+						{#if !range.nullable}
+							<output for="knob-{knob}" class="stencil text-sm font-semibold text-ink tabular-nums">
+								{format(knobValues[knob], range.integer)}
+							</output>
+						{/if}
+					</div>
+					{#if range.nullable}
+						<!-- The one knob that stays a written-in field. A range input has no way
+						     to say "blank", and blank is what turns re-watches off — its own
+						     `null`, not the number 0, which would mean "immediately". The
+						     0–3650 span makes it the wrong shape for dragging anyway: one day
+						     per pixel is a value nobody could set on purpose. -->
+						<input
+							id="knob-{knob}"
+							name={knob}
+							type="number"
+							inputmode="decimal"
+							min={range.min}
+							max={range.max}
+							step={range.integer ? 1 : 0.05}
+							value={data.settings.config[knob as keyof typeof data.settings.config] ?? ''}
+							aria-describedby="help-{knob}"
+							class="field tabular-nums"
+						/>
+					{:else}
+						<input
+							id="knob-{knob}"
+							name={knob}
+							type="range"
+							min={range.min}
+							max={range.max}
+							step={range.integer ? 1 : 0.05}
+							value={knobValues[knob]}
+							oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
+							aria-describedby="help-{knob}"
+							class="rail"
+						/>
+					{/if}
 					<p id="help-{knob}" class="mt-1 text-xs leading-relaxed text-ink-soft">
 						{KNOB_HELP[knob]} Allowed: {range.min}–{range.max}{range.nullable ? ', or blank' : ''}.
 					</p>

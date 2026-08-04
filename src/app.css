@@ -709,6 +709,98 @@
 		text-transform: uppercase;
 	}
 
+	/* ── Slid-along rail ──────────────────────────────────────────────
+	   A number you set by moving a piece along a groove, so it is drawn as both:
+	   the punched rail the swipe deck and the pair deck already use for progress
+	   (ink border, felt-deep groove) with a brass token riding in it. The rail is
+	   flat, because a groove is cut INTO the board; the thumb is raised, because a
+	   thumb is the one thing here you actually press — the same rule the whole app
+	   runs on, and the reason a slider is allowed a lip where a field is not.
+
+	   Every engine names these parts differently and none of them inherits from
+	   another, so the groove and the thumb are each written twice (`-webkit-` and
+	   `-moz-`) and the two copies MUST stay identical. Chrome, Safari and Firefox
+	   are the three that matter; anything else falls back to its own slider, which
+	   is a plain control and still submits the same value.
+
+	   Nothing here animates but the focus ring: dragging the thumb IS the
+	   feedback, and it is the finger's own motion, not ours. */
+	.rail {
+		--rail-groove: 0.625rem;
+		--rail-thumb: 1.375rem;
+		width: 100%;
+		/* The touch target, not the groove: 44px of height to put a thumb in,
+		   which is what makes this draggable on a phone. */
+		height: 2.75rem;
+		appearance: none;
+		background-color: transparent;
+		cursor: pointer;
+	}
+
+	.rail::-webkit-slider-runnable-track {
+		height: var(--rail-groove);
+		border: 2px solid var(--color-ink);
+		border-radius: 999px;
+		background-color: var(--color-felt-deep);
+	}
+
+	.rail::-moz-range-track {
+		height: var(--rail-groove);
+		border: 2px solid var(--color-ink);
+		border-radius: 999px;
+		background-color: var(--color-felt-deep);
+	}
+
+	/* The brass token in the groove. Its lip is the same one-ply shadow every
+	   raised piece in the app carries, in the fill's own darker plate. */
+	.rail::-webkit-slider-thumb {
+		appearance: none;
+		width: var(--rail-thumb);
+		height: var(--rail-thumb);
+		/* Centres the thumb on the groove: half the difference between the groove's
+		   full box (its height plus both borders) and the thumb. */
+		margin-top: calc((var(--rail-groove) + 4px - var(--rail-thumb)) / 2);
+		border: 2px solid var(--color-ink);
+		border-radius: 6px;
+		background-color: var(--color-brass);
+		box-shadow: 0 2px 0 0 var(--color-brass-deep);
+		transition: box-shadow 90ms ease-out;
+	}
+
+	.rail::-moz-range-thumb {
+		width: var(--rail-thumb);
+		height: var(--rail-thumb);
+		border: 2px solid var(--color-ink);
+		border-radius: 6px;
+		background-color: var(--color-brass);
+		box-shadow: 0 2px 0 0 var(--color-brass-deep);
+		transition: box-shadow 90ms ease-out;
+	}
+
+	/* The app's one focus treatment — a brass ring — but drawn on the THUMB, which
+	   is the part that is really focused and the part that moves. The element's own
+	   outline is dropped for it: a ring round the whole rail would sit two
+	   centimetres from the piece under the finger. Brass alone would be brass on a
+	   brass face, so the ring is finished with an ink edge, exactly as every other
+	   plate in the app is. */
+	.rail:focus-visible {
+		outline: none;
+	}
+
+	.rail:focus-visible::-webkit-slider-thumb {
+		box-shadow:
+			0 2px 0 0 var(--color-brass-deep),
+			0 0 0 3px var(--color-brass),
+			0 0 0 5px var(--color-ink);
+	}
+
+	.rail:focus-visible::-moz-range-thumb {
+		box-shadow:
+			0 2px 0 0 var(--color-brass-deep),
+			0 0 0 3px var(--color-brass),
+			0 0 0 5px var(--color-ink);
+	}
+
 	/* ── SIGNATURE: the ink seal ──────────────────────────────────────
 	   One stamp grammar for every mark a person makes: yes and nope on the
 	   swipe card, veto on a disqualified film, and PICKED slammed across
@@ -1094,6 +1186,18 @@ html[data-page-transition='back']::view-transition-new(root) {
 
 	.seal-slam {
 		animation: none;
+	}
+
+	/* A slider's thumb is the same kind of unreachable pseudo-element, and each
+	   engine's spelling has to be its own rule: one unknown pseudo-element in a
+	   selector list invalidates the whole list, so a shared rule would cut the
+	   transition in neither browser. */
+	.rail::-webkit-slider-thumb {
+		transition: none !important;
+	}
+
+	.rail::-moz-range-thumb {
+		transition: none !important;
 	}
 
 	/* The universal selector cannot reach these pseudo-elements, so they are
