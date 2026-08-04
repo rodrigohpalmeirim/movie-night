@@ -349,6 +349,18 @@ function isToggleKnob(key: string): key is ToggleKnob {
  * stays at 10 pairs and every voter finishes it. Its floor is 2, because one
  * finalist is not a runoff.
  *
+ * `veto_threshold` is capped at 5, the same ceiling as `n_finalists`: it is a
+ * count of people who struck a film, and a group where six of them have to agree
+ * is a group that has switched vetoes off in a more roundabout way. Fifty was
+ * always a number nobody could reach.
+ *
+ * THESE RANGES BIND WRITES, NOT READS. Nothing re-validates a stored blob —
+ * `withConfigDefaults` projects whatever is in the row and the tally uses it — so
+ * a group that stored `veto_threshold: 12` under the old ceiling keeps
+ * disqualifying at twelve, and keeps working, until somebody saves the settings
+ * form. That save is what re-snaps it: the rail cannot express more than 5, so it
+ * posts 5. Narrowing a range is therefore always safe here, and never silent.
+ *
  * `min_attendee_votes` is deliberately absent: the eligibility floor it set is
  * gone. A client that still posts it gets `invalid_input` ("Unknown setting")
  * rather than a silently ignored field.
@@ -357,7 +369,9 @@ export const KNOB_RANGES: Record<NumericKnob, KnobSpec> = {
 	n_finalists: { min: 2, max: 5, integer: true },
 	approval_floor: { min: 0, max: 1, integer: false },
 	coverage_floor: { min: 0, max: 1, integer: false },
-	veto_threshold: { min: 1, max: 50, integer: true },
+	veto_threshold: { min: 1, max: 5, integer: true },
+	// Wider than the settings rail's ladder tops out at (three years), because the
+	// range validates a number of days from any source; see `$lib/cooldown.ts`.
 	rewatch_cooldown: { min: 0, max: 3650, integer: true, nullable: true }
 };
 

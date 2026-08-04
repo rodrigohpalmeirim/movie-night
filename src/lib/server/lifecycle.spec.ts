@@ -1836,7 +1836,7 @@ describe('regression: the reveal needs a non-empty electorate too', () => {
 				})
 			);
 		}
-		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { veto_threshold: 50 } }));
+		unwrap(updateSettings(w.db, { groupId: w.group.id, config: { veto_threshold: 5 } }));
 		w.reloadGroup();
 		const advanced = unwrap(
 			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })

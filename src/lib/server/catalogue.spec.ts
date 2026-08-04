@@ -509,6 +509,30 @@ describe('settings', () => {
 		expect(code(validateConfigPatch({ nonsense: 1 }))).toBe('invalid_input');
 	});
 
+	/**
+	 * The ceiling came down from 50 to 5, which is a rule about WRITES. A group that
+	 * stored a bigger number under the old ceiling must still read, still tally and
+	 * still be editable — the next save is what brings it into range, because the
+	 * settings rail cannot express more than 5.
+	 */
+	test('veto_threshold above 5 is refused on write and tolerated on read', () => {
+		expect(unwrap(validateConfigPatch({ veto_threshold: 5 }))).toEqual({ veto_threshold: 5 });
+		expect(code(validateConfigPatch({ veto_threshold: 6 }))).toBe('invalid_input');
+
+		world = createTestWorld({ memberNames: ['Ana'] });
+		world.db
+			.update(groups)
+			.set({ config: { ...DEFAULT_GROUP_CONFIG, veto_threshold: 12 } })
+			.where(eq(groups.id, world.group.id))
+			.run();
+		const stored = withConfigDefaults(world.reloadGroup().config);
+		expect(stored.veto_threshold).toBe(12);
+		expect(toTallyConfig(stored).vetoThreshold).toBe(12);
+
+		unwrap(updateSettings(world.db, { groupId: world.group.id, config: { veto_threshold: 5 } }));
+		expect(withConfigDefaults(world.reloadGroup().config).veto_threshold).toBe(5);
+	});
+
 	test('rewatch_cooldown is the only nullable knob ("off")', () => {
 		expect(unwrap(validateConfigPatch({ rewatch_cooldown: null }))).toEqual({ rewatch_cooldown: null });
 		expect(code(validateConfigPatch({ n_finalists: null }))).toBe('invalid_input');
