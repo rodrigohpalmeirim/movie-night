@@ -75,6 +75,7 @@ export function formatPercent(value: number): string {
 
 /** Human label for the tiebreak rule stored on a round. */
 export const TIEBREAK_LABELS: Record<string, string> = {
+	stars: 'most stars',
 	copeland: 'most pairwise wins (Copeland)',
 	approval: 'higher approval',
 	rotation_fairness: 'rotation fairness — longest without a winning suggestion',

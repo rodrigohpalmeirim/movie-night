@@ -54,6 +54,15 @@
 		reveal.finalists.filter((movie) => reveal.veto.disqualifiedIds.includes(movie.id))
 	);
 
+	/**
+	 * Whether stars get a column at all. The scorepad prints what happened, not
+	 * every column it knows how to print: on a night nobody starred anything, a
+	 * row of zeroes would push the sheet sideways to say nothing. It is also the
+	 * only place stars appear as numbers — a star is a tie-breaker, so when one
+	 * actually decided the night the sentence at the bottom names it in words.
+	 */
+	const anyStars = $derived(reveal.tallies.some((tally) => tally.starVotes > 0));
+
 	/** aWins for (row, col), read off the normalised matrix in either direction. */
 	function preferredCount(row: string, col: string): number | null {
 		for (const head of reveal.matrix) {
@@ -106,7 +115,8 @@
 		<h3 class="eyebrow border-b-2 border-ink pb-1.5">Approval</h3>
 		<p class="mt-2 text-xs leading-relaxed text-ink-soft">
 			Approval counts only attendees who had swiped the card; coverage is how many attendees had seen
-			it at all.
+			it at all.{#if anyStars} Stars are the yeses somebody starred — they separate films with the same
+				number of yeses and nothing else.{/if}
 		</p>
 		<div class="mt-2 overflow-x-auto">
 			<table class="scoresheet w-full text-sm">
@@ -114,6 +124,10 @@
 					<tr>
 						<th scope="col" class="py-1.5 pr-2 text-left">Film</th>
 						<th scope="col" class="py-1.5 pr-2 text-right">Yes</th>
+						{#if anyStars}
+							<!-- Beside the yeses it upgrades, never in front of them. -->
+							<th scope="col" class="py-1.5 pr-2 text-right">Stars</th>
+						{/if}
 						<th scope="col" class="py-1.5 pr-2 text-right">Swiped</th>
 						<th scope="col" class="py-1.5 pr-2 text-right">Approval</th>
 						<th scope="col" class="py-1.5 text-right">Coverage</th>
@@ -126,6 +140,9 @@
 								>{titleOf.get(tally.movieId) ?? tally.movieId}</th
 							>
 							<td class="py-1.5 pr-2 text-right tabular-nums">{tally.yesVotes}</td>
+							{#if anyStars}
+								<td class="py-1.5 pr-2 text-right tabular-nums text-ink-soft">{tally.starVotes}</td>
+							{/if}
 							<td class="py-1.5 pr-2 text-right tabular-nums">{tally.attendeeVotes}</td>
 							<td class="py-1.5 pr-2 text-right font-semibold tabular-nums"
 								>{formatPercent(tally.approval)}</td
