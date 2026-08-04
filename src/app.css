@@ -975,6 +975,38 @@ html[data-page-transition='back']::view-transition-new(root) {
 }
 
 /*
+ * ...and the two pictures of the tray do not dissolve into each other either.
+ *
+ * Pinning the group stops the tray MOVING. It does not stop the default
+ * cross-fade of the two captures, and on a phone those two captures are not the
+ * same picture: the latch has travelled to the tapped tab, the felt tint has
+ * changed with the table, and the strip of screen under the bar was a different
+ * height in each. Cross-fading that plays the difference as a double exposure —
+ * two trays, both half there, for 200ms — which is the flicker that survived
+ * bolting the group down.
+ *
+ * The old image is dropped outright rather than given a zeroed fade, because
+ * the two captures can differ in HEIGHT: each is laid out at its own natural
+ * height inside a group box that is now sized to the new one, so the old one
+ * can hang out past the bottom of the new instead of hiding politely behind it.
+ * With it gone, the new image is simply painted, from the first frame (it is
+ * only ever transparent because the UA's fade-in keyframes start it that way,
+ * so `animation: none` is the whole of it; the explicit opacity is a belt).
+ *
+ * The trade: the latch and the tint SWITCH instead of blending. That is what a
+ * mechanical button does anyway — the press is over the moment your finger
+ * lands — so the tray is the one piece of furniture that loses nothing by it.
+ */
+::view-transition-old(tab-bar) {
+	display: none;
+}
+
+::view-transition-new(tab-bar) {
+	animation: none;
+	opacity: 1;
+}
+
+/*
  * "Prefers less motion" means no motion: the swipe fly-out, the promote
  * spring, the seal slam, the deal-in stagger and the page transitions are
  * all cut outright rather than sped up. This block (plus onNavigate's own
