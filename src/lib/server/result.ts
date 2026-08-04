@@ -6,6 +6,8 @@
 export type ErrorCode =
 	| 'unknown_group'
 	| 'unknown_member'
+	/** The member exists but has left the group (soft `removed_at`). */
+	| 'member_removed'
 	| 'unknown_movie'
 	| 'unknown_round'
 	| 'name_taken'
@@ -25,6 +27,9 @@ export type ErrorCode =
 export const HTTP_STATUS: Record<ErrorCode, number> = {
 	unknown_group: 404,
 	unknown_member: 404,
+	// 409, not 404: the member is still there, and restoring them makes the same
+	// request succeed — which is what the message says to do.
+	member_removed: 409,
 	unknown_movie: 404,
 	unknown_round: 404,
 	name_taken: 409,

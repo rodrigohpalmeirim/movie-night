@@ -76,6 +76,11 @@ export function loadTallyMovies(db: Db, groupId: string): MovieInput[] {
 /**
  * Live standing votes — stars included — for the whole group, scoped through the
  * movie's group.
+ *
+ * Removed members' rows are filtered out. Strictly speaking the attendee set
+ * already excludes them, so the tally could not count these votes anyway; the
+ * filter is here so that what gets FROZEN into `rounds.standing_snapshot` is the
+ * present group's answers and nothing else.
  */
 export function loadStandingVotes(db: Db, groupId: string): StandingVoteInput[] {
 	return db
@@ -87,15 +92,20 @@ export function loadStandingVotes(db: Db, groupId: string): StandingVoteInput[] 
 		})
 		.from(standingVotes)
 		.innerJoin(movies, eq(movies.id, standingVotes.movieId))
-		.where(eq(movies.groupId, groupId))
+		.innerJoin(members, eq(members.id, standingVotes.memberId))
+		.where(and(eq(movies.groupId, groupId), isNull(members.removedAt)))
 		.all();
 }
 
 /**
- * One record per member, so rotation fairness can measure never-won members from
- * their join date. Derived with a LEFT JOIN rather than requiring a fairness row,
- * so a member missing one still gets a join date instead of silently losing all
- * fairness claim.
+ * One record per **current** member, so rotation fairness can measure never-won
+ * members from their join date. Derived with a LEFT JOIN rather than requiring a
+ * fairness row, so a member missing one still gets a join date instead of silently
+ * losing all fairness claim.
+ *
+ * Removed members are left out: rotation fairness is a claim on future nights, and
+ * someone who has left the group has none. Their `fairness` row survives untouched
+ * (they may be restored, and their past wins are history either way).
  */
 export function loadFairness(db: Db, groupId: string): FairnessInput[] {
 	return db
@@ -107,7 +117,7 @@ export function loadFairness(db: Db, groupId: string): FairnessInput[] {
 		})
 		.from(members)
 		.leftJoin(fairness, eq(fairness.memberId, members.id))
-		.where(eq(members.groupId, groupId))
+		.where(and(eq(members.groupId, groupId), isNull(members.removedAt)))
 		.all()
 		.map((row) => ({
 			memberId: row.memberId,
@@ -136,12 +146,29 @@ export function pendingWinnerIds(db: Db, groupId: string): string[] {
 		.flatMap((row) => (row.winnerId ? [row.winnerId] : []));
 }
 
-/** Attendees are members with `attending = true`; no row means "hasn't answered". */
+/**
+ * Attendees are **current** members with `attending = true`; no row means "hasn't
+ * answered".
+ *
+ * THIS IS WHERE A REMOVED MEMBER STOPS COUNTING. Everything downstream is computed
+ * on read against this set — coverage denominators, approval, star counts,
+ * `MIN_ELECTORATE`, rotation fairness, veto tallies, the round robin — so one
+ * `isNull(removedAt)` here is the whole of "removed members leave the present".
+ *
+ * It applies to the ACTIVE round too, deliberately: someone removed mid-round has
+ * their RSVP, standing votes, stars, veto and pairwise picks all dropped from any
+ * recomputation from that moment on (voting-spec, Removed members). Nothing stored
+ * is rewritten — a decided outcome, a frozen `finalist_ids` and a published tally
+ * are historical facts and stay exactly as they were.
+ */
 export function loadAttendeeIds(db: Db, roundId: string): string[] {
 	return db
 		.select({ memberId: attendance.memberId })
 		.from(attendance)
-		.where(and(eq(attendance.roundId, roundId), eq(attendance.attending, true)))
+		.innerJoin(members, eq(members.id, attendance.memberId))
+		.where(
+			and(eq(attendance.roundId, roundId), eq(attendance.attending, true), isNull(members.removedAt))
+		)
 		.all()
 		.map((row) => row.memberId);
 }
@@ -634,6 +661,12 @@ export function setRsvp(input: {
 		.where(and(eq(members.groupId, input.groupId), eq(members.id, input.memberId)))
 		.get();
 	if (!target) return fail('unknown_member', 'That member is not in this group');
+	// Neither self nor proxy: someone who has left the group cannot be marked in.
+	// Refused here rather than silently accepted-and-ignored, so the RSVP list can
+	// never show an attendee that no tally counts.
+	if (target.removedAt !== null) {
+		return fail('member_removed', `${target.displayName} was removed from the group — restore them first`);
+	}
 
 	const row = input.db
 		.insert(attendance)

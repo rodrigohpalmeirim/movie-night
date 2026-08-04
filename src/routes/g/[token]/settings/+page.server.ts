@@ -8,7 +8,14 @@ import { fail as formFail, redirect } from '@sveltejs/kit';
 import { MEMBER_COOKIE_OPTIONS, memberCookieName } from '$lib/server/context.js';
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
-import { KNOB_RANGES, regenerateInviteToken, renameMember, updateSettings } from '$lib/server/services/groups.js';
+import {
+	KNOB_RANGES,
+	regenerateInviteToken,
+	removeMember,
+	renameMember,
+	restoreMember,
+	updateSettings
+} from '$lib/server/services/groups.js';
 import { buildSettingsView } from '$lib/server/services/views.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -71,5 +78,50 @@ export const actions: Actions = {
 			name: formValue(data, 'display_name')
 		});
 		return result.ok ? { displayName: result.value.displayName } : reject(result);
+	},
+
+	/**
+	 * app-spec: "Any member can remove any member ... **including themselves**."
+	 * Guarded exactly like `renameSelf` and every other member action — by
+	 * `requireActor`, i.e. a claimed identity in this group, and nothing more. There
+	 * are no roles to check.
+	 *
+	 * Removing yourself also clears this device's cookie and returns to the picker:
+	 * `resolveContext` would already resolve a removed member as unclaimed, so
+	 * leaving the cookie would mean every later request quietly redirected there
+	 * anyway. Doing it here makes it deliberate rather than a side effect, and it is
+	 * exactly what the `forget` action above does.
+	 */
+	removeMember: async (event) => {
+		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const memberId = formValue(data, 'member_id');
+		if (!memberId) return formFail(400, { code: 'invalid_input', message: 'member_id is required' });
+		const result = removeMember({
+			db: actor.db,
+			groupId: actor.group.id,
+			memberId,
+			now: actor.now
+		});
+		if (!result.ok) return reject(result);
+		if (memberId === actor.member.id) {
+			event.cookies.delete(memberCookieName(actor.group.id), { path: MEMBER_COOKIE_OPTIONS.path });
+			redirect(303, `/g/${actor.group.inviteToken}/picker`);
+		}
+		return { removed: result.value.displayName };
+	},
+
+	/**
+	 * The way back, open to anyone — including for a member who removed themselves
+	 * and has since been let back in by someone else. Every standing vote, star and
+	 * suggestion they ever recorded counts again, because none of it was deleted.
+	 */
+	restoreMember: async (event) => {
+		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const memberId = formValue(data, 'member_id');
+		if (!memberId) return formFail(400, { code: 'invalid_input', message: 'member_id is required' });
+		const result = restoreMember({ db: actor.db, groupId: actor.group.id, memberId });
+		return result.ok ? { restored: result.value.displayName } : reject(result);
 	}
 };

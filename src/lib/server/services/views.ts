@@ -17,7 +17,7 @@
  * ("4 in, 3 no answer", "2 attendees haven't voted — reveal anyway?").
  */
 
-import { and, desc, eq, inArray, isNull, not } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, not } from 'drizzle-orm';
 import {
 	members,
 	movies,
@@ -96,6 +96,18 @@ function movieCard(movie: Movie, byId: Map<string, Member>): MovieCard {
 	};
 }
 
+/**
+ * Every member of the group, REMOVED ONES INCLUDED, by id.
+ *
+ * Deliberately unfiltered: this index exists to turn an id into a name, and the
+ * ids that need naming outlive membership — `movies.suggested_by` on a film still
+ * in the pool, `attendance.updated_by` on a proxy RSVP, a past round's
+ * `created_by`. voting-spec: "Their suggestions stay in the pool and stay credited
+ * to them ... Past rounds are untouched: they keep naming whoever was there."
+ *
+ * Anything that answers "who is in this group *now*" must use `currentMembers`
+ * instead — the roster, the participant list, the RSVP surface, the picker.
+ */
 function memberIndex(db: Db, groupId: string): Map<string, Member> {
 	return new Map(
 		db
@@ -105,6 +117,16 @@ function memberIndex(db: Db, groupId: string): Map<string, Member> {
 			.all()
 			.map((member) => [member.id, member])
 	);
+}
+
+/** The group's present: members without a `removed_at` stamp, join order first. */
+function currentMembers(db: Db, groupId: string): Member[] {
+	return db
+		.select()
+		.from(members)
+		.where(and(eq(members.groupId, groupId), isNull(members.removedAt)))
+		.orderBy(members.createdAt, members.id)
+		.all();
 }
 
 /* ------------------------------------------------------------------ */
@@ -216,12 +238,12 @@ export function buildGroupContextView(db: Db, group: Group, me: Member): GroupCo
 		name: group.name,
 		config: withConfigDefaults(group.config),
 		me: { id: me.id, displayName: me.displayName },
-		members: db
-			.select()
-			.from(members)
-			.where(eq(members.groupId, group.id))
-			.all()
-			.map((member) => ({ id: member.id, displayName: member.displayName }))
+		// Current members only: this list drives the roster, the RSVP controls and the
+		// dev member switcher, all of which are questions about the present.
+		members: currentMembers(db, group.id).map((member) => ({
+			id: member.id,
+			displayName: member.displayName
+		}))
 	};
 }
 
@@ -259,22 +281,29 @@ export function buildRoundView(input: {
 	if (!round) return null;
 
 	const byId = memberIndex(db, group.id);
-	const attendanceRows = loadAttendance(db, round.id);
+	const roster = currentMembers(db, group.id);
+	// Participation is a question about the present, so every count below is over
+	// CURRENT members. A removed member's attendance row is left in the table (it is
+	// a record of what happened) but is filtered out here and, crucially, in
+	// `loadAttendeeIds` — so the round screen's "4 in" can never include somebody no
+	// tally counts.
+	const current = new Set(roster.map((member) => member.id));
+	const attendanceRows = loadAttendance(db, round.id).filter((row) => current.has(row.memberId));
 	const rsvpByMember = new Map(attendanceRows.map((row) => [row.memberId, row]));
 	const attendeeIds = attendanceRows.filter((row) => row.attending).map((row) => row.memberId);
 
-	const participants: ParticipantView[] = [...byId.values()]
-		.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))
-		.map((member) => {
-			const rsvp = rsvpByMember.get(member.id);
-			return {
-				memberId: member.id,
-				displayName: member.displayName,
-				attending: rsvp ? rsvp.attending : null,
-				markedBy: rsvp ? memberRef(byId.get(rsvp.updatedBy)) : null,
-				submitted: rsvp?.runoffSubmittedAt != null
-			};
-		});
+	const participants: ParticipantView[] = roster.map((member) => {
+		const rsvp = rsvpByMember.get(member.id);
+		return {
+			memberId: member.id,
+			displayName: member.displayName,
+			attending: rsvp ? rsvp.attending : null,
+			// `byId`, not the roster: a proxy RSVP set by someone who has since left is
+			// still "marked by Dee".
+			markedBy: rsvp ? memberRef(byId.get(rsvp.updatedBy)) : null,
+			submitted: rsvp?.runoffSubmittedAt != null
+		};
+	});
 
 	const finalistIds = round.finalistIds ?? null;
 	const finalistMovies =
@@ -365,7 +394,7 @@ export function buildRoundView(input: {
 		participation: {
 			attending: attendeeIds.length,
 			out: attendanceRows.filter((row) => !row.attending).length,
-			noAnswer: byId.size - attendanceRows.length,
+			noAnswer: roster.length - attendanceRows.length,
 			submitted: attendanceRows.filter((row) => row.runoffSubmittedAt != null).length
 		},
 		readiness: {
@@ -569,7 +598,15 @@ export interface SettingsView {
 	/** The invite link is group data; anyone holding the token already has it. */
 	inviteToken: string;
 	config: GroupConfig;
+	/** Current members — the roster, each removable by anyone. */
 	members: Array<MemberRef & { joinedAt: string }>;
+	/**
+	 * Members who have left, each restorable by anyone. Surfaced here rather than
+	 * hidden, because this is the only route back: a removed member keeps their
+	 * display name, so re-adding it is refused, and restoring counts every vote and
+	 * star they ever cast again.
+	 */
+	removedMembers: Array<MemberRef & { joinedAt: string; removedAt: string }>;
 	me: MemberRef;
 }
 
@@ -580,16 +617,22 @@ export function buildSettingsView(input: { db: Db; group: Group; me: Member }): 
 		name: group.name,
 		inviteToken: group.inviteToken,
 		config: withConfigDefaults(group.config),
-		members: db
+		members: currentMembers(db, group.id).map((member) => ({
+			id: member.id,
+			displayName: member.displayName,
+			joinedAt: member.createdAt.toISOString()
+		})),
+		removedMembers: db
 			.select()
 			.from(members)
-			.where(eq(members.groupId, group.id))
-			.orderBy(members.createdAt)
+			.where(and(eq(members.groupId, group.id), isNotNull(members.removedAt)))
+			.orderBy(members.createdAt, members.id)
 			.all()
 			.map((member) => ({
 				id: member.id,
 				displayName: member.displayName,
-				joinedAt: member.createdAt.toISOString()
+				joinedAt: member.createdAt.toISOString(),
+				removedAt: member.removedAt!.toISOString()
 			})),
 		me: { id: me.id, displayName: me.displayName }
 	};

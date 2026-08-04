@@ -6,7 +6,7 @@
  * accidents, not malice.
  */
 
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import {
 	DEFAULT_GROUP_CONFIG,
 	fairness,
@@ -78,12 +78,18 @@ export function createGroup(
 }
 
 /**
- * Case-insensitive name lookup.
+ * Case-insensitive name lookup, **removed members included**.
  *
  * Uniqueness must fold case, or "ana" quietly becomes a second member alongside
  * "Ana" — one typo, one extra ballot, and two entries in every attendee list.
  * Display casing is preserved as typed; only the comparison folds. `lower()` is
  * the same ASCII fold the unique index uses, so the two can never disagree.
+ *
+ * A removed member keeps their name, and this lookup keeps finding them, because
+ * the unique index does too: the alternative is name-reuse machinery (suffixes,
+ * freed names, two "Ana"s in history) for a group of friends where restoring the
+ * person is both easier and more honest. The caller turns the hit into a
+ * "that name is taken — restore them?" message.
  */
 function findByFoldedName(db: Db, groupId: string, displayName: string): Member | undefined {
 	return db
@@ -111,11 +117,28 @@ function insertMember(db: Db, input: { groupId: string; displayName: string; now
 /* Identity                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The group's CURRENT members — the picker list, the roster, the RSVP surface.
+ *
+ * Removed members are excluded everywhere a "who is in this group" question is
+ * asked. They are still readable by id (`movies.suggested_by` credit, history), and
+ * `listRemovedMembers` returns them for the settings screen's restore path.
+ */
 export function listMembers(db: Db, groupId: string): Member[] {
 	return db
 		.select()
 		.from(members)
-		.where(eq(members.groupId, groupId))
+		.where(and(eq(members.groupId, groupId), isNull(members.removedAt)))
+		.orderBy(asc(members.createdAt), asc(members.id))
+		.all();
+}
+
+/** Members who have left, most recently removed first — the restore list. */
+export function listRemovedMembers(db: Db, groupId: string): Member[] {
+	return db
+		.select()
+		.from(members)
+		.where(and(eq(members.groupId, groupId), isNotNull(members.removedAt)))
 		.orderBy(asc(members.createdAt), asc(members.id))
 		.all();
 }
@@ -140,6 +163,16 @@ export function claimMember(
 			.where(and(eq(members.groupId, input.groupId), eq(members.id, input.memberId)))
 			.get();
 		if (!existing) return fail('unknown_member', 'That member is not in this group');
+		// A removed member is not in the group's present, so there is no identity here
+		// to claim — the picker does not list them, and a stale link or hand-built POST
+		// must not resurrect one silently. Restore is the way back, and it keeps every
+		// vote they ever cast.
+		if (existing.removedAt !== null) {
+			return fail(
+				'member_removed',
+				`"${existing.displayName}" was removed from this group — restore them in settings to use that name again`
+			);
+		}
 		return ok(existing);
 	}
 
@@ -149,7 +182,7 @@ export function claimMember(
 	// The DB's unique (group_id, lower(display_name)) is the real guard; this read
 	// is only here to turn the constraint error into a useful message.
 	const taken = findByFoldedName(db, input.groupId, displayName);
-	if (taken) return fail('name_taken', `"${taken.displayName}" is already taken in this group`);
+	if (taken) return fail('name_taken', nameTakenMessage(taken));
 
 	try {
 		const member = insertMember(db, { groupId: input.groupId, displayName, now });
@@ -158,6 +191,16 @@ export function claimMember(
 	} catch {
 		return fail('name_taken', `"${displayName}" is already taken in this group`);
 	}
+}
+
+/**
+ * Why a name is unavailable — and, when the holder has left the group, what to do
+ * about it. There is deliberately no way to take a removed member's name.
+ */
+function nameTakenMessage(holder: Member): string {
+	return holder.removedAt !== null
+		? `"${holder.displayName}" belongs to a removed member — restore them instead of re-adding the name`
+		: `"${holder.displayName}" is already taken in this group`;
 }
 
 /** Settings: "Member list (rename self; members are never deleted)". */
@@ -169,7 +212,7 @@ export function renameMember(
 	if (displayName === null) return fail('invalid_input', 'A display name of 1-80 characters is required');
 	const clash = findByFoldedName(db, input.groupId, displayName);
 	if (clash && clash.id !== input.memberId) {
-		return fail('name_taken', `"${clash.displayName}" is already taken in this group`);
+		return fail('name_taken', nameTakenMessage(clash));
 	}
 	try {
 		const updated = db
@@ -184,6 +227,93 @@ export function renameMember(
 	} catch {
 		return fail('name_taken', `"${displayName}" is already taken in this group`);
 	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Removal (soft, reversible)                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * app-spec: "Any member can remove any member (there are no roles here, and this
+ * is the same trust the proxy RSVP already assumes), **including themselves** —
+ * leaving the group is a thing a person does for themselves."
+ *
+ * A stamp, never a delete. Nothing is cascaded, rewritten or recounted:
+ *
+ *  - Their suggestions stay in the pool, still credited to them by name.
+ *  - Their standing votes and stars are kept and simply stop being counted, because
+ *    `loadAttendeeIds` no longer returns them (see the note there, which is also
+ *    where the mid-round rule is documented).
+ *  - Their attendance, veto and pair rows are left where they are, for the same
+ *    reason: they are records of what happened, and the tallies read the attendee
+ *    set, not the rows.
+ *  - Decided rounds keep their winner, their frozen finalist set and their
+ *    published tallies. History is not editable by a departure.
+ *
+ * Idempotent: removing an already-removed member is a no-op, so two taps race
+ * harmlessly. The caller is responsible for the actor's own cookie when the actor
+ * is the target — see the settings action.
+ */
+export function removeMember(input: {
+	db: Db;
+	groupId: string;
+	memberId: string;
+	now?: Date;
+}): Result<Member> {
+	const now = input.now ?? new Date();
+	const member = input.db
+		.select()
+		.from(members)
+		.where(and(eq(members.groupId, input.groupId), eq(members.id, input.memberId)))
+		.get();
+	if (!member) return fail('unknown_member', 'That member is not in this group');
+	if (member.removedAt !== null) return ok(member);
+
+	// The last current member may leave: an empty group is recoverable (the next
+	// person to open the link claims a name) and blocking it would trap someone in a
+	// group they have left. What an empty group cannot do is decide a round —
+	// MIN_ELECTORATE already refuses that, with a message the group can act on.
+	const updated = input.db
+		.update(members)
+		.set({ removedAt: now })
+		.where(and(eq(members.id, input.memberId), isNull(members.removedAt)))
+		.returning()
+		.get();
+	if (!updated) return fail('state_changed', 'That member changed while you were looking at them');
+	notifyGroup(input.groupId);
+	return ok(updated);
+}
+
+/**
+ * The way back. Clearing the stamp makes every kept vote, star and suggestion
+ * count again, exactly as it was — which is the entire reason removal is soft.
+ * Idempotent, like removal.
+ */
+export function restoreMember(input: { db: Db; groupId: string; memberId: string }): Result<Member> {
+	const member = input.db
+		.select()
+		.from(members)
+		.where(and(eq(members.groupId, input.groupId), eq(members.id, input.memberId)))
+		.get();
+	if (!member) return fail('unknown_member', 'That member is not in this group');
+	if (member.removedAt === null) return ok(member);
+
+	const updated = input.db
+		.update(members)
+		.set({ removedAt: null })
+		.where(and(eq(members.id, input.memberId), isNotNull(members.removedAt)))
+		.returning()
+		.get();
+	if (!updated) return fail('state_changed', 'That member changed while you were looking at them');
+	// A fairness row may predate the removal or be missing entirely; either way the
+	// restored member needs one, or rotation fairness silently gives them no claim.
+	input.db
+		.insert(fairness)
+		.values({ memberId: updated.id, lastWinRoundId: null, lastWinAt: null, winsCount: 0 })
+		.onConflictDoNothing()
+		.run();
+	notifyGroup(input.groupId);
+	return ok(updated);
 }
 
 /* ------------------------------------------------------------------ */

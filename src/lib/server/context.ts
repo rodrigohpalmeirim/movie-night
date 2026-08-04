@@ -13,7 +13,7 @@
  * a server.
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { Db, Group, Member } from './db/index.js';
 import { groups, members } from './db/index.js';
 import { withConfigDefaults, type GroupConfig } from './db/config.js';
@@ -42,12 +42,20 @@ export function findGroupByToken(db: Db, token: string): Group | undefined {
 	return db.select().from(groups).where(eq(groups.inviteToken, token)).get();
 }
 
+/**
+ * The member this device's cookie names, or `undefined` if there is no usable one.
+ *
+ * "Usable" excludes a **removed** member: they are not part of the group's present,
+ * so their cookie resolves to nothing and the guard falls through to the picker
+ * (see `resolveContext`). This is a filter on a SELECT rather than a check that can
+ * throw, which is what guarantees it degrades to "unclaimed" and never to a 500.
+ */
 export function findMember(db: Db, groupId: string, memberId: string | undefined): Member | undefined {
 	if (!memberId) return undefined;
 	return db
 		.select()
 		.from(members)
-		.where(and(eq(members.groupId, groupId), eq(members.id, memberId)))
+		.where(and(eq(members.groupId, groupId), eq(members.id, memberId), isNull(members.removedAt)))
 		.get();
 }
 
@@ -67,9 +75,15 @@ export function resolveContext(input: {
 	if (!group) return { kind: 'unknown_group' };
 	const config = withConfigDefaults(group.config);
 
-	// A cookie naming a member who no longer resolves (wrong group, stale id)
-	// falls back to the picker rather than erroring: members are never deleted, so
-	// this only happens for a hand-edited or cross-group cookie.
+	// A cookie naming a member who no longer resolves falls back to the picker
+	// rather than erroring. Three ways that happens, all one behaviour:
+	// a hand-edited or cross-group cookie, a stale id, or — the real case — a member
+	// who has been REMOVED from the group. app-spec: "A device whose cookie points at
+	// a removed member resolves as *unclaimed* and lands on the picker — the same
+	// fallback as a stale cookie, never an error. Removing yourself therefore drops
+	// you back to the picker on the spot. Restoring the member makes that cookie work
+	// again, since nothing was deleted." The cookie is deliberately NOT deleted here:
+	// resolution is a pure read, and a restore should bring the device back with it.
 	const member = findMember(input.db, group.id, input.memberIdFromCookie);
 	if (!member) return { kind: 'need_member', group, config };
 
