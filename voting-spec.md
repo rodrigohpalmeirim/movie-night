@@ -125,6 +125,10 @@ Before the pairwise step, each attendee may veto **one finalist** — a film the
 
 A finalist with `vetoes >= VETO_THRESHOLD` is disqualified for this round. Default `VETO_THRESHOLD = 1`; make it configurable, since one veto is right for five friends and too strict for twenty.
 
+**The step itself is optional per group.** `VETOES_ENABLED` (default true, so every existing group keeps its veto) turns the whole thing off for groups where a unilateral strike costs more than it saves. When it is off there is no veto step: nobody is asked, nothing is recorded, and Phase 2 runs the pairwise step alone against an empty veto set — no finalist is disqualified, the fewer-than-two exception below cannot fire, and the reveal has no veto section rather than an empty one. Nothing else in the phase changes, and no tally rule does: the tally already takes the veto set as an input, and an empty one is a set it must handle anyway (every round where nobody vetoed).
+
+Which rounds a change affects is settled by the freeze that already protects `VETO_THRESHOLD`: **the knobs are frozen onto the round when its finalists are computed**, so switching vetoes off — or on — applies from the next finalist computation and never to a round already in the runoff. That is exactly what stops a live runoff from waiting on veto submissions that can no longer be made: a round told vetoes are on keeps its veto step until it is decided, and a round told they are off refuses a veto that arrives late, whatever the group's setting says by then.
+
 Vetoing sets the voter's standing vote on that movie to "no" — dropping any star, since a star is an upgraded yes — so the two layers can never contradict each other. This flip is forward-looking only: the round's tallies are computed from a snapshot of standing votes taken when finalists were computed, so a veto can never mutate the tallies of the round it was cast in. Otherwise, when a vetoed movie survives into the round robin, two identical rounds could pick different winners depending on veto order.
 
 Pre-fill each voter's veto with last round's target if that movie is a finalist again. Without this, the person who genuinely cannot watch horror re-vetoes every week; with it, that costs one tap.
@@ -164,6 +168,7 @@ Rule 3 is worth implementing properly rather than treating as a formality. Over 
 ```
 new movie added   → 1 swipe, once ever
 per movie night   → 1 optional veto tap + up to 10 pairwise taps
+                    (the veto tap is absent where VETOES_ENABLED is off)
 ```
 
 **Constant in pool size.** If any per-round step scales with the size of the pool, something has been built wrong. This is a testable invariant, not an aspiration.
@@ -214,7 +219,7 @@ OPEN → RUNOFF → DECIDED → WATCHED
 ```
 
 - `OPEN` — pool open for additions, and standing swipes for anyone with gaps (new movies only). Suggesting and swiping are one state: a new suggestion simply lands in everyone's top-up stack. Closes on deadline or when all attendees have no gaps.
-- `RUNOFF` — finalists computed. Veto screen, then pairwise. Skipped entirely when only one movie clears the approval floor.
+- `RUNOFF` — finalists computed. Veto screen (only where `VETOES_ENABLED`, per the round's frozen knobs), then pairwise. Skipped entirely when only one movie clears the approval floor.
 - `DECIDED` — winner revealed, all tallies now visible.
 - `WATCHED` — winner retired, fairness counters updated.
 
@@ -268,7 +273,7 @@ Fairness      { user_id, last_win_round_id, wins_count }
 - Enforce the one-veto-per-round limit **server-side** via the unique constraint. Client-side enforcement alone is trivially bypassed.
 - Compute all tallies on read rather than maintaining running counters. Data volume is tiny and derived counters drift.
 - Persist `random_seed` per round at creation so any tiebreak is reproducible if someone disputes the result.
-- Configurable per group: `N_FINALISTS` (5), `APPROVAL_FLOOR` (0.5), `COVERAGE_FLOOR` (0.6), `VETO_THRESHOLD` (1), `REWATCH_COOLDOWN` (off).
+- Configurable per group: `N_FINALISTS` (5), `APPROVAL_FLOOR` (0.5), `COVERAGE_FLOOR` (0.6), `VETOES_ENABLED` (on), `VETO_THRESHOLD` (1), `REWATCH_COOLDOWN` (off). Every one of them is frozen onto a round at its finalist computation, which is where "a knob never retro-affects a live runoff" is enforced — once, for all of them.
 
 ---
 

@@ -20,7 +20,7 @@ throughout — no accounts, no roles, no moderation hierarchy.
 2. **The group chat is the notification system.** The app never pushes; coordination
    ("go vote!") happens where the group already talks.
 3. **Constant per-night effort** (inherited from the voting spec): one optional veto tap
-   plus ≤10 pairwise taps, regardless of pool size.
+   (none where the group has vetoes off) plus ≤10 pairwise taps, regardless of pool size.
 4. **One small server, boring tech.** Tiny data volume; tallies computed on read; SQLite.
 
 ---
@@ -72,10 +72,14 @@ swipe stack afterwards — never a forced twenty-movie gauntlet before they can 
 - Group name.
 - Invite link (view / copy / regenerate).
 - Voting knobs from the voting spec: `N_FINALISTS` (5), `APPROVAL_FLOOR` (0.5),
-  `COVERAGE_FLOOR` (0.6), `VETO_THRESHOLD` (1), `REWATCH_COOLDOWN` (off). That is the
-  complete set: eligibility is the coverage floor alone, so there is no minimum-swipes
-  knob (an absolute floor on the raw vote count only ever locked small groups out —
-  see the voting spec's Eligibility section).
+  `COVERAGE_FLOOR` (0.6), `VETOES_ENABLED` (on), `VETO_THRESHOLD` (1),
+  `REWATCH_COOLDOWN` (off). That is the complete set: eligibility is the coverage floor
+  alone, so there is no minimum-swipes knob (an absolute floor on the raw vote count only
+  ever locked small groups out — see the voting spec's Eligibility section).
+  `VETOES_ENABLED` is the one boolean, so it is the one knob drawn as a latched On/Off
+  pair rather than a number; the numeric knobs are sliders, printing their current value
+  beside the label, except `REWATCH_COOLDOWN`, which stays a written-in field because
+  blank means "never" and a range input has no way to say that.
 - Member list (rename self; remove and restore members — but never delete them, because
   history references them).
 
@@ -243,7 +247,11 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   pairwise screens, one pair at a time, in per-user shuffled order. Progress
   ("6 of 10 pairs") is per-voter only; no aggregates leak. `runoff_submitted_at` is set
   when a voter finishes their last pair (or passes the veto screen), so "done, chose
-  nothing" is distinguishable from "hasn't opened the app".
+  nothing" is distinguishable from "hasn't opened the app". Where the round's frozen
+  knobs say `vetoes_enabled: false` the veto step does not exist: the round screen's CTA
+  goes straight to the pairs, a veto write is refused, the veto screen redirects there,
+  and "finished" means the pairs alone — so a voter can complete a runoff that has no
+  veto to record.
 - **DECIDED** — triggered manually ("Reveal the winner"). The reveal is a moment: winner
   poster full-screen, then the now-public tallies — head-to-head grid, approval numbers,
   vetoes, and which tiebreak rule (if any) decided it, including the seeded-random proof.
@@ -265,7 +273,7 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 | Member picker | Claim a name or add yourself. |
 | **Round** (home tab) | State-dependent: RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. |
 | Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
-| Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. |
+| Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. Absent where the round was frozen with vetoes off — the route redirects to the pairs rather than dead-ending. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
 | **Pool** (tab) | Browsable pool + own standing votes + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, remove). |
 | **History** (tab) | Past nights, newest first: winner poster, date, suggested-by; expandable to the round's full revealed tally. Watched movies also live here. |
@@ -296,9 +304,11 @@ be unified). Everything is group-scoped.
 ```
 Group        { id, name, invite_token (unique, indexed), created_at,
                config: { n_finalists, approval_floor, coverage_floor,
-                         veto_threshold, rewatch_cooldown } }
+                         vetoes_enabled, veto_threshold, rewatch_cooldown } }
                -- blobs written before `min_attendee_votes` was retired may still
                   carry that key; reads ignore it and the next save drops it
+               -- blobs written before `vetoes_enabled` existed lack that key;
+                  reads fill it in as true, so an existing group keeps its veto
 
 Member       { id, group_id → Group, display_name, created_at, removed_at | null }
                -- unique (group_id, display_name); never deleted
@@ -392,6 +402,8 @@ Server-side rules the API must enforce (beyond DB constraints):
 - Aggregates are **never** serialized to the client before the round is `decided` —
   hidden tallies are enforced at the API layer, not by UI omission.
 - Phase-gated writes: vetoes/pairs accepted only in `runoff`, RSVP only before `decided`.
+  A veto is additionally refused when the round's frozen knobs have vetoes off — the
+  round's own snapshot decides, never the group's current setting.
 - Transition guards: leaving `OPEN` or `RUNOFF` requires at least one attendee — a
   decision needs a non-empty electorate, and it is not configurable; illegal state
   jumps rejected.

@@ -99,6 +99,28 @@ including ones recorded earlier in a still-active round.
 from `input.config`, because they were derived after its removal and there is
 nothing for them to record.
 
+**2026-08-04 — the veto step became optional per group (`VETOES_ENABLED`, default
+true).** An addition, and the only one of these three that could not change a
+vector even in principle: **no vector's expected values, and no tally rule, moved.**
+Consequences, re-derived from the amended text:
+
+* `VETOES_ENABLED` off means the caller hands `decide_round` an **empty `vetoes[]`**
+  and asks no one for one. It is not a new tally rule and there is nothing new for
+  a vector to pin: 35 of the 44 vectors already pass `"vetoes": []`, so the
+  disabled case is the case they were derived against. **No new vectors** — inventing
+  V045 "vetoes off" would restate V026 with a different label.
+* The veto rules themselves are unchanged where the step exists: the threshold, the
+  standing-vote flip, the pass-is-not-a-veto rule and the fewer-than-two-survivors
+  exception all read exactly as before (V019–V025, V038, V040 untouched).
+* `input.config` does **not** gain the key in any vector. A runner that meets a
+  config block without it reads the spec default (on), which is what all 44 were
+  derived against; a runner that is handed the key reads it as gating whether the
+  `vetoes[]` it receives may be non-empty, nothing more.
+* Which rounds a change applies to is a *freeze* question, not a tally question:
+  the knobs are frozen onto a round at its finalist computation, so a mid-round
+  toggle is invisible to `decide_round`, which is handed one config block per
+  round and has no notion of the group's live settings.
+
 ---
 
 ## 1. Input shape
@@ -112,6 +134,9 @@ nothing for them to record.
     "MIN_ATTENDEE_VOTES": 3,   // RETIRED (see section 0): the eligibility floor this knob
                                //       fed no longer exists. Present for provenance; read by nothing.
     "VETO_THRESHOLD": 1,       // spec default 1
+                               // VETOES_ENABLED (spec default on) is absent from every
+                               //       vector: off simply means an empty `vetoes` array,
+                               //       which 35 vectors already pass. See section 0.
     "REWATCH_COOLDOWN": null   // spec default off; unused by these vectors
   },
 
