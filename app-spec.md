@@ -43,7 +43,7 @@ other credential.
 
 Opening the group link on a device without a session shows the **member picker**:
 
-- A list of existing member names — tap yours to claim it.
+- A list of existing member names — tap yours to claim it. Removed members are not listed.
 - "I'm new here" — type a display name (unique within the group) to create a member.
 
 The choice is stored in a long-lived cookie (per group, e.g. `member_<group_id>`), so the
@@ -76,10 +76,36 @@ swipe stack afterwards — never a forced twenty-movie gauntlet before they can 
   complete set: eligibility is the coverage floor alone, so there is no minimum-swipes
   knob (an absolute floor on the raw vote count only ever locked small groups out —
   see the voting spec's Eligibility section).
-- Member list (rename self; members are never deleted — history references them).
+- Member list (rename self; remove and restore members — but never delete them, because
+  history references them).
 
 Knob changes take effect at the next finalist computation; they never retro-affect a
 round already in `RUNOFF` or later.
+
+### Removing a member
+
+People leave groups. Any member can remove any member (there are no roles here, and this
+is the same trust the proxy RSVP already assumes), **including themselves** — leaving the
+group is a thing a person does for themselves. Every removal is reversible by anyone, from
+the same screen.
+
+Removal is soft: it stamps `removed_at`, and the voting spec's *Removed members* rule
+("removed members leave the present, not the past") governs what that means for tallies.
+In app terms:
+
+- The member disappears from the member list, the round screen's participant list, the
+  picker, and the RSVP controls. They cannot be RSVPed in, by themselves or by proxy.
+- Their standing votes and stars are kept and stop counting; their suggestions stay in the
+  pool, still credited to them by name; history still names them.
+- A device whose cookie points at a removed member resolves as *unclaimed* and lands on
+  the picker — the same fallback as a stale cookie, never an error. Removing yourself
+  therefore drops you back to the picker on the spot. Restoring the member makes that
+  cookie work again, since nothing was deleted.
+- A removed member still holds their display name: `unique (group_id, display_name)` is
+  untouched, so claiming or adding that name reports it as **taken** and points at restore.
+  There is deliberately no name-reuse machinery — restore is the way back.
+- The restore path is a member action like any other, and restoring counts every kept
+  vote again, exactly as it was.
 
 ---
 
@@ -142,8 +168,9 @@ wherever it appears and carry no phase gate.
 ### Pool screen
 
 The pool is a browsable list: poster, title, year, runtime, suggested-by, and **the
-viewer's own standing vote** (yes / no / not yet seen — three visually distinct states).
-Tapping a movie allows revising the standing vote at any time. Aggregate counts are never
+viewer's own standing vote** (yes / starred yes / no / not yet seen — visually distinct
+states; a star is an upgraded yes, per the voting spec). Tapping a movie allows revising
+the standing vote, and starring or unstarring it, at any time. Aggregate counts are never
 shown here (hidden-tallies rule). The detail screen also prints the cached TMDB
 details — tagline, rating badge, genre chips, story, director, top cast — and a
 prominent "Watch trailer" link when there is one.
@@ -237,7 +264,7 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
 | **Round** (home tab) | State-dependent: RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. |
-| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
+| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
 | **Pool** (tab) | Browsable pool + own standing votes + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, remove). |
@@ -273,8 +300,12 @@ Group        { id, name, invite_token (unique, indexed), created_at,
                -- blobs written before `min_attendee_votes` was retired may still
                   carry that key; reads ignore it and the next save drops it
 
-Member       { id, group_id → Group, display_name, created_at }
+Member       { id, group_id → Group, display_name, created_at, removed_at | null }
                -- unique (group_id, display_name); never deleted
+               -- removed_at set = left the group: hidden from the member list and
+                  the picker, cannot be RSVPed, excluded from the electorate and
+                  every coverage denominator; votes/stars kept, restorable; still
+                  holds its display name, so the unique index still bites
                -- replaces the voting spec's User; all user_id refs mean member_id
 
 Movie        { id, group_id → Group, tmdb_id, title, year, runtime_min, poster_path,
@@ -289,8 +320,10 @@ Movie        { id, group_id → Group, tmdb_id, title, year, runtime_min, poster
                -- details null = never fetched successfully; the lazy backfill
                   retries on a later read, outside the retry window
 
-StandingVote { member_id, movie_id, value: yes | no, updated_at }
+StandingVote { member_id, movie_id, value: yes | no, starred: bool, updated_at }
                -- unique (member_id, movie_id); absence = not yet seen
+               -- starred = an UPGRADED yes (voting spec, Phase 1 → Stars);
+                  starred with value "no" is not a representable state
 
 Round        { id, group_id → Group, state: open | runoff | decided | watched |
                abandoned,
@@ -346,10 +379,12 @@ GET   pool                               → movies + my standing votes only
 POST  movies/search { query }            → proxied TMDB search
 POST  movies { tmdb_id }                 → suggest (one server-side detail call:
                                            runtime + the cached details blob)
-POST  movies/[id]/vote { yes | no }      → standing-vote upsert
+POST  movies/[id]/vote { value?, starred? }  → standing-vote upsert; `starred` is
+                                           the star flag on a yes (star ⇒ yes)
 POST  movies/[id]/remove
 GET   history
 POST  settings { ... } | settings/regenerate-link
+      settings members: rename self, remove member, restore member (form actions)
 ```
 
 Server-side rules the API must enforce (beyond DB constraints):

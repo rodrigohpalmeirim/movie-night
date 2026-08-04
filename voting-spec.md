@@ -46,12 +46,33 @@ New members swipe the existing pool once during onboarding. Existing members rec
 |---|---|
 | Swipe left | No |
 | Swipe right | Yes, I'd happily watch this |
+| Star | Yes, and I'd *especially* like to watch this |
 
 Standing votes are editable at any time from a pool screen. Absence of a vote is a **third state**, distinct from "no" — see the cross-cutting rules.
 
+### Stars
+
+A **star** is an *upgraded yes*, not a third vote value.
+
+- **A star implies a yes.** Starring is only valid on a yes; unstarring falls back to a plain yes, never to "no" or to no vote at all. Setting a standing vote to "no" — including the veto's forward-looking flip — drops the star with it, because the two can never coexist.
+- **Unlimited.** Any member may star any number of films. There is no budget, so there is nothing to reset and no counter that can drift — the property that made per-round intensity budgets untenable (see *Deliberately not included*).
+- **Editable whenever the underlying swipe is**, from the same screens.
+
+Stars do exactly one job:
+
+> A star is the **highest-priority tie-breaker after the approval count** when selecting finalists in Phase 1. Nothing else.
+
+```
+star_votes(movie) = attendees whose standing vote on this movie is a STARRED yes
+```
+
+Because stars are consulted only *after* `yes_votes`, a star can never promote a movie past one with more yes-votes; it separates only films the approval count has already tied. Where yes-vote counts differ, stars are irrelevant.
+
+Stars play **no** role anywhere else: not in `coverage`, `approval` or eligibility; not in the veto step; not in the round robin; not in the runoff's cycle tiebreak chain. They are counted from attendees only, like every other tally.
+
 ### Attendance
 
-Each round has an explicit attendee set, and **all tallies count attendees only.** If someone isn't coming, their preferences shouldn't constrain what gets watched. Someone who is coming but doesn't open the app still contributes their standing approvals, so the winner remains acceptable to them. Absence degrades gracefully rather than disenfranchising.
+Each round has an explicit attendee set, drawn from the group's **current** members (see *Removed members* in the cross-cutting rules), and **all tallies count attendees only.** If someone isn't coming, their preferences shouldn't constrain what gets watched. Someone who is coming but doesn't open the app still contributes their standing approvals, so the winner remains acceptable to them. Absence degrades gracefully rather than disenfranchising.
 
 ### Eligibility
 
@@ -76,7 +97,18 @@ There is deliberately **no** absolute floor on `attendee_votes`. An earlier vers
 
 Rank eligible movies by `yes_votes` among attendees. Promote the top `N_FINALISTS` (default 5) that also satisfy `approval >= APPROVAL_FLOOR` (default 0.5).
 
-Ties at the finalist boundary (e.g. 5th and 6th place with equal yes-votes) are common in a small group and must be broken deterministically, never by insertion order. Reuse the runoff's chain: higher approval, then rotation fairness, then shortest runtime, then seeded random.
+Ties at the finalist boundary (e.g. 5th and 6th place with equal yes-votes) are common in a small group and must be broken deterministically, never by insertion order. The full ranking key is therefore:
+
+```
+1. yes_votes    among attendees, descending   -- the primary ranking key
+2. star_votes   among attendees, descending   -- see Stars, above
+3. approval     descending                    -- then the runoff's chain
+4. rotation fairness
+5. shortest runtime
+6. seeded random
+```
+
+Steps 3–6 are the runoff's own chain, reused verbatim ("higher approval, then rotation fairness, then shortest runtime, then seeded random"). Step 2 is the one addition, and it exists only here: the runoff's chain itself is unchanged and never consults stars.
 
 The approval floor is load-bearing. Without it, a pool of uniformly unappealing movies still produces a confident-looking winner. If fewer than two movies clear the floor:
 
@@ -93,7 +125,7 @@ Before the pairwise step, each attendee may veto **one finalist** — a film the
 
 A finalist with `vetoes >= VETO_THRESHOLD` is disqualified for this round. Default `VETO_THRESHOLD = 1`; make it configurable, since one veto is right for five friends and too strict for twenty.
 
-Vetoing sets the voter's standing vote on that movie to "no", so the two layers can never contradict each other. This flip is forward-looking only: the round's tallies are computed from a snapshot of standing votes taken when finalists were computed, so a veto can never mutate the tallies of the round it was cast in. Otherwise, when a vetoed movie survives into the round robin, two identical rounds could pick different winners depending on veto order.
+Vetoing sets the voter's standing vote on that movie to "no" — dropping any star, since a star is an upgraded yes — so the two layers can never contradict each other. This flip is forward-looking only: the round's tallies are computed from a snapshot of standing votes taken when finalists were computed, so a veto can never mutate the tallies of the round it was cast in. Otherwise, when a vetoed movie survives into the round robin, two identical rounds could pick different winners depending on veto order.
 
 Pre-fill each voter's veto with last round's target if that movie is a finalist again. Without this, the person who genuinely cannot watch horror re-vetoes every week; with it, that costs one tap.
 
@@ -162,6 +194,15 @@ Update the fairness counter for the winner's `suggested_by` when the movie is ma
 
 **Never force a re-vote.** Adding a movie produces a top-up stack for everyone else; it invalidates nothing. This is why a swipe ballot is correct for an app where suggestions arrive over time — any ranked-ballot alternative would require every voter to redo their whole ballot whenever anything is added.
 
+**Removed members leave the present, not the past.** People drift out of a group, and a member who has gone should stop constraining what the group watches — but history refers to them, so they are never deleted. Removal is a soft `removed_at` stamp, reversible by anyone in the group, and it means exactly one thing: *a removed member is not part of the group's present.*
+
+- They are not in the member list, and cannot be marked as attending — by themselves or by proxy.
+- They are therefore not in the attendee set, which removes them from every `coverage` denominator, from `approval`, from `star_votes`, from the electorate a round needs in order to be decided, and from rotation fairness.
+- Their standing votes and stars are **kept, not deleted**, and simply stop being counted. Restoring them counts every one of those answers again, exactly as it was.
+- Their suggestions stay in the pool and stay credited to them.
+- Past rounds are untouched: a decided outcome, its frozen finalist set and its published tallies are historical facts, and they keep naming whoever was there.
+- The one edge worth stating: if someone is removed *during* an active round, any RSVP, standing vote, star, veto or pairwise pick they had already recorded stops counting from that moment, because every tally is computed on read against the current attendee set. What has already been *decided* does not move.
+
 **Onboard new members into the current round first.** Someone joining in month three faces a backlog of twenty-plus movies. Show them tonight's finalists first so they can participate immediately, then offer the backlog as an optional stack.
 
 ---
@@ -177,23 +218,28 @@ OPEN → RUNOFF → DECIDED → WATCHED
 - `DECIDED` — winner revealed, all tallies now visible.
 - `WATCHED` — winner retired, fairness counters updated.
 
-A round can only leave `OPEN` or `RUNOFF` while at least one member is attending. This is arithmetic, not a preference: an empty attendee set makes every `coverage` a division by zero and turns a "winner" into an all-zero head-to-head grid broken by runtime. One attendee is enough.
+A round can only leave `OPEN` or `RUNOFF` while at least one *current* member is attending (a removed member counts for nothing here, like everywhere else). This is arithmetic, not a preference: an empty attendee set makes every `coverage` a division by zero and turns a "winner" into an all-zero head-to-head grid broken by runtime. One attendee is enough.
 
 ---
 
 ## Data model
 
 ```
-User          { id, display_name }
+User          { id, display_name, removed_at }
+                -- removed_at set = left the group: not in the member list,
+                --   not in any attendee set, votes/stars kept but uncounted;
+                --   never deleted, because history refers to them
 
 Movie         { id, title, year, runtime_min, poster_url,
                 suggested_by → User, added_at,
                 status: pool|watched, watched_at }
 
-StandingVote  { user_id, movie_id, value: yes|no, updated_at }
+StandingVote  { user_id, movie_id, value: yes|no, starred: bool, updated_at }
                 -- unique (user_id, movie_id)
                 -- NO round_id: this is the persistent layer
                 -- absence of a row = not yet seen, NOT a "no"
+                -- starred = true is an UPGRADED yes; starred with value "no"
+                --   is not a representable state
 
 Round         { id, state, created_at, closes_at,
                 finalist_ids[], winner_id, random_seed }
@@ -218,7 +264,7 @@ Fairness      { user_id, last_win_round_id, wins_count }
 
 ## Implementation notes
 
-- Vote writes are idempotent upserts on the unique constraints above; a voter changing their mind updates in place. Re-submitting must not double-count.
+- Vote writes are idempotent upserts on the unique constraints above; a voter changing their mind updates in place. Re-submitting must not double-count. Starring is part of that same upsert, not a separate row: `starred` travels with the value it upgrades, which is what makes "a star implies a yes" unbreakable rather than merely enforced.
 - Enforce the one-veto-per-round limit **server-side** via the unique constraint. Client-side enforcement alone is trivially bypassed.
 - Compute all tallies on read rather than maintaining running counters. Data volume is tiny and derived counters drift.
 - Persist `random_seed` per round at creation so any tiebreak is reproducible if someone disputes the result.
@@ -230,6 +276,8 @@ Fairness      { user_id, last_win_round_id, wins_count }
 
 Recorded so these aren't re-derived later:
 
-- **Weighted "super-like" votes.** Considered and cut. Their job was to separate "tolerable" from "excited", but the pairwise runoff does that with finer resolution. Their only unique function was nudging a film into the finalist set, which isn't worth the budget state, reset semantics, and shortlist machinery it required.
+- **Weighted "super-like" votes.** Considered and cut, and the cut still stands as written: a *weighted* vote — one that adds to a movie's score and so can outrank plain yes-votes — was not worth the budget state, reset semantics, and shortlist machinery it required, and the pairwise runoff already separates "tolerable" from "excited" with finer resolution.
+
+  **Superseded in part (see Phase 1 → Stars).** The star that was later adopted keeps the intent and none of the machinery: it is unlimited, so there is no budget to spend, reset or leak; it is a flag on the standing vote, so there is nothing new to store and no shortlist stage; and it is a *tie-breaker only*, so it can never outrank a yes-vote or nudge a film past a better-approved one. It changes an outcome in exactly one situation — two films tied on yes-votes at the finalist boundary — which is the situation the group actually wanted a say in.
 - **A shortlist stage between eligible and finalists.** Only needed to bound the cost of collecting per-movie intensity votes. With those gone, the finalist set is small enough to act on directly.
 - **Live vote counts.** See cross-cutting rules; this is a deliberate omission, not a missing feature.
