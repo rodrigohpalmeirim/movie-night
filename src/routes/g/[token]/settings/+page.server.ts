@@ -5,6 +5,7 @@
  */
 
 import { fail as formFail, redirect } from '@sveltejs/kit';
+import { COOLDOWN_FIELD, cooldownStop } from '$lib/cooldown.js';
 import { MEMBER_COOKIE_OPTIONS, memberCookieName } from '$lib/server/context.js';
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
@@ -44,6 +45,24 @@ export const actions: Actions = {
 		for (const knob of CONFIG_KNOBS) {
 			const raw = data.get(knob);
 			if (raw !== null) config[knob] = raw;
+		}
+		// The one knob whose control does not post its own units. A range input cannot
+		// say "never" and 0–3650 days is not a span you can drag, so the re-watch
+		// cooldown is a rail that walks a ladder of sensible waits and posts the RUNG;
+		// days are what the ladder says that rung means. Translated here rather than in
+		// `validateConfigPatch`, because the ladder is a fact about this form's
+		// transport, not about what a group config may hold — and it is translated
+		// after the loop above, so a rung wins over a raw day count if both arrive.
+		const rung = data.get(COOLDOWN_FIELD);
+		if (rung !== null) {
+			const stop = cooldownStop(rung);
+			if (!stop) {
+				return formFail(400, {
+					code: 'invalid_input',
+					message: 'Re-watch cooldown must be one of the marked steps'
+				});
+			}
+			config.rewatch_cooldown = stop.days;
 		}
 		const result = updateSettings(actor.db, {
 			groupId: actor.group.id,
