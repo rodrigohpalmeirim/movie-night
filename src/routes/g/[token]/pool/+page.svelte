@@ -17,12 +17,25 @@
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import Layers2 from '$lib/icons/Layers2.svelte';
+	import Star from '$lib/icons/Star.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { movieMeta } from '$lib/images.js';
+	import { createLatch } from '$lib/latch.svelte.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
+
+	/**
+	 * The star tokens, one control group per film: starring Alien must not disturb
+	 * a tap on Brazil still in flight, so the latch is keyed by movie id. Each
+	 * button posts the state it is asking for, which is also what the latch draws
+	 * until the server agrees.
+	 */
+	const star = createLatch<boolean>(
+		(body) => body.get('starred') === 'true',
+		(body) => String(body.get('movie_id'))
+	);
 
 	let sheetOpen = $state(false);
 	let query = $state('');
@@ -228,7 +241,8 @@
 		     flicker or re-deal, and only a genuinely new suggestion animates. -->
 		<ul class="space-y-2.5">
 			{#each shown as movie, i (movie.id)}
-				<li class="deal-in" style="--deal:{i}">
+				{@const starred = star.value(movie.myStarred, movie.id)}
+				<li class="deal-in relative" style="--deal:{i}">
 					<a
 						href="/g/{data.token}/movies/{movie.id}"
 						class="tile tile-press flex items-center gap-3 p-2"
@@ -254,6 +268,46 @@
 						</span>
 						<ChevronRight size={17} class="shrink-0 text-ink-soft" />
 					</a>
+					{#if movie.myVote === 'yes'}
+						<!--
+							THE STAR: a brass token pressed onto the corner of the card, exactly
+							where the detail screen stamps your answer. Only films you have said yes
+							to get one — a star is an upgraded yes, so there is nothing to upgrade on
+							a "no" and nothing at all on a film you have not seen yet.
+
+							It sits OUTSIDE the row's link and over it, which is what keeps both
+							honest: `.tile-press` may only ever be an <a> or a <button> whose whole
+							body is the target (see app.css), and a control nested inside a link is
+							neither valid nor tappable without a fight. Absolute, so the row's own
+							layout is untouched — the token cannot widen a row or push a title into
+							truncating, which is the one thing the pool's rows have already been
+							fixed for once. `shrink-0` all the same: it is a fixed square either way.
+
+							With JavaScript off the form posts to the film's own page, which is where
+							the same toggle lives and where the row was going anyway — the star is
+							already set by the time it draws. With JavaScript the latch above draws
+							the new state on the tap and holds it until the load agrees.
+						-->
+						<form
+							method="POST"
+							action="/g/{data.token}/movies/{movie.id}?/vote"
+							use:enhance={star.submit}
+							class="absolute bottom-2 left-2"
+						>
+							<input type="hidden" name="movie_id" value={movie.id} />
+							<button
+								name="starred"
+								value={starred ? 'false' : 'true'}
+								aria-pressed={starred}
+								class="token token-sm size-8 shrink-0 p-0 {starred
+									? 'token-brass token-latched'
+									: ''}"
+							>
+								<Star size={16} class={starred ? 'fill-current' : 'text-ink-soft'} />
+								<span class="sr-only">Star {movie.title}</span>
+							</button>
+						</form>
+					{/if}
 				</li>
 			{/each}
 		</ul>
