@@ -2,10 +2,19 @@
 	Swipe screen: full-screen card stack.
 
 	voting-spec's effort budget is one swipe per movie, ever. The gesture is an
-	enhancement: right = yes, left = no via pointer events, but the Yes/No buttons
-	are always visible and are the accessible and desktop path, so the whole stack
-	is operable without ever touching the drag handler. Arrow keys and `U` (undo)
-	drive the same commit path as the buttons and the gesture.
+	enhancement: right = yes, left = no, UP = a starred yes, all via pointer
+	events, but the Yes/No buttons are always visible and are the accessible and
+	desktop path, so the whole stack is operable without ever touching the drag
+	handler. Arrow keys and `U` (undo) drive the same commit path as the buttons and
+	the gesture — and the star has no third button on purpose: the row stays a pair
+	(the answer is still yes or no), the up arrow covers the keyboard, and the pool
+	list's toggle is the universal fallback for a star anyone missed.
+
+	A gesture picks ONE AXIS and keeps it. The card follows the finger sideways or
+	up, never both, so a diagonal thumb arc cannot half-vote and half-star; which
+	axis it is is decided in the same few pixels that stop the press being a tap
+	(see `decideAxis`), and the horizontal is given the benefit of every doubt,
+	because right and left are what this screen is mostly for.
 
 	Two cards are always mounted — the top one and the one under it — so the next
 	poster is decoded before it is needed and nothing pops in. A committed card
@@ -30,8 +39,9 @@
 	it to a printed kraft back — what the film is about, who is in it, and a link
 	out to the trailer — and a tap anywhere turns it face up again: the card is the
 	affordance, so there is no token on it to aim at, and the only thing inside it
-	a tap means something else on is the trailer button. From the keyboard ArrowUp
-	turns it over and back, Escape only ever face up. Which leaves the back to be
+	a tap means something else on is the trailer button. From the keyboard ArrowDown
+	turns it over and back, Escape only ever face up — ArrowUp is the star, so the
+	keys say what the gestures say. Which leaves the back to be
 	discovered, so it is shown: the first card of a BROWSER SESSION is dealt back up
 	and turns itself over on the frame after it arrives, once, and nothing does that
 	again — not the next card, and not the next visit to this screen, which the
@@ -91,9 +101,12 @@
 		TAP_SLOP,
 		commitProgress,
 		createVelocityTracker,
+		decideAxis,
 		decideRelease,
 		rotationFor,
 		stampOpacity,
+		type DragAxis,
+		type SwipeAction,
 		type SwipeChoice
 	} from '$lib/swipe.js';
 	import type { PageServerData } from './$types';
@@ -105,7 +118,7 @@
 	 * One rendered layer of the stack. `exit` set = committed, on its way out; `z`
 	 * is where the layer sits in the pile (see `STACK_TOP_Z`/`EXIT_Z`).
 	 */
-	type Entry = { card: Card; depth: number; exit: SwipeChoice | null; z: number };
+	type Entry = { card: Card; depth: number; exit: SwipeAction | null; z: number };
 
 	/**
 	 * WHO IS IN FRONT OF WHOM, and the only place it is decided.
@@ -152,8 +165,12 @@
 	 */
 	const introId: string | null = untrack(() => (data.intro ? (data.stack[0]?.id ?? null) : null));
 
-	/** Answers this session, newest last — powers Undo and drives the cursor. */
-	let answered = $state<Array<{ card: Card; value: SwipeChoice }>>([]);
+	/**
+	 * Answers this session, newest last — powers Undo and drives the cursor. The
+	 * ANSWER is stored, star and all (`'star'` is the yes the up-gesture makes), so
+	 * this list is also the session's memory of what each card was given.
+	 */
+	let answered = $state<Array<{ card: Card; value: SwipeAction }>>([]);
 	/**
 	 * Cards an Undo pulled back. They carry a server-side vote by then, so the
 	 * rebuilt stack no longer lists them; pinning them at the front of the queue
@@ -166,9 +183,19 @@
 	 * it rides the fly-out: the mark leaves with the poster it was pressed onto,
 	 * exactly as a stamp on a card would.
 	 */
-	let exits = $state<Array<{ card: Card; dir: SwipeChoice }>>([]);
+	let exits = $state<Array<{ card: Card; dir: SwipeAction }>>([]);
 
 	let dragX = $state(0);
+	/**
+	 * The vertical half of the drag, which is the star. Exactly one of these two is
+	 * ever non-zero: the axis is locked at `TAP_SLOP` and held for the whole
+	 * gesture, so the card travels either sideways or up, never on a diagonal — and
+	 * a lift therefore has no tilt to write either (`rotationFor(0)` is 0).
+	 */
+	let dragY = $state(0);
+	/** The locked axis, or null while the gesture is still a tap. State, because
+	 *  which seal is inking and which way the card is going both read it. */
+	let dragAxis = $state<DragAxis | null>(null);
 	let dragging = $state(false);
 	/**
 	 * Which card is showing its back, BY MOVIE ID — like every other cursor on
@@ -216,13 +243,27 @@
 	let overviewBoxHeights = $state<Record<string, number>>({});
 	let overviewEls = $state<Record<string, HTMLParagraphElement | null>>({});
 	let overviewLineHeight = $state(0);
-	/** Describes the vote currently being posted; the form reads only this. */
-	let pending = $state<{ movieId: string; value: SwipeChoice }>({ movieId: '', value: 'yes' });
+	/**
+	 * Describes the vote currently being posted; the form reads only this.
+	 *
+	 * `starred` is ALWAYS stated, true or false — this screen never leaves it out.
+	 * A bare `yes` would keep whatever star the film already had (that is the rule
+	 * the other surfaces want, where a yes is an edit and not a fresh answer), but
+	 * here the card in your hand is the whole truth: swipe right and you get the
+	 * plain yes you just saw stamped on it, including on the re-swipe after an Undo
+	 * of a star.
+	 */
+	let pending = $state<{ movieId: string; value: SwipeChoice; starred: boolean }>({
+		movieId: '',
+		value: 'yes',
+		starred: false
+	});
 	let form = $state<HTMLFormElement | undefined>(undefined);
 
 	// Plain locals: the gesture reads them every pointermove, nothing renders them.
 	let pointerId: number | null = null;
 	let startX = 0;
+	let startY = 0;
 	/**
 	 * Has this gesture travelled far enough to be a drag rather than a tap?
 	 * Deliberately NOT state: it decides what a release means, and nothing
@@ -242,7 +283,13 @@
 	 * does deliver them cannot act a second time.
 	 */
 	let tapTarget: HTMLAnchorElement | null = null;
-	const velocity = createVelocityTracker();
+	/**
+	 * One tracker per axis. They are read TOGETHER at release — an upward flick has
+	 * to be upward in both position and speed — and a single tracker fed both
+	 * coordinates would only ever know the diagonal.
+	 */
+	const velocityX = createVelocityTracker();
+	const velocityY = createVelocityTracker();
 	const exitTimers = new Set<ReturnType<typeof setTimeout>>();
 	/**
 	 * The running turn's timer, whose only job is to take the animation off again
@@ -277,10 +324,22 @@
 		return Math.max(1, Math.floor(box / overviewLineHeight));
 	}
 
-	const progress = $derived(commitProgress(dragX, cardWidth));
+	/**
+	 * How close this gesture is to committing, on whichever axis it locked to —
+	 * which is one number, because a card only ever travels one way at a time. It
+	 * inks the seal and lifts the card underneath, so the deck reveals where it is
+	 * going whether that is off the side or off the top.
+	 *
+	 * A downward drag is measured as no travel at all (`Math.min(0, dragY)`): the
+	 * card follows the finger down, but there is nothing down there to promise.
+	 */
+	const progress = $derived(
+		commitProgress(dragAxis === 'y' ? Math.min(0, dragY) : dragX, cardWidth)
+	);
 	const rotation = $derived(rotationFor(dragX, cardWidth));
-	const yesHint = $derived(dragX > 0 ? stampOpacity(progress) : 0);
-	const noHint = $derived(dragX < 0 ? stampOpacity(progress) : 0);
+	const yesHint = $derived(dragAxis === 'x' && dragX > 0 ? stampOpacity(progress) : 0);
+	const noHint = $derived(dragAxis === 'x' && dragX < 0 ? stampOpacity(progress) : 0);
+	const starHint = $derived(dragAxis === 'y' && dragY < 0 ? stampOpacity(progress) : 0);
 
 	/**
 	 * Leaving cards, then the top card, then the one beneath it. Order is stable
@@ -389,8 +448,13 @@
 		turnTimer = null;
 	}
 
-	/** The one path to a vote: gesture, buttons and keys all land here. */
-	function commit(value: SwipeChoice) {
+	/**
+	 * The one path to a vote: gesture, buttons and keys all land here — and a star
+	 * comes through it too, because a star is not a second kind of answer. It is
+	 * split into a value and a flag at the very last moment, on `pending`, which is
+	 * the only place that has to speak the server's language.
+	 */
+	function commit(action: SwipeAction) {
 		const card = current;
 		if (!card) return;
 
@@ -402,13 +466,17 @@
 		flippedId = null;
 		turning = null;
 		cancelTurnTimer();
-		pending = { movieId: card.id, value };
+		pending = {
+			movieId: card.id,
+			value: action === 'no' ? 'no' : 'yes',
+			starred: action === 'star'
+		};
 		// Hand the card to the exit layer *before* the cursor moves, so the keyed
 		// `each` sees it move slot rather than disappear: same DOM node, poster
 		// already decoded, seal still stamped on it, and a CSS transition from
 		// wherever the thumb left it.
 		if (!reduceMotion) {
-			exits = [...exits, { card, dir: value }];
+			exits = [...exits, { card, dir: action }];
 			const timer = setTimeout(() => {
 				exitTimers.delete(timer);
 				exits = exits.filter((exit) => exit.card.id !== card.id);
@@ -416,8 +484,10 @@
 			exitTimers.add(timer);
 		}
 		restored = restored.filter((c) => c.id !== card.id);
-		answered = [...answered, { card, value }];
+		answered = [...answered, { card, value: action }];
 		dragX = 0;
+		dragY = 0;
+		dragAxis = null;
 
 		// One paint for the whole handover, and the hidden inputs describe *this*
 		// card before the request leaves — so flush deliberately rather than
@@ -431,7 +501,14 @@
 		if (!last) return;
 		answered = answered.slice(0, -1);
 		restored = [last.card, ...restored.filter((c) => c.id !== last.card.id)];
+		// The card comes back BLANK, whichever answer it had: no ink, no seal, no
+		// star, and both axes back at rest. The star it may have carried a moment ago
+		// is not a fact about the card any more — it is in `answered`, which this
+		// Undo has just shortened — so the next swipe right on it posts the plain yes
+		// the reader is looking at rather than quietly restoring a star.
 		dragX = 0;
+		dragY = 0;
+		dragAxis = null;
 		// A card on its way out is coming back: drop it from the exit layer now, or
 		// the keyed stack would hold the same movie twice. If it is still on screen
 		// the node survives and slides back in.
@@ -449,22 +526,36 @@
 		dragMoved = false;
 		tapTarget = (event.target as HTMLElement | null)?.closest('a[data-card-tap]') ?? null;
 		startX = event.clientX;
+		startY = event.clientY;
 		dragX = 0;
-		velocity.reset(event.clientX, event.timeStamp);
+		dragY = 0;
+		dragAxis = null;
+		velocityX.reset(event.clientX, event.timeStamp);
+		velocityY.reset(event.clientY, event.timeStamp);
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 	}
 
 	function onPointerMove(event: PointerEvent) {
 		if (!dragging || event.pointerId !== pointerId) return;
-		// clientX against the down position, not movementX: no accumulated drift.
-		dragX = event.clientX - startX;
-		velocity.sample(event.clientX, event.timeStamp);
-		if (!dragMoved && Math.abs(dragX) >= TAP_SLOP) {
+		// clientX/Y against the down position, not movementX: no accumulated drift.
+		const dx = event.clientX - startX;
+		const dy = event.clientY - startY;
+		velocityX.sample(event.clientX, event.timeStamp);
+		velocityY.sample(event.clientY, event.timeStamp);
+
+		// The axis is answered ONCE and then kept, so a thumb that curls as it
+		// travels cannot drag the card off its line halfway through.
+		if (dragAxis === null) dragAxis = decideAxis(dx, dy);
+		if (dragAxis === 'y') dragY = dy;
+		else if (dragAxis === 'x') dragX = dx;
+
+		if (!dragMoved && dragAxis !== null) {
 			dragMoved = true;
-			// The thumb has started a vote: turn the card face up under it, without
-			// touching the drag. `dragX` is untouched, the pointer is still captured,
-			// and the same gesture carries straight on to its commit — the poster
-			// simply arrives in time to be stamped.
+			// The thumb has started an answer — sideways or up, it makes no difference
+			// here: turn the card face up under it, without touching the drag. The
+			// offsets are untouched, the pointer is still captured, and the same gesture
+			// carries straight on to its commit — the poster simply arrives in time to
+			// be stamped.
 			if (flippedId !== null) turn(flippedId, false);
 		}
 	}
@@ -477,14 +568,19 @@
 		tapTarget = null;
 		const choice = decideRelease({
 			dx: dragX,
-			vx: velocity.velocity(event.timeStamp),
-			width: cardWidth
+			dy: dragY,
+			vx: velocityX.velocity(event.timeStamp),
+			vy: velocityY.velocity(event.timeStamp),
+			width: cardWidth,
+			axis: dragAxis
 		});
 		if (choice) {
 			commit(choice);
 			return;
 		}
 		dragX = 0; // springs back
+		dragY = 0;
+		dragAxis = null;
 		// It never travelled, so it was a tap. On the trailer button it opens the
 		// trailer; ANYWHERE else on the card it turns the card over, which is the
 		// whole affordance now that there is no token to aim at. Only the live top
@@ -504,6 +600,8 @@
 		dragging = false;
 		tapTarget = null;
 		dragX = 0;
+		dragY = 0;
+		dragAxis = null;
 	}
 
 	/* ── keyboard (same commit path as the buttons) ────────────────── */
@@ -515,14 +613,18 @@
 		if (target?.isContentEditable) return;
 		if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
 
-		// The flip from the keyboard: ArrowUp turns the card over and back, the
-		// same toggle a tap on the card is, and Escape only ever turns it face up.
-		// Left and right are the vote, so up is the one that reads as "lift the
-		// card and look" without being a third meaning for a key that already votes.
-		// Both turn it the way a tap does — through `turn`, so the card comes round
-		// rather than swapping faces under the reader.
+		// THE KEYS SAY WHAT THE GESTURES SAY. Left and right vote, and UP is now the
+		// star, because up is the gesture — a key that means one thing on the card and
+		// another in the hand would be worse than no key at all.
+		//
+		// Which moves the flip to ArrowDown, the one direction the card cannot be
+		// pushed: nothing else on this screen wants it, and "put it down and read the
+		// back" is a fair reading of it. Escape still only ever turns the card face
+		// up. Both turn it the way a tap does — through `turn`, so the card comes
+		// round rather than swapping faces under the reader.
 		if (event.key === 'Escape' && flippedId !== null) turn(flippedId, false);
-		else if (event.key === 'ArrowUp' && current) flip(current.id);
+		else if (event.key === 'ArrowDown' && current) flip(current.id);
+		else if (event.key === 'ArrowUp') commit('star');
 		else if (event.key === 'ArrowRight') commit('yes');
 		else if (event.key === 'ArrowLeft') commit('no');
 		else if (event.key === 'u' || event.key === 'U') undo();
@@ -601,15 +703,22 @@
 	 */
 	function cardStyle(entry: Entry): string {
 		if (entry.exit) {
-			// Percentages are of the card's own width, so this clears any viewport.
-			const x = entry.exit === 'yes' ? 'calc(110% + 50vw)' : 'calc(-110% - 50vw)';
-			const deg = entry.exit === 'yes' ? EXIT_ROTATION_DEG : -EXIT_ROTATION_DEG;
+			// Percentages are of the card's own box — width on x, height on y — so this
+			// clears any viewport. A STARRED card goes straight up off the top, and goes
+			// up FLAT: the tilt belongs to a card thrown across the table, and a card
+			// lifted off it has nothing to tilt against. Same property, same duration,
+			// same easing as the sideways flight; only the direction differs.
+			const star = entry.exit === 'star';
+			const x = star ? '0px' : entry.exit === 'yes' ? 'calc(110% + 50vw)' : 'calc(-110% - 50vw)';
+			const y = star ? 'calc(-110% - 50vh)' : '0px';
+			const deg = star ? 0 : entry.exit === 'yes' ? EXIT_ROTATION_DEG : -EXIT_ROTATION_DEG;
 			const fade = Math.round(EXIT_MS * 0.4);
-			return `transform:translate3d(${x},0,0) rotate(${deg}deg);opacity:0;transition:transform ${EXIT_MS}ms ${EXIT_EASE},opacity ${fade}ms linear ${EXIT_MS - fade}ms;will-change:transform`;
+			return `transform:translate3d(${x},${y},0) rotate(${deg}deg);opacity:0;transition:transform ${EXIT_MS}ms ${EXIT_EASE},opacity ${fade}ms linear ${EXIT_MS - fade}ms;will-change:transform`;
 		}
-		if (entry.depth > 0) return 'transform:translate3d(0px,0,0) rotate(0deg);will-change:transform';
+		if (entry.depth > 0)
+			return 'transform:translate3d(0px,0px,0) rotate(0deg);will-change:transform';
 		const spring = dragging || reduceMotion ? 'none' : `transform ${SPRING_MS}ms ${SPRING_EASE}`;
-		return `transform:translate3d(${dragX.toFixed(1)}px,0,0) rotate(${rotation.toFixed(2)}deg);transition:${spring};will-change:transform`;
+		return `transform:translate3d(${dragX.toFixed(1)}px,${dragY.toFixed(1)}px,0) rotate(${rotation.toFixed(2)}deg);transition:${spring};will-change:transform`;
 	}
 
 	/* ── the flip ─────────────────────────────────────────────────── */
@@ -700,22 +809,34 @@
 		if (event.detail !== 0) event.preventDefault();
 	}
 
-	/** Stamp/tint strength for a layer: full on a committed card, live on the top one. */
-	function hints(entry: Entry): { yes: number; no: number } {
-		if (entry.exit) return { yes: entry.exit === 'yes' ? 1 : 0, no: entry.exit === 'no' ? 1 : 0 };
-		if (entry.depth > 0) return { yes: 0, no: 0 };
-		return { yes: yesHint, no: noHint };
+	/**
+	 * Stamp/tint strength for a layer: full on a committed card, live on the top one.
+	 *
+	 * A starred card wears the STAR alone, not a star over a yes. It is one answer,
+	 * so it is one seal — the brass one, which says the louder thing.
+	 */
+	function hints(entry: Entry): { yes: number; no: number; star: number } {
+		if (entry.exit) {
+			return {
+				yes: entry.exit === 'yes' ? 1 : 0,
+				no: entry.exit === 'no' ? 1 : 0,
+				star: entry.exit === 'star' ? 1 : 0
+			};
+		}
+		if (entry.depth > 0) return { yes: 0, no: 0, star: 0 };
+		return { yes: yesHint, no: noHint, star: starHint };
 	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-{#snippet face(card: Card, yes: number, no: number)}
+{#snippet face(card: Card, yes: number, no: number, star: number)}
 	<Poster path={card.posterPath} title={card.title} size="w500" eager />
 
 	<!-- Direction hint: a wash of ink plus the seal that names the vote. Same
 	     stamp component the reveal slams onto the winner — dragging the card is
-	     literally inking it. -->
+	     literally inking it. The third ink is brass, and it arrives from below:
+	     push the card up and it comes up starred. -->
 	<div
 		class="pointer-events-none absolute inset-0 bg-jade"
 		style="opacity:{(yes * 0.3).toFixed(3)}"
@@ -724,6 +845,11 @@
 	<div
 		class="pointer-events-none absolute inset-0 bg-cherry"
 		style="opacity:{(no * 0.3).toFixed(3)}"
+		aria-hidden="true"
+	></div>
+	<div
+		class="pointer-events-none absolute inset-0 bg-brass"
+		style="opacity:{(star * 0.3).toFixed(3)}"
 		aria-hidden="true"
 	></div>
 	<div class="pointer-events-none absolute top-4 left-3">
@@ -744,6 +870,19 @@
 			rotate={12}
 			opacity={no}
 			scale={0.82 + 0.18 * no}
+		/>
+	</div>
+	<!-- The star is stamped low and centred, clear of the two corner seals it can
+	     never appear beside: the axis is locked, so a card is either voting or
+	     starring, and the ink that is not being used is at zero. -->
+	<div class="pointer-events-none absolute inset-x-0 bottom-8 flex justify-center">
+		<Stamp
+			word="Star"
+			tone="brass"
+			size="1.85rem"
+			rotate={-6}
+			opacity={star}
+			scale={0.82 + 0.18 * star}
 		/>
 	</div>
 {/snippet}
@@ -906,6 +1045,8 @@
 	>
 		<input type="hidden" name="movie_id" value={pending.movieId} />
 		<input type="hidden" name="value" value={pending.value} />
+		<!-- Stated on every swipe, true or false: see `pending`. -->
+		<input type="hidden" name="starred" value={pending.starred} />
 	</form>
 
 	{#if !current && exits.length === 0}
@@ -952,7 +1093,7 @@
 							is handled on the window. It carries the pointer gesture only: a
 							drag, or a tap that turns it over. Hence the presentation role, no
 							tab stop and no keyboard handler of its own; from the keyboard the
-							card is turned over with ArrowUp, back with ArrowUp or Escape.
+							card is turned over with ArrowDown, back with ArrowDown or Escape.
 						-->
 						<!--
 							THE HAND: the drag lives here, and only here. This element carries
@@ -964,11 +1105,24 @@
 							in step with the card. Drag and flip COMPOSE rather than overwrite
 							each other: this transform moves the card, the one two levels down
 							turns it over, and neither ever writes the other's property.
+
+								`touch-none` ON THE LIVE CARD, AND NOWHERE ELSE. It used to be
+								`touch-pan-y`, which handed every vertical gesture to the scroller —
+								and the scroller cannot be asked to share, because a browser decides
+								whether a touch is a scroll or ours within the first few pixels and
+								never revisits it. Swipe-up needs the whole touch, so on the top card
+								the page does not scroll at all. THE TRADE: on a phone too short to
+								fit this screen, a finger that starts ON the card can no longer scroll
+								it. The felt either side still scrolls, as do the title, the tokens
+								and the undo row below — and the card is `max-w-[16.5rem]` inside a
+								wider column, so there is always a margin to scroll from. Style only,
+								like every other difference between roles: the cards behind and in
+								flight are `pointer-events-none`, so no touch reaches them to argue.
 						-->
 						<div
 							class="swipe-card relative h-full w-full rounded-md select-none {turnClass(
 								entry
-							)} {entry.exit || entry.depth > 0 ? 'pointer-events-none' : 'touch-pan-y'}"
+							)} {entry.exit || entry.depth > 0 ? 'pointer-events-none' : 'touch-none'}"
 							style={cardStyle(entry)}
 							onpointerdown={(event) => onPointerDown(event, entry.card)}
 							onpointermove={onPointerMove}
@@ -1012,7 +1166,7 @@
 										class="card-face absolute inset-0 overflow-hidden rounded-md bg-felt-deep"
 										aria-hidden={showing}
 									>
-										{@render face(entry.card, hint.yes, hint.no)}
+										{@render face(entry.card, hint.yes, hint.no, hint.star)}
 									</div>
 									<!--
 										The back is turned twice — once by itself, once by the container that flips
@@ -1087,13 +1241,15 @@
 				<Undo2 size={14} />
 				Undo last<span class="sr-only"> answer (keyboard: U)</span>
 			</button>
-			<p class="max-w-52 text-right text-[0.7rem] leading-snug text-chalk-dim">
-				Swipe right for yes, left for no —
+			<!-- Quiet, and it names all three directions now: the star has no token of
+			     its own on this screen, so this line is where anyone finds out about it. -->
+			<p class="max-w-56 text-right text-[0.7rem] leading-snug text-chalk-dim">
+				Swipe right for yes, left for no, up to star one —
 				<span class="inline-flex items-center gap-0.5 align-[-2px]" aria-hidden="true">
 					<ArrowLeft size={12} /> / <ArrowRight size={12} />
-				</span><span class="sr-only">the left and right arrow keys</span> work too. Tap the card to
-				see what the film is about<span class="sr-only">
-					— or press the up arrow key to turn it over and back</span
+				</span><span class="sr-only">the left, right and up arrow keys</span> work too. Tap the card
+				to see what the film is about<span class="sr-only">
+					— or press the down arrow key to turn it over and back</span
 				>.
 			</p>
 		</div>

@@ -83,8 +83,13 @@ export const actions: Actions = {
 	/**
 	 * One swipe, or one star. Idempotent upsert, so re-answering just overwrites.
 	 *
-	 * `starred` is absent for a plain swipe, which is what lets a right-swipe on an
-	 * already-starred film keep the star — see `setStandingVote`.
+	 * The swipe screen STATES `starred` on every swipe, true or false, and it is the
+	 * one surface that does. Elsewhere an omitted flag is the useful reading — a bare
+	 * `yes` is an edit to an existing answer and keeps whatever star it had (see
+	 * `setStandingVote`) — but here the card in the hand is the whole truth: what
+	 * leaves the screen is exactly the seal that was stamped on it, so a right-swipe
+	 * after undoing a star lands the plain yes the reader just saw. The flag stays
+	 * optional in the action, because the no-JavaScript form posts no star at all.
 	 */
 	vote: async (event) => {
 		const actor = requireActor(event);

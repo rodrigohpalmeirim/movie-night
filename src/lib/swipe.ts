@@ -14,6 +14,17 @@
 
 export type SwipeChoice = 'yes' | 'no';
 
+/**
+ * What a release resolved to. `star` is not a third answer — it is the yes the
+ * up-gesture makes, posted as `{ value: 'yes', starred: true }`. Keeping it a
+ * separate word here is what lets one value carry the exit direction, the seal
+ * that gets pressed and the flag that gets posted.
+ */
+export type SwipeAction = SwipeChoice | 'star';
+
+/** Which way a gesture has committed to travelling. `x` votes, `y` stars. */
+export type DragAxis = 'x' | 'y';
+
 /* ── distances ──────────────────────────────────────────────────────── */
 
 /** Card width assumed before the stack has been measured (`max-w-72` = 288px). */
@@ -40,6 +51,24 @@ export const HINT_DEAD_ZONE = 10;
  * the right way round by the time any ink shows.
  */
 export const TAP_SLOP = 6;
+
+/* ── axes ───────────────────────────────────────────────────────────── */
+
+/**
+ * How much steeper than wide a drag has to be to be read as a LIFT rather than
+ * a swipe. 1.2 puts the dividing line at about 50° from the table edge, which
+ * deliberately favours the horizontal: right and left are what this screen is
+ * for, they are what the thumb does dozens of times a session, and a thumb arc
+ * is never perfectly flat — so a 45° drag is still a vote, and only a gesture
+ * that is clearly going up is a star.
+ *
+ * There is no second slop for the axis: it is chosen at `TAP_SLOP`, the same
+ * few pixels that turn a press into a drag. One threshold, so the card turns
+ * face up and picks its direction on the same frame, and the axis it picks then
+ * holds for the rest of the gesture — a card that changed its mind halfway
+ * would jump sideways under the finger.
+ */
+export const VERTICAL_BIAS = 1.2;
 
 /* ── velocity ───────────────────────────────────────────────────────── */
 
@@ -94,12 +123,24 @@ export function cardWidthOr(width: number): number {
 	return width > 0 ? width : FALLBACK_CARD_WIDTH;
 }
 
-/** Horizontal travel at which a slow drag counts as a vote. */
+/**
+ * Travel at which a slow drag counts, and the SAME number on both axes: a star
+ * is asked for exactly as deliberately as a vote, and the card gives the same
+ * feedback for the same distance whichever way it is pushed.
+ *
+ * It is measured off the card's WIDTH on both axes, because the width is what is
+ * measured — and it happens to be the more forgiving reading upward, where 40%
+ * of the width is only ~27% of a 2:3 card's height. A thumb has less room to
+ * push up than to sweep across, so the shorter journey belongs to the star.
+ */
 export function commitDistance(width: number): number {
 	return Math.max(MIN_COMMIT_DISTANCE, cardWidthOr(width) * COMMIT_FRACTION);
 }
 
-/** 0 → 1 as the drag approaches its commit distance. Direction-blind. */
+/**
+ * 0 → 1 as the drag approaches its commit distance. Direction-blind, and axis-
+ * blind with it: pass the travel of whichever axis the gesture locked to.
+ */
 export function commitProgress(dx: number, width: number): number {
 	const target = commitDistance(width);
 	const travelled = Math.abs(dx) - HINT_DEAD_ZONE;
@@ -121,13 +162,34 @@ export function stampOpacity(progress: number): number {
 	return clamp(progress * 1.4, 0, 1);
 }
 
+/**
+ * WHICH AXIS A GESTURE IS ON, decided once and from the whole travel so far.
+ *
+ * Below `TAP_SLOP` there is no answer yet — the gesture is still a tap, and the
+ * card has not moved. Past it the steeper of the two wins, with the horizontal
+ * given the benefit of the doubt (see `VERTICAL_BIAS`).
+ *
+ * `y` is symmetric on purpose: a drag DOWNWARD locks the vertical axis too, so
+ * the card follows the finger down and springs back with nothing committed. The
+ * alternative — a card that ignores a downward drag entirely — reads as a dead
+ * touch rather than as a card that is pinned to the table.
+ */
+export function decideAxis(dx: number, dy: number): DragAxis | null {
+	if (Math.max(Math.abs(dx), Math.abs(dy)) < TAP_SLOP) return null;
+	return Math.abs(dy) >= Math.abs(dx) * VERTICAL_BIAS ? 'y' : 'x';
+}
+
 export interface Release {
-	/** Horizontal offset from where the pointer went down, px. */
+	/** Offset from where the pointer went down, px, on the locked axis's terms. */
 	dx: number;
-	/** Horizontal velocity at release, px/ms (already staleness-corrected). */
+	dy: number;
+	/** Velocity at release, px/ms (already staleness-corrected). */
 	vx: number;
+	vy: number;
 	/** Measured card width, px; 0 if not measured yet. */
 	width: number;
+	/** The axis the gesture locked to, or null if it never left the tap. */
+	axis: DragAxis | null;
 }
 
 /**
@@ -136,11 +198,23 @@ export interface Release {
  *
  * A flick must agree with the direction it travelled, so a drag right that is
  * yanked back left on release cancels rather than voting "no".
+ *
+ * The vertical axis is the same policy with one direction fewer: UP is a star,
+ * and down is nothing at all. Both halves of an upward flick have to point
+ * upward, exactly as a sideways flick has to agree with its own drag — so a card
+ * pushed up and dropped back down on release keeps its answer to itself.
  */
-export function decideRelease({ dx, vx, width }: Release): SwipeChoice | null {
-	if (Math.abs(dx) >= commitDistance(width)) return dx > 0 ? 'yes' : 'no';
-
+export function decideRelease({ dx, dy, vx, vy, width, axis }: Release): SwipeAction | null {
+	if (axis === null) return null;
 	const minFlick = Math.max(MIN_FLICK_DISTANCE, cardWidthOr(width) * FLICK_MIN_FRACTION);
+
+	if (axis === 'y') {
+		const up = -dy;
+		if (up >= commitDistance(width)) return 'star';
+		return -vy >= FLICK_VELOCITY && up >= minFlick ? 'star' : null;
+	}
+
+	if (Math.abs(dx) >= commitDistance(width)) return dx > 0 ? 'yes' : 'no';
 	const flicked = Math.abs(vx) >= FLICK_VELOCITY && Math.abs(dx) >= minFlick;
 	if (flicked && Math.sign(vx) === Math.sign(dx)) return vx > 0 ? 'yes' : 'no';
 
@@ -150,16 +224,20 @@ export function decideRelease({ dx, vx, width }: Release): SwipeChoice | null {
 export interface VelocityTracker {
 	/** Start a gesture at a position/timestamp. */
 	reset(x: number, t: number): void;
-	/** Feed a pointer position. */
+	/** Feed a pointer position on this tracker's own axis. */
 	sample(x: number, t: number): void;
 	/** px/ms at time `t`; 0 once the pointer has been still for a moment. */
 	velocity(t: number): number;
 }
 
 /**
- * Recency-weighted horizontal velocity. A flick is decided by its last few
+ * Recency-weighted velocity along ONE axis. A flick is decided by its last few
  * milliseconds, so the newest sample dominates, but a single jittery frame
  * cannot fabricate a flick on its own.
+ *
+ * One tracker per axis, and the screen keeps two: the axes are read together at
+ * release (an upward flick has to be upward in both position and speed), and a
+ * single tracker fed both coordinates would only ever know the diagonal.
  */
 export function createVelocityTracker(): VelocityTracker {
 	let vx = 0;
