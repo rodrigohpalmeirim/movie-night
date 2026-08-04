@@ -853,7 +853,8 @@
 	NOTHING here clips, deliberately. A committed card flies a full viewport past
 	the stack and that has to be contained — unclipped it grows the document and
 	lets the page be dragged sideways for the length of the animation — but the
-	containment belongs to the VIEWPORT and lives on `html` in app.css. Clipping it
+	containment belongs to the width of the SCREEN, so it lives on `html` (app.css)
+	and on the shell's scroll region, which spans it. Clipping it
 	here cut the card off at this column's edge, which is the width of the content
 	and not of the screen: invisible on a phone, and on a desktop a card that
 	disappeared at a line in the middle of the felt.

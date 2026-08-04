@@ -35,9 +35,12 @@
 	const returnTo = $derived(`${page.url.pathname}${page.url.search}`);
 </script>
 
+<!-- Stacked straight above the tab bar as the shell's second-to-last flex child,
+     rather than floated over the page at a hand-measured offset from the bottom
+     of the viewport: the shell does not scroll, so layout can hold it there. -->
 <div
 	data-dev-bar
-	class="fixed inset-x-0 bottom-[calc(3.65rem+env(safe-area-inset-bottom))] z-30 border-y-4 border-[#111] bg-[#f5c518] text-[#1a1400]"
+	class="shrink-0 border-t-4 border-[#111] bg-[#f5c518] text-[#1a1400]"
 	style="background-image:repeating-linear-gradient(135deg,rgb(0 0 0 / 12%) 0 6px,transparent 6px 12px)"
 >
 	<form

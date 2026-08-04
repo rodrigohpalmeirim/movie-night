@@ -120,9 +120,20 @@
 	});
 </script>
 
+<!--
+	The tray is BOLTED TO THE SHELL, not hung off the bottom of the viewport: it
+	is the last flex child of the group layout's full-height column, so its
+	position is settled by layout and nothing a browser does to the layout
+	viewport — retracting a URL bar, opening a keyboard — can move it. `fixed`
+	could not say that, which is what made it flicker through a page transition.
+	`relative z-20` only so it still cannot be painted over.
+
+	The safe-area padding stays: the shell reaches the bottom of the screen
+	(`viewport-fit=cover`), so the tokens still need lifting clear of the home bar.
+-->
 <nav
 	aria-label="Main"
-	class="vt-tabbar fixed inset-x-0 bottom-0 z-20 border-t-2 border-board-shade bg-felt-deep pb-[env(safe-area-inset-bottom)]"
+	class="vt-tabbar relative z-20 shrink-0 border-t-2 border-board-shade bg-felt-deep pb-[env(safe-area-inset-bottom)]"
 >
 	<ul class="mx-auto flex max-w-lg gap-2 px-3 pt-2.5 pb-3.5">
 		{#each tabs as tab (tab.href)}
