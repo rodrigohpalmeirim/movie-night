@@ -16,7 +16,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
 	attendance,
 	createDb,
@@ -171,11 +171,92 @@ rejects('standing_votes: unique (member_id, movie_id)', () =>
 ok('standing_votes: upsert on the unique key is idempotent', () => {
 	db.insert(standingVotes)
 		.values({ memberId: ana, movieId: movieIds[0], value: 'no' })
-		.onConflictDoUpdate({ target: [standingVotes.memberId, standingVotes.movieId], set: { value: 'no' } })
+		.onConflictDoUpdate({
+			target: [standingVotes.memberId, standingVotes.movieId],
+			set: { value: 'no', starred: false }
+		})
 		.run();
 	const rows = db.select().from(standingVotes).where(eq(standingVotes.memberId, ana)).all();
 	assert.equal(rows.length, 1);
 	assert.equal(rows[0].value, 'no');
+});
+
+/* --- stars: "a star implies a yes" ------------------------------- */
+
+ok('standing_votes: starred defaults to false, so every pre-star row is correct', () => {
+	db.$client.run(`insert into standing_votes (member_id, movie_id, value) values (?, ?, 'yes')`, [
+		ben,
+		movieIds[0]
+	]);
+	const row = db
+		.select()
+		.from(standingVotes)
+		.where(and(eq(standingVotes.memberId, ben), eq(standingVotes.movieId, movieIds[0])))
+		.get();
+	assert.equal(row?.starred, false);
+});
+ok('standing_votes: a star on a yes is accepted', () => {
+	db.insert(standingVotes).values({ memberId: ben, movieId: movieIds[1], value: 'yes', starred: true }).run();
+	const row = db
+		.select()
+		.from(standingVotes)
+		.where(and(eq(standingVotes.memberId, ben), eq(standingVotes.movieId, movieIds[1])))
+		.get();
+	assert.equal(row?.starred, true);
+});
+// The cross-column rule is enforced by the DATABASE, not only by the service
+// layer: the CHECK arrived with the column in 0004 and fires on INSERT and
+// UPDATE alike, so no code path — app, script, or `sqlite3` by hand — can leave
+// a starred "no" behind. What the database canNOT do is decide what should
+// happen instead; `setStandingVote` owns that (star ⇒ upsert to yes; a "no"
+// drops the star in the same statement).
+rejects('standing_votes: CHECK rejects a starred "no" on insert', () =>
+	db.insert(standingVotes).values({ memberId: ana, movieId: movieIds[1], value: 'no', starred: true }).run());
+rejects('standing_votes: CHECK rejects flipping a starred yes to "no"', () =>
+	db
+		.update(standingVotes)
+		.set({ value: 'no' })
+		.where(and(eq(standingVotes.memberId, ben), eq(standingVotes.movieId, movieIds[1])))
+		.run());
+ok('standing_votes: dropping the star and the yes together is allowed', () => {
+	db.update(standingVotes)
+		.set({ value: 'no', starred: false })
+		.where(and(eq(standingVotes.memberId, ben), eq(standingVotes.movieId, movieIds[1])))
+		.run();
+	const row = db
+		.select()
+		.from(standingVotes)
+		.where(and(eq(standingVotes.memberId, ben), eq(standingVotes.movieId, movieIds[1])))
+		.get();
+	assert.equal(row?.value, 'no');
+	assert.equal(row?.starred, false);
+});
+rejects('standing_votes: CHECK rejects a starred value outside 0/1', () =>
+	db.$client.run(`insert into standing_votes (member_id, movie_id, value, starred) values (?, ?, 'yes', 7)`, [
+		ana,
+		movieIds[2]
+	]));
+
+/* --- members: soft removal --------------------------------------- */
+
+ok('members: removed_at is null by default and settable', () => {
+	const fresh = db.select().from(members).where(eq(members.id, ben)).get();
+	assert.equal(fresh?.removedAt, null);
+	db.update(members).set({ removedAt: new Date(1_800_000_000_000) }).where(eq(members.id, ben)).run();
+	const removed = db.select().from(members).where(eq(members.id, ben)).get();
+	assert.equal(removed?.removedAt?.getTime(), 1_800_000_000_000);
+});
+// The unique index is deliberately NOT partial: a removed member keeps their
+// name, so nobody can claim it while they are away. Restore is the way back.
+// (Whether the *service* offers a helpful message about that is app-layer; the
+// database simply refuses the row.)
+rejects('members: a removed member still holds their display name', () =>
+	db.insert(members).values({ id: newId(), groupId, displayName: 'ben' }).run());
+ok('members: removal is a soft stamp — every reference survives it', () => {
+	// Ben suggested movieIds[1] and holds standing votes; both still resolve.
+	assert.equal(db.select().from(movies).where(eq(movies.suggestedBy, ben)).all().length, 1);
+	assert.equal(db.select().from(standingVotes).where(eq(standingVotes.memberId, ben)).all().length, 2);
+	db.update(members).set({ removedAt: null }).where(eq(members.id, ben)).run();
 });
 
 db.insert(attendance).values({ roundId, memberId: ana, attending: true, updatedBy: ana }).run();

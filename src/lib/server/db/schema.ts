@@ -29,6 +29,12 @@ export interface SnapshotVote {
 	member_id: string;
 	movie_id: string;
 	value: StandingVoteValue;
+	/**
+	 * Whether the frozen yes was a STARRED yes. Optional because snapshots taken
+	 * before stars existed have no such key; those read as `false`, which is
+	 * exactly right — no star was cast in that round.
+	 */
+	starred?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -74,7 +80,22 @@ export const members = sqliteTable(
 			.references(() => groups.id, { onDelete: 'cascade' }),
 		displayName: text('display_name').notNull(),
 		/** Rotation fairness measures never-won members from this date. */
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+		/**
+		 * Set = this member has left the group (voting-spec: "Removed members leave
+		 * the present, not the past").
+		 *
+		 * A soft stamp, never a delete: every round, veto, pair vote, suggestion and
+		 * standing vote still points at this row, and history keeps naming them. What
+		 * the stamp does is take them out of the group's PRESENT — the member list,
+		 * the picker, the RSVP surface, and therefore the attendee set that every
+		 * tally is computed against. Clearing it counts all their kept answers again.
+		 *
+		 * They keep their display name: the unique index below is deliberately not
+		 * partial, so nobody can claim the name of someone who was removed. Restore is
+		 * the way back.
+		 */
+		removedAt: integer('removed_at', { mode: 'timestamp_ms' })
 	},
 	(t) => [
 		// Members are never deleted — history references them.
@@ -176,6 +197,15 @@ export const standingVotes = sqliteTable(
 			.notNull()
 			.references(() => movies.id, { onDelete: 'cascade' }),
 		value: text('value', { enum: STANDING_VOTE_VALUES }).notNull(),
+		/**
+		 * An UPGRADED yes, not a third value (voting-spec, Phase 1 → Stars).
+		 *
+		 * A column rather than a widened `value` enum, because "a star implies a yes"
+		 * then falls out of the shape instead of having to be remembered: the star
+		 * travels with the vote it upgrades, the migration is a plain ADD COLUMN, and
+		 * every existing row is already correct at `false`.
+		 */
+		starred: integer('starred', { mode: 'boolean' }).notNull().default(false),
 		updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 	},
 	(t) => [
@@ -183,7 +213,16 @@ export const standingVotes = sqliteTable(
 		// is a third state and must never be collapsed into "no".
 		primaryKey({ name: 'standing_votes_pk', columns: [t.memberId, t.movieId] }),
 		index('standing_votes_movie_idx').on(t.movieId),
-		check('standing_votes_value_check', sql`${t.value} in ('yes', 'no')`)
+		check('standing_votes_value_check', sql`${t.value} in ('yes', 'no')`),
+		// "A star implies a yes" is enforced by the DATABASE, on inserts AND updates:
+		// a starred "no" cannot be written, and a starred yes cannot be flipped to
+		// "no" without dropping the star in the same statement. SQLite allows a CHECK
+		// that references a sibling column to arrive via ALTER TABLE ADD COLUMN, so
+		// this needed no table rebuild — see drizzle/0004_stars_and_member_removal.sql.
+		check(
+			'standing_votes_star_implies_yes',
+			sql`${t.starred} in (0, 1) and (${t.starred} = 0 or ${t.value} = 'yes')`
+		)
 	]
 );
 
@@ -324,6 +363,16 @@ export const vetoes = sqliteTable(
 		previousStandingValue: text('previous_standing_value', {
 			enum: ['yes', 'no', 'absent']
 		}),
+		/**
+		 * Whether that overwritten standing vote was a STARRED yes.
+		 *
+		 * The flip writes "no", and a "no" cannot carry a star, so the star is
+		 * destroyed with the value. Retracting or moving a veto must "restore the old
+		 * target exactly" — which includes the star, or a member who vetoed and
+		 * changed their mind would quietly lose an answer they never edited. Null =
+		 * no flip was applied for this row.
+		 */
+		previousStarred: integer('previous_starred', { mode: 'boolean' }),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
 	},
 	(t) => [

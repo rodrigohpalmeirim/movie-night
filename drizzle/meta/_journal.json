@@ -29,6 +29,13 @@
       "when": 1785671278347,
       "tag": "0003_movie_details",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785803450659,
+      "tag": "0004_stars_and_member_removal",
+      "breakpoints": true
     }
   ]
 }
