@@ -3,9 +3,11 @@
  * runoff cycle resolution.
  *
  * voting-spec, Phase 1: "Ties at the finalist boundary ... must be broken
- * deterministically, never by insertion order. Reuse the runoff's chain:
- * higher approval, then rotation fairness, then shortest runtime, then seeded
- * random."
+ * deterministically, never by insertion order", by the key
+ * `yes_votes → star_votes → approval → rotation fairness → shortest runtime →
+ * seeded random`. Everything from `approval` down is the runoff's own chain,
+ * reused verbatim ("Reuse the runoff's chain"); `star_votes` is the one rung
+ * that exists only here.
  *
  * voting-spec, Phase 2: "1. Copeland score — most pairwise victories wins.
  * 2. Approval — the higher-approved finalist wins (the `approval` fraction, not
@@ -31,6 +33,7 @@ import type {
 	MemberId,
 	MovieId,
 	MovieInput,
+	SharedTiebreakRule,
 	TiebreakOutcome
 } from './types.js';
 
@@ -39,6 +42,8 @@ export interface RankRow {
 	movieId: MovieId;
 	/** Attendee yes-votes: the Phase 1 ranking key. */
 	yesVotes: number;
+	/** Attendee starred yes-votes: the Phase 1 boundary chain's first rung. */
+	starVotes: number;
 	/** Attendee approval ratio: tiebreak rule 2. */
 	approval: number;
 	/** Pairwise victories: tiebreak rule 1 (0 outside the runoff). */
@@ -60,20 +65,35 @@ interface ChainStep<R extends string> {
 	dir: Direction;
 }
 
-const TAIL: ChainStep<BoundaryTiebreakRule>[] = [
+const TAIL: ChainStep<SharedTiebreakRule>[] = [
 	{ rule: 'approval', field: 'approval', dir: 'desc' },
 	{ rule: 'rotation_fairness', field: 'fairnessKey', dir: 'asc' },
 	{ rule: 'shortest_runtime', field: 'runtimeKey', dir: 'asc' },
 	{ rule: 'seeded_random', field: 'randomKey', dir: 'asc' }
 ];
 
-/** Phase 1: rank by attendee yes-votes, then the shared tail. */
+/**
+ * Phase 1: rank by attendee yes-votes, then STARS, then the shared tail.
+ *
+ * voting-spec, Selecting finalists:
+ *   1. yes_votes  among attendees, descending   -- the primary ranking key
+ *   2. star_votes among attendees, descending
+ *   3. approval / 4. rotation fairness / 5. shortest runtime / 6. seeded random
+ *
+ * Stars sit *below* yes-votes by construction, which is the whole guarantee the
+ * spec makes about them: "a star can never promote a movie past one with more
+ * yes-votes; it separates only films the approval count has already tied."
+ */
 export const BOUNDARY_CHAIN: ChainStep<BoundaryTiebreakRule>[] = [
 	{ rule: null, field: 'yesVotes', dir: 'desc' },
-	...TAIL
+	{ rule: 'stars', field: 'starVotes', dir: 'desc' },
+	...(TAIL as ChainStep<BoundaryTiebreakRule>[])
 ];
 
-/** Phase 2 cycle resolution: Copeland first, then the shared tail. */
+/**
+ * Phase 2 cycle resolution: Copeland first, then the shared tail — and no stars
+ * at any rung ("Stars play no part in Phase 2").
+ */
 export const CYCLE_CHAIN: ChainStep<CycleTiebreakRule>[] = [
 	{ rule: 'copeland', field: 'copeland', dir: 'desc' },
 	...(TAIL as ChainStep<CycleTiebreakRule>[])
@@ -179,7 +199,7 @@ export function runtimeKey(movie: MovieInput): number {
 
 export function buildRankRow(
 	movie: MovieInput,
-	stats: { yesVotes: number; approval: number; copeland?: number },
+	stats: { yesVotes: number; starVotes?: number; approval: number; copeland?: number },
 	ctx: {
 		attendees: ReadonlySet<MemberId>;
 		fairness: ReadonlyMap<MemberId, FairnessInput>;
@@ -189,6 +209,9 @@ export function buildRankRow(
 	return {
 		movieId: movie.id,
 		yesVotes: stats.yesVotes,
+		// Defaults to 0, which makes the star rung separate nothing — the correct
+		// reading for the runoff, whose chain does not include it at all.
+		starVotes: stats.starVotes ?? 0,
 		approval: stats.approval,
 		copeland: stats.copeland ?? 0,
 		fairnessKey: rotationFairnessKey(movie, ctx.attendees, ctx.fairness),

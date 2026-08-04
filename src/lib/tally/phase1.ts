@@ -11,6 +11,10 @@
  * the raw vote count: a fixed minimum locked small groups out of every round,
  * and coverage — a *share* of the attendees — already carries the "a movie
  * nobody has seen yet waits for the next round" job at any group size.
+ *
+ * Stars enter here in exactly one place: `starVotes` is counted per movie and
+ * handed to the ranking chain as the rung directly below `yesVotes`. No floor,
+ * ratio or eligibility test sees it (voting-spec, Stars).
  */
 
 import { BOUNDARY_CHAIN, buildRankRow, describeDecision, rank, type RankRow } from './tiebreak.js';
@@ -49,18 +53,30 @@ export function fairnessMap(records: readonly FairnessInput[]): Map<MemberId, Fa
 	return map;
 }
 
+/** One attendee's standing position on one movie, as the tally sees it. */
+export interface IndexedVote {
+	value: 'yes' | 'no';
+	/** An upgraded yes. Never true on a "no" — see `indexStandingVotes`. */
+	starred: boolean;
+}
+
 /**
  * Indexes standing votes by movie, keeping only attendees' votes and
  * de-duplicating by member (the DB's unique (member_id, movie_id) makes
  * duplicates impossible, but the tally must not silently double-count if a
  * caller passes them anyway — voting-spec: "Re-submitting must not
  * double-count").
+ *
+ * A star is normalised to the yes it upgrades: `starred` on a "no" is not a
+ * representable position (the database's CHECK refuses to store one), so it is
+ * dropped here rather than counted. That keeps `starVotes <= yesVotes` an
+ * invariant of the tally itself, not a promise about the caller.
  */
 export function indexStandingVotes(
 	votes: readonly StandingVoteInput[],
 	attendees: ReadonlySet<MemberId>
-): Map<MovieId, Map<MemberId, 'yes' | 'no'>> {
-	const byMovie = new Map<MovieId, Map<MemberId, 'yes' | 'no'>>();
+): Map<MovieId, Map<MemberId, IndexedVote>> {
+	const byMovie = new Map<MovieId, Map<MemberId, IndexedVote>>();
 	for (const vote of votes) {
 		if (!attendees.has(vote.memberId)) continue;
 		let members = byMovie.get(vote.movieId);
@@ -68,7 +84,10 @@ export function indexStandingVotes(
 			members = new Map();
 			byMovie.set(vote.movieId, members);
 		}
-		members.set(vote.memberId, vote.value);
+		members.set(vote.memberId, {
+			value: vote.value,
+			starred: vote.value === 'yes' && vote.starred === true
+		});
 	}
 	return byMovie;
 }
@@ -76,15 +95,18 @@ export function indexStandingVotes(
 export function computeMovieTally(
 	movie: MovieInput,
 	attendeeCount: number,
-	votes: ReadonlyMap<MemberId, 'yes' | 'no'> | undefined,
+	votes: ReadonlyMap<MemberId, IndexedVote> | undefined,
 	config: TallyConfig
 ): MovieTally {
 	let yesVotes = 0;
 	let noVotes = 0;
+	let starVotes = 0;
 	if (votes) {
-		for (const value of votes.values()) {
-			if (value === 'yes') yesVotes++;
-			else noVotes++;
+		for (const vote of votes.values()) {
+			if (vote.value === 'yes') {
+				yesVotes++;
+				if (vote.starred) starVotes++;
+			} else noVotes++;
 		}
 	}
 	const attendeeVotes = yesVotes + noVotes;
@@ -104,6 +126,9 @@ export function computeMovieTally(
 		attendeeVotes,
 		yesVotes,
 		noVotes,
+		// Tiebreak fuel only: stars are deliberately absent from every number
+		// below, and from the two floors computed from them.
+		starVotes,
 		coverage,
 		approval,
 		eligible: ineligibleReason === null,
@@ -149,11 +174,11 @@ export function computePhase1(input: Phase1Input): Phase1Result {
 	const movieById = new Map(movies.map((movie) => [movie.id, movie]));
 
 	const rowFor = (tally: MovieTally): RankRow =>
-		buildRankRow(movieById.get(tally.movieId)!, { yesVotes: tally.yesVotes, approval: tally.approval }, {
-			attendees,
-			fairness: fair,
-			seed
-		});
+		buildRankRow(
+			movieById.get(tally.movieId)!,
+			{ yesVotes: tally.yesVotes, starVotes: tally.starVotes, approval: tally.approval },
+			{ attendees, fairness: fair, seed }
+		);
 
 	const eligibleRows = rank(
 		BOUNDARY_CHAIN,

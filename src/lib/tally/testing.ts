@@ -25,11 +25,24 @@ export function members(count: number, prefix = 'v'): MemberId[] {
 	return Array.from({ length: count }, (_, i) => `${prefix}${i + 1}`);
 }
 
-/** Standing votes for one movie: the first `yes` members vote yes, the next `no` vote no. */
-export function standing(movieId: MovieId, yes: number, no: number, voters: readonly MemberId[]): StandingVoteInput[] {
+/**
+ * Standing votes for one movie: the first `yes` members vote yes, the next `no`
+ * vote no, and the first `stars` of the yes-voters star theirs (a star is an
+ * upgraded yes, so it can only land on one).
+ */
+export function standing(
+	movieId: MovieId,
+	yes: number,
+	no: number,
+	voters: readonly MemberId[],
+	stars = 0
+): StandingVoteInput[] {
 	if (yes + no > voters.length) throw new Error(`standing(${movieId}): not enough voters`);
+	if (stars > yes) throw new Error(`standing(${movieId}): ${stars} stars on ${yes} yes-votes`);
 	return [
-		...voters.slice(0, yes).map((memberId) => ({ memberId, movieId, value: 'yes' as const })),
+		...voters
+			.slice(0, yes)
+			.map((memberId, i) => ({ memberId, movieId, value: 'yes' as const, starred: i < stars })),
 		...voters.slice(yes, yes + no).map((memberId) => ({ memberId, movieId, value: 'no' as const }))
 	];
 }

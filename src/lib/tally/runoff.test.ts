@@ -525,6 +525,75 @@ describe('runoff: cycle tiebreak chain', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Stars are a Phase 1 rung only                                      */
+/* ------------------------------------------------------------------ */
+
+describe('runoff: stars play no part in Phase 2', () => {
+	// voting-spec, Stars: "Stars play no role anywhere else: not in coverage,
+	// approval or eligibility; not in the veto step; not in the round robin; not
+	// in the runoff's cycle tiebreak chain."
+	const finalistIds = ['mA', 'mB', 'mC'];
+
+	/** Every Phase 1 number tied, so only the cycle chain's lower rungs are left. */
+	function stars(spec: Record<string, number>) {
+		return Object.entries(spec).flatMap(([movieId, count]) => standing(movieId, 4, 2, ATTENDEES, count));
+	}
+
+	it('a starred finalist does not win a Copeland tie', () => {
+		const result = computeRunoff(
+			runoff({
+				finalistIds,
+				// Runtime is the only genuine separator: mC is shortest.
+				movies: [
+					movie('mA', { suggestedBy: 'v1', runtimeMin: 180 }),
+					movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
+					movie('mC', { suggestedBy: 'v1', runtimeMin: 95 })
+				],
+				pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+				// mA is unanimously starred; mC has no stars at all.
+				standingVotes: stars({ mA: 4, mB: 2, mC: 0 })
+			})
+		);
+		expect(result.copeland).toEqual({ mA: 1, mB: 1, mC: 1 });
+		expect(result.winnerId).toBe('mC');
+		expect(result.tiebreak?.rule).toBe('shortest_runtime');
+	});
+
+	it('stars never appear as the deciding rule, at any star distribution', () => {
+		for (const spec of [{ mA: 4, mB: 0, mC: 0 }, { mA: 0, mB: 4, mC: 0 }, { mA: 1, mB: 2, mC: 3 }]) {
+			const result = computeRunoff(
+				runoff({
+					finalistIds,
+					movies: [
+						movie('mA', { suggestedBy: 'v1', runtimeMin: 180 }),
+						movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
+						movie('mC', { suggestedBy: 'v1', runtimeMin: 95 })
+					],
+					pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+					standingVotes: stars(spec)
+				})
+			);
+			expect(result.winnerId, JSON.stringify(spec)).toBe('mC');
+			expect(result.tiebreak?.rule).toBe('shortest_runtime');
+		}
+	});
+
+	it('still counts stars in the recomputed tallies, for the reveal', () => {
+		// The runoff reports Phase 1 numbers for the reveal screen; `starVotes` is
+		// among them. Reporting is not deciding.
+		const result = computeRunoff(
+			runoff({
+				finalistIds,
+				movies: finalistIds.map((id) => movie(id, { suggestedBy: 'v1' })),
+				pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+				standingVotes: stars({ mA: 3, mB: 1, mC: 0 })
+			})
+		);
+		expect(result.tallies.map((t) => t.starVotes)).toEqual([3, 1, 0]);
+	});
+});
+
+/* ------------------------------------------------------------------ */
 /* Attendance interaction                                             */
 /* ------------------------------------------------------------------ */
 

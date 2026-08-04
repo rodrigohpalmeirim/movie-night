@@ -26,6 +26,7 @@ export type {
 	RoundId,
 	RunoffInput,
 	RunoffResult,
+	SharedTiebreakRule,
 	StandingVoteInput,
 	StandingVoteValue,
 	TallyConfig,
@@ -45,6 +46,7 @@ export {
 	indexStandingVotes,
 	meetsRatio
 } from './phase1.js';
+export type { IndexedVote } from './phase1.js';
 
 export {
 	computeCondorcet,

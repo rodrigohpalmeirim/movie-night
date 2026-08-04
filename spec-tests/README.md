@@ -50,6 +50,55 @@ all re-derived from the amended text:
 * `MIN_ATTENDEE_VOTES` is likewise left in all 40 `input.config` blocks as the
   record of what they were derived against. No runner may read it.
 
+**2026-08-04 — stars were added to Phase 1, and member removal became a soft
+`removed_at`.** Both are additions; neither retired a rule and neither changed a
+single expected value in V001–V040. Consequences, all re-derived from the amended
+text:
+
+*Stars.* A star is an **upgraded yes** (`starred` on the standing vote, valid only
+on a `yes`, unlimited per member), and it does exactly one job: it is the
+tie-breaker directly below `yes_votes` when ranking finalists. The Phase 1 key is
+now `yes_votes → star_votes → approval → rotation fairness → shortest runtime →
+seeded random`. Everything from `approval` down is unchanged, and the runoff's own
+chain (`copeland → approval → …`) does **not** gain the rung: stars are absent
+from Phase 2 entirely, and from `coverage`, `approval` and eligibility.
+
+* **No existing vector's outcome, tally, finalist set, boundary rule or winner
+  changed.** Every vector in V001–V040 has zero stars, so the new rung compares
+  `0` with `0`, separates nothing, and is skipped by the spec's own composition
+  rule ("a rule that separates nothing is skipped"). The rung is *inserted*, not
+  substituted: nothing that previously reached `approval` stops reaching it.
+* **New: V041, V042, V043.** They pin, respectively, the rung deciding a boundary
+  tie *ahead of* approval; the guarantee that stars never outrank a yes-vote; and
+  an equal star count falling through instead of deciding.
+* The `finalist_boundary_tiebreak.rule` enum gains `stars`. `decided_by` does
+  **not**: it names a rung of the *runoff* chain, which stars never join.
+* `input.standing_votes[]` gains an optional `"starred": true`. Absent means a
+  plain vote, which is why no existing vector needed touching.
+* `expected.tallies[*]` gains an optional `star_votes`. Only the new vectors carry
+  it; a runner asserts it when present.
+
+*Member removal.* `members[]` gains an optional `removed_at`. A removed member is
+kept for history but is **not part of the group's present**: not in the attendee
+set, so out of every `coverage` denominator, out of `approval` and `star_votes`,
+out of the electorate a round needs, and out of rotation fairness. Their standing
+votes, stars, RSVPs, vetoes and pair votes are all kept and all stop counting —
+including ones recorded earlier in a still-active round.
+
+* **New: V044.** A three-member electorate with three removed members who each
+  still hold an `attending = true` RSVP, votes, and stars. Two plausible wrong
+  readings (counting them in the electorate; excluding them from the denominator
+  but not from the vote rows) each produce a *different documented winner*.
+* No existing vector has a removed member, so the filter is a no-op across
+  V001–V040.
+* Removal is filtered by the **caller**, not by a new tally rule: the spec defines
+  it as an effect on the attendee set, and `decide_round` already takes that set
+  as input.
+
+*Convention for both:* the new vectors omit the retired `MIN_ATTENDEE_VOTES` key
+from `input.config`, because they were derived after its removal and there is
+nothing for them to record.
+
 ---
 
 ## 1. Input shape
@@ -71,6 +120,8 @@ all re-derived from the amended text:
       "id": "u1",
       "join_order": 1,               // 1-based order in which members joined the group
       "joined_at": "2026-01-01T00:00:00Z",
+      "removed_at": null,            // OPTIONAL (see section 0). Set = left the group: kept for
+                                     // history, but absent from every attendee set from then on.
       "fairness": {                  // the `Fairness` row for this user
         "last_win_at": null,         // when a movie THIS user suggested was last marked WATCHED.
                                      // null = has never had a winning suggestion.
@@ -89,7 +140,10 @@ all re-derived from the amended text:
   ],
 
   "standing_votes": [
-    { "user_id": "u1", "movie_id": "m1", "value": "yes" }   // or "no"
+    { "user_id": "u1", "movie_id": "m1", "value": "yes" },  // or "no"
+    { "user_id": "u2", "movie_id": "m1", "value": "yes", "starred": true }
+                                     // OPTIONAL `starred` (see section 0): an UPGRADED yes.
+                                     // Absent = a plain vote. Only valid on "yes".
   ],
 
   "vetoes":     [ { "user_id": "u4", "movie_id": "m1" } ],
@@ -107,9 +161,16 @@ all re-derived from the amended text:
   means *done, even if they vetoed nothing* (spec: "Record veto-pass skips
   explicitly"). An **explicit veto pass** is therefore an attendance row with
   `runoff_submitted_at` set and **no** `vetoes` row for that user.
+* **A removed member counts for nothing.** A member with `removed_at` set is
+  excluded from the attendee set (and therefore from `attendees`), from every
+  standing vote, star, veto and pair-vote tally, and from rotation fairness — even
+  where they hold an `attending: true` row cast before removal. Their rows are
+  deliberately left in the vector: keeping them is what makes the exclusion
+  testable. Only V044 uses this.
 * **`standing_votes` is sparse and is the crux of the whole suite.** Rows are
-  explicit `yes`/`no`. **The ABSENCE of a row means "not yet seen" — never
-  "no".** An absent row must not appear in `attendee_votes`, must not appear in
+  explicit `yes`/`no`, optionally `starred` (an upgraded yes — never valid on a
+  `no`, and counted only as a Phase 1 tie-breaker). **The ABSENCE of a row means
+  "not yet seen" — never "no".** An absent row must not appear in `attendee_votes`, must not appear in
   `yes_votes`, and must not depress `approval`. Several vectors are designed so
   that collapsing absence into "no" produces a *different* documented outcome.
 * **`pair_votes`**: `winner_id: null` is an **explicit "no preference"** and
@@ -135,7 +196,8 @@ all re-derived from the amended text:
   "ineligible_movies":   [ { "movie_id": "m2", "reason": "coverage_below_floor",
                              "coverage": 0.5, "attendee_votes": 3 } ],
   "tallies":             { "m1": { "attendee_votes": 3, "yes_votes": 2,
-                                   "coverage": 0.6, "approval": 0.6667 } },
+                                   "coverage": 0.6, "approval": 0.6667,
+                                   "star_votes": 1 } },   // OPTIONAL, new vectors only
 
   "finalist_ids":            ["m1", "m2"],       // set, sorted by id
   "finalist_ids_ranked":     ["m1", "m2"],       // yes-votes desc, then the tiebreak chain
@@ -163,6 +225,10 @@ all re-derived from the amended text:
 
 ### Field notes
 
+* **`finalist_boundary_tiebreak.rule`** enum: `stars`, `approval`,
+  `rotation_fairness`, `shortest_runtime`, `seeded_random` — the Phase 1 chain
+  below the `yes_votes` key. `stars` is deliberately *not* in `decided_by`, which
+  names a rung of the runoff chain.
 * **`reason`** enum for `ineligible_movies`:
   `status_not_pool`, `coverage_below_floor`. (`attendee_votes_below_minimum` was
   the third value and is retired — see section 0. Vectors list every failing
@@ -222,7 +288,10 @@ that movie. There is no separate floor on the raw count (section 0).
 
 **Finalists** — rank eligible movies by `yes_votes` among attendees; promote the
 top `N_FINALISTS` that also satisfy `approval >= APPROVAL_FLOOR`. Boundary ties:
-higher approval → rotation fairness → shortest runtime → seeded random.
+more `star_votes` → higher approval → rotation fairness → shortest runtime →
+seeded random. `star_votes` counts attendees whose standing vote is a *starred*
+yes; it is a tie-breaker only, and sits below `yes_votes` by construction, so it
+can never promote a movie past a better-approved one.
 If fewer than two movies clear the floor: exactly one → wins outright, skip
 Phase 2; none → `no_clear_favourite`.
 
@@ -306,7 +375,7 @@ vectors and named in the affected vector's `rationale`.
 
 ## 5. Index
 
-`vectors/NNN-slug.json`, 40 vectors. Each file's `description` names the exact
+`vectors/NNN-slug.json`, 44 vectors. Each file's `description` names the exact
 spec clause it exercises, `spec_clause` quotes it, and `rationale` shows the
 arithmetic.
 
@@ -352,13 +421,19 @@ arithmetic.
 | V038 | veto-sets-standing-vote-to-no | veto upserts the vetoer's standing vote to no (forward-looking) |
 | V039 | effort-budget-constant-in-pool-size | 12-movie pool, 5 finalists, C(5,2) = 10 pairs; rung narrowing to fairness |
 | V040 | outright-win-skips-veto-step | RUNOFF skipped, so a stray veto row cannot disqualify the outright winner |
+| V041 | boundary-tie-broken-by-stars | star rung decides a yes-vote tie *ahead of* approval (which would have picked the other film) |
+| V042 | stars-never-outrank-a-yes-vote | 2 stars and 2 yes lose to 3 yes and no stars; no tiebreak is reached at all |
+| V043 | equal-stars-fall-through-to-approval | equal star counts separate nothing -> rung skipped, approval decides |
+| V044 | removed-member-counts-for-nothing | removed members' RSVPs, votes and stars all inert; two wrong readings give two different winners |
 
 ### Coverage of the interesting discriminators
 
-Twelve vectors are built so that a plausible *wrong* implementation produces a
+Sixteen vectors are built so that a plausible *wrong* implementation produces a
 different documented outcome rather than merely a different number:
 V003/V036 (which divisor), V006 (approval divisor), V007 (absence as "no"),
 V008/V009/V024/V031 (attendee-only), V013 (`>` vs `>=`), V018 (insertion order),
 V029 (approval count vs fraction), V032 (never-won as infinitely overdue),
 V035 (crediting "no preference" to a side), V040 (evaluating vetoes on a skipped
-RUNOFF).
+RUNOFF), V041 (no star rung, or a star rung below approval), V042/V043 (stars
+above `yes_votes`, or summed into the ranking key), V044 (a removed member left in
+the electorate, or their vote rows left in the tally).

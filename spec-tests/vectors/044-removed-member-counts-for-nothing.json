@@ -1,0 +1,233 @@
+{
+  "id": "V044",
+  "description": "A removed member counts for nothing: not in the electorate, not in the tallies, stars included",
+  "spec_clause": "Cross-cutting rules / Removed members: 'They are not in the member list, and cannot be marked as attending ... They are therefore not in the attendee set, which removes them from every coverage denominator, from approval, from star_votes, from the electorate a round needs in order to be decided, and from rotation fairness. Their standing votes and stars are kept, not deleted, and simply stop being counted ... if someone is removed during an active round, any RSVP, standing vote, star, veto or pairwise pick they had already recorded stops counting from that moment.'",
+  "rationale": "u1-u3 are current members; u4-u6 were removed (removed_at stamped) but each still carries an attending = true RSVP and votes cast before removal -- the mid-round edge the rule names. The attendee set is therefore {u1, u2, u3} and attendees = 3, so COVERAGE_FLOOR 0.6 needs >= 1.8, i.e. 2 rows. m1: counting only current attendees, 2 rows (u1, u2 yes) -> coverage 2/3 = 0.6667 >= 0.60 -> eligible; yes 2, approval 2/2 = 1.00 -> clears APPROVAL_FLOOR; star_votes 0. m2: 3 rows (u1 yes, u2 no, u3 no) -> coverage 1.00 -> eligible; yes 1, approval 1/3 = 0.3333 -> FAILS APPROVAL_FLOOR; star_votes 0, because both stars on m2 belong to removed members. Exactly one movie clears the floor -> m1 wins outright and Phase 2 is skipped entirely, so u4's veto row on m1 is never tallied and no veto count is computed at all. Two plausible wrong implementations produce different documented outcomes: counting removed members in the electorate makes attendees 6, m1's coverage 2/6 = 0.33 and m2's 5/6 = 0.83, so nothing clears coverage but m2 does clear approval on 3 yes of 5 -> a different winner; excluding them from the denominator but still counting their rows gives m1 5 rows / 2 yes (approval 0.40, failing the floor) and m2 5 rows / 3 yes (approval 0.60, clearing it) -> m2 wins outright instead. Restoring u4-u6 would count every one of these kept answers again; nothing here is deleted.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 2,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "removed_at": "2026-07-30T19:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u5",
+        "join_order": 5,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "removed_at": "2026-07-30T19:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u6",
+        "join_order": 6,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "removed_at": "2026-07-30T19:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u5",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      },
+      {
+        "user_id": "u6",
+        "attending": true,
+        "runoff_submitted_at": "2026-07-30T20:00:00Z"
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u4",
+        "added_at": "2026-07-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u5",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u6",
+        "movie_id": "m1",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "yes",
+        "starred": true
+      },
+      {
+        "user_id": "u5",
+        "movie_id": "m2",
+        "value": "yes",
+        "starred": true
+      }
+    ],
+    "vetoes": [
+      {
+        "user_id": "u4",
+        "movie_id": "m1"
+      }
+    ],
+    "pair_votes": [],
+    "random_seed": "seed-044"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m1",
+      "m2"
+    ],
+    "ineligible_movies": [],
+    "tallies": {
+      "m1": {
+        "attendee_votes": 2,
+        "yes_votes": 2,
+        "coverage": 0.6667,
+        "approval": 1.0,
+        "star_votes": 0
+      },
+      "m2": {
+        "attendee_votes": 3,
+        "yes_votes": 1,
+        "coverage": 1.0,
+        "approval": 0.3333,
+        "star_votes": 0
+      }
+    },
+    "finalist_ids": [
+      "m1"
+    ],
+    "finalist_ids_ranked": [
+      "m1"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m1",
+    "permissible_winner_ids": [
+      "m1"
+    ],
+    "decided_by": "single_clear_approval_floor",
+    "standing_vote_side_effects": []
+  }
+}

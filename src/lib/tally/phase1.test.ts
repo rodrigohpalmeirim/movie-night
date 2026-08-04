@@ -101,7 +101,61 @@ describe('coverage and approval arithmetic', () => {
 			new Set(['v1'])
 		);
 		expect(index.get('m')?.size).toBe(1);
-		expect(index.get('m')?.get('v1')).toBe('no');
+		expect(index.get('m')?.get('v1')).toEqual({ value: 'no', starred: false });
+	});
+});
+
+describe('star counts (an upgraded yes, and nothing more)', () => {
+	// voting-spec, Stars: "star_votes(movie) = attendees whose standing vote on
+	// this movie is a STARRED yes", counted from attendees only, and absent from
+	// coverage, approval and eligibility alike.
+	const voters = members(5);
+
+	it('counts starred yes-votes as a subset of the yes-votes', () => {
+		const tally = computeTallies([movie('m')], voters, standing('m', 3, 2, voters, 2), config())[0];
+		expect(tally.yesVotes).toBe(3);
+		expect(tally.starVotes).toBe(2);
+		expect(tally.noVotes).toBe(2);
+	});
+
+	it('leaves coverage, approval and eligibility untouched', () => {
+		const plain = computeTallies([movie('m')], voters, standing('m', 3, 2, voters, 0), config())[0];
+		const starry = computeTallies([movie('m')], voters, standing('m', 3, 2, voters, 3), config())[0];
+		expect({ ...starry, starVotes: 0 }).toEqual({ ...plain, starVotes: 0 });
+		expect(starry.starVotes).toBe(3);
+	});
+
+	it('never counts a star on a "no" — that position is not representable', () => {
+		const tally = computeTallies(
+			[movie('m')],
+			voters,
+			[
+				{ memberId: 'v1', movieId: 'm', value: 'no', starred: true },
+				{ memberId: 'v2', movieId: 'm', value: 'yes', starred: true }
+			],
+			config()
+		)[0];
+		expect(tally.starVotes).toBe(1);
+		expect(tally.noVotes).toBe(1);
+	});
+
+	it('counts no stars when nobody stars anything', () => {
+		const tally = computeTallies([movie('m')], voters, standing('m', 4, 1, voters), config())[0];
+		expect(tally.starVotes).toBe(0);
+	});
+
+	it('drops a star from a member who changed their mind to "no"', () => {
+		const tally = computeTallies(
+			[movie('m')],
+			voters,
+			[
+				{ memberId: 'v1', movieId: 'm', value: 'yes', starred: true },
+				{ memberId: 'v1', movieId: 'm', value: 'no' } // last write wins
+			],
+			config()
+		)[0];
+		expect(tally.yesVotes).toBe(0);
+		expect(tally.starVotes).toBe(0);
 	});
 });
 
@@ -141,7 +195,12 @@ describe('eligibility: coverage floor AND status = pool', () => {
 			const tally = computeMovieTally(
 				movie('m', { status }),
 				attendeeIds.length,
-				new Map(standing('m', yes, no, attendeeIds).map((v) => [v.memberId, v.value])),
+				new Map(
+					standing('m', yes, no, attendeeIds).map((v) => [
+						v.memberId,
+						{ value: v.value, starred: v.starred === true }
+					])
+				),
 				config(cfg)
 			);
 			expect(tally.eligible).toBe(eligible);
@@ -293,7 +352,92 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		);
 	}
 
-	it('rule 1: higher approval wins the last slot', () => {
+	it('rung 1: more stars wins the last slot', () => {
+		// Identical everything — same yes-votes, same approval, same suggester, same
+		// runtime — except that one of the three yes-votes on `starred` is a star.
+		// Without the rung this would fall all the way through to seeded random.
+		const result = boundary(
+			movie('unstarred', { suggestedBy: 'v1' }),
+			movie('starred', { suggestedBy: 'v1' }),
+			[...standing('unstarred', 3, 2, voters), ...standing('starred', 3, 2, voters, 1)]
+		);
+		expect(result.finalistIds).toEqual(['starred']);
+		expect(result.boundaryTiebreak).toEqual({ rule: 'stars', contested: ['starred', 'unstarred'] });
+	});
+
+	it('rung 1: stars never promote a movie past one with more yes-votes', () => {
+		// Four unanimous stars against five plain yeses. yes_votes is the primary key
+		// and stars are only consulted *after* it, so the plainly-more-liked film wins
+		// and no tiebreak is reached at all.
+		const result = boundary(
+			movie('adored', { suggestedBy: 'v1' }),
+			movie('merelyLiked', { suggestedBy: 'v1' }),
+			[...standing('adored', 4, 1, voters, 4), ...standing('merelyLiked', 5, 0, voters)]
+		);
+		expect(result.finalistIds).toEqual(['merelyLiked']);
+		expect(result.boundaryTiebreak).toBeNull();
+	});
+
+	it('rung 1: stars are irrelevant whenever yes-counts differ at all', () => {
+		// One star, and one more yes-vote, on opposite films: the extra yes wins,
+		// every time, at every star count.
+		for (const stars of [0, 1, 2, 3]) {
+			const result = boundary(
+				movie('starry', { suggestedBy: 'v1' }),
+				movie('oneMoreYes', { suggestedBy: 'v1' }),
+				[...standing('starry', 3, 2, voters, stars), ...standing('oneMoreYes', 4, 1, voters)]
+			);
+			expect(result.finalistIds, `with ${stars} stars`).toEqual(['oneMoreYes']);
+		}
+	});
+
+	it('rung 1: a star tie falls through to the rest of the chain', () => {
+		// Same yes-votes AND the same number of stars: the star rung separates
+		// nothing, so it is skipped and approval decides — exactly the composition
+		// rule ("a rule that separates nothing is skipped").
+		const result = boundary(
+			movie('lowApproval', { suggestedBy: 'v1' }),
+			movie('highApproval', { suggestedBy: 'v1' }),
+			[...standing('lowApproval', 3, 2, voters, 2), ...standing('highApproval', 3, 0, voters, 2)]
+		);
+		expect(result.finalistIds).toEqual(['highApproval']);
+		expect(result.boundaryTiebreak?.rule).toBe('approval');
+	});
+
+	it('rung 1: a star tie can still reach seeded random, deterministically', () => {
+		// Everything tied including the stars → the chain runs out and rung 5 decides.
+		// The point of this test is that adding a rung above the random one neither
+		// breaks reproducibility nor pins the outcome to one film.
+		const build = (seed: number) =>
+			boundary(
+				movie('twinA', { suggestedBy: 'v1', runtimeMin: 100 }),
+				movie('twinB', { suggestedBy: 'v1', runtimeMin: 100 }),
+				[...standing('twinA', 3, 2, voters, 2), ...standing('twinB', 3, 2, voters, 2)],
+				undefined,
+				seed
+			);
+		expect(build(7).boundaryTiebreak?.rule).toBe('seeded_random');
+		expect(build(7).finalistIds).toEqual(build(7).finalistIds);
+		const winners = new Set(Array.from({ length: 60 }, (_, seed) => build(seed).finalistIds[0]));
+		expect(winners).toEqual(new Set(['twinA', 'twinB']));
+	});
+
+	it('rung 1: stars are counted from attendees only', () => {
+		// v9 is not attending. Their star is as inert as their vote.
+		const result = boundary(
+			movie('absenteesStar', { suggestedBy: 'v1' }),
+			movie('attendeesStar', { suggestedBy: 'v1' }),
+			[
+				...standing('absenteesStar', 3, 2, voters),
+				{ memberId: 'v9', movieId: 'absenteesStar', value: 'yes', starred: true },
+				...standing('attendeesStar', 3, 2, voters, 1)
+			]
+		);
+		expect(result.finalistIds).toEqual(['attendeesStar']);
+		expect(result.boundaryTiebreak?.rule).toBe('stars');
+	});
+
+	it('rung 2: higher approval wins the last slot', () => {
 		const result = boundary(
 			movie('lowApproval', { suggestedBy: 'v1' }),
 			movie('highApproval', { suggestedBy: 'v1' }),
@@ -306,7 +450,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		});
 	});
 
-	it('rule 2: rotation fairness — the attendee who has waited longest', () => {
+	it('rung 3: rotation fairness — the attendee who has waited longest', () => {
 		const result = boundary(
 			movie('anasPick', { suggestedBy: 'v1' }),
 			movie('bensPick', { suggestedBy: 'v2' }),
@@ -317,7 +461,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.boundaryTiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 2: a recent winner loses to someone who has never won', () => {
+	it('rung 3: a recent winner loses to someone who has never won', () => {
 		const result = boundary(
 			movie('recentWinnersPick', { suggestedBy: 'v1' }),
 			movie('neverWonsPick', { suggestedBy: 'v2' }),
@@ -329,7 +473,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.boundaryTiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 2: a brand-new member does not jump the queue', () => {
+	it('rung 3: a brand-new member does not jump the queue', () => {
 		const result = boundary(
 			movie('veteransPick', { suggestedBy: 'v1' }),
 			movie('newcomersPick', { suggestedBy: 'v2' }),
@@ -341,7 +485,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.finalistIds).toEqual(['veteransPick']);
 	});
 
-	it('rule 2 is restricted to attendees', () => {
+	it('rung 3 is restricted to attendees', () => {
 		// v9 is not attending and joined at the dawn of time; their suggestion
 		// gets no fairness credit at all.
 		const result = boundary(
@@ -354,7 +498,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.boundaryTiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 3: shortest runtime, once fairness is tied', () => {
+	it('rung 4: shortest runtime, once fairness is tied', () => {
 		const result = boundary(
 			movie('long', { suggestedBy: 'v1', runtimeMin: 180 }),
 			movie('short', { suggestedBy: 'v1', runtimeMin: 92 }),
@@ -364,7 +508,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.boundaryTiebreak?.rule).toBe('shortest_runtime');
 	});
 
-	it('rule 3: an unknown runtime ranks last rather than first', () => {
+	it('rung 4: an unknown runtime ranks last rather than first', () => {
 		const result = boundary(
 			movie('unknownRuntime', { suggestedBy: 'v1', runtimeMin: null }),
 			movie('threeHours', { suggestedBy: 'v1', runtimeMin: 200 }),
@@ -373,7 +517,7 @@ describe('finalist boundary ties (reuse of the runoff chain)', () => {
 		expect(result.finalistIds).toEqual(['threeHours']);
 	});
 
-	it('rule 4: seeded random, when everything else is identical', () => {
+	it('rung 5: seeded random, when everything else is identical', () => {
 		const build = (seed: number) =>
 			boundary(
 				movie('twinA', { suggestedBy: 'v1', runtimeMin: 100 }),

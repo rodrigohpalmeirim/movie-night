@@ -11,8 +11,11 @@
  * `attendee_votes >= 3` eligibility floor was removed from voting-spec.md
  * (coverage is now the whole vote-count test), so V004's expected outcome, and
  * the redundant `attendee_votes_below_minimum` reasons in V005/V008/V039, were
- * re-derived from the amended text. That edit is dated and explained in
- * spec-tests/README.md §0; every other vector is untouched.
+ * re-derived from the amended text. On 2026-08-04 stars and soft member removal
+ * were added to the spec, which retired no rule and changed no existing vector's
+ * expected values; four new vectors (V041-V044) pin the new text. Both edits are
+ * dated and explained in spec-tests/README.md §0; every other vector is
+ * untouched.
  *
  * Mapping notes (adapter concerns only, no semantics invented):
  *   - `random_seed` is a *string* in the vectors and the seed→choice mapping is
@@ -25,6 +28,11 @@
  *   - An "explicit veto pass" in the vector format is an attendance row with
  *     `runoff_submitted_at` set and no `vetoes` row; that is synthesised into
  *     this API's `{ movieId: null }` veto so V025's distinction is exercised.
+ *   - `members[].removed_at` is filtered out HERE, in the adapter, exactly as the
+ *     server does it (`loadAttendeeIds` / `loadStandingVotes` / `loadFairness`).
+ *     The tally module is pure and takes an attendee set; "who is still in the
+ *     group" is the caller's question, and the spec defines removal as an effect
+ *     on that set rather than as a new tally rule.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -71,6 +79,8 @@ interface Vector {
 			id: string;
 			join_order: number;
 			joined_at: string;
+			/** Set = this member left the group; absent or null = still in it. */
+			removed_at?: string | null;
 			fairness: { last_win_at: string | null; wins_count: number };
 		}>;
 		attendance: Array<{ user_id: string; attending: boolean; runoff_submitted_at: string | null }>;
@@ -83,7 +93,13 @@ interface Vector {
 			status: string;
 			watched_at: string | null;
 		}>;
-		standing_votes: Array<{ user_id: string; movie_id: string; value: 'yes' | 'no' }>;
+		standing_votes: Array<{
+			user_id: string;
+			movie_id: string;
+			value: 'yes' | 'no';
+			/** An upgraded yes. Absent = a plain yes/no. */
+			starred?: boolean;
+		}>;
 		vetoes: Array<{ user_id: string; movie_id: string | null }>;
 		pair_votes: Array<{ user_id: string; movie_a_id: string; movie_b_id: string; winner_id: string | null }>;
 		random_seed: string;
@@ -91,7 +107,17 @@ interface Vector {
 	expected: {
 		eligible_movie_ids: string[] | null;
 		ineligible_movies: Array<{ movie_id: string; reason: string; coverage: number; attendee_votes: number }>;
-		tallies: Record<string, { attendee_votes: number; yes_votes: number; coverage: number; approval: number }>;
+		tallies: Record<
+			string,
+			{
+				attendee_votes: number;
+				yes_votes: number;
+				coverage: number;
+				approval: number;
+				/** Only the post-2026-08-04 vectors carry this; asserted when present. */
+				star_votes?: number;
+			}
+		>;
 		finalist_ids: string[] | null;
 		finalist_ids_ranked: string[] | null;
 		rank_order_asserted: boolean;
@@ -224,7 +250,24 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	 *   movie (coverage 2/3, two votes) is now eligible and wins outright. See
 	 *   spec-tests/README.md §0.
 	 */
-	MIN_ATTENDEE_VOTES_REMOVED: 'removed: coverage is the whole vote-count test; V004 re-derived'
+	MIN_ATTENDEE_VOTES_REMOVED: 'removed: coverage is the whole vote-count test; V004 re-derived',
+
+	/**
+	 * Stars, and soft member removal (2026-08-04).
+	 *
+	 * Amended spec: a star is "an UPGRADED yes", unlimited, and "the
+	 * highest-priority tie-breaker after the approval count when selecting
+	 * finalists in Phase 1. Nothing else." And: "Removed members leave the present,
+	 * not the past" — a removed member is not in any attendee set, so nothing they
+	 * recorded reaches a tally computed after their removal, while history keeps
+	 * naming them.
+	 *
+	 * → ADDED, and neither rule changed an existing answer: every pre-2026-08-04
+	 *   vector has zero stars and no removed members, so the star rung separates
+	 *   nothing there and is skipped, and the attendee filter is a no-op. V041-V044
+	 *   pin the new text. See spec-tests/README.md §0.
+	 */
+	STARS_AND_MEMBER_REMOVAL: 'added: star rung below yes-votes in Phase 1 only; removal empties the attendee set'
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -254,8 +297,28 @@ function toConfig(v: Vector): TallyConfig {
 	};
 }
 
+/**
+ * Members who left the group. Their rows survive — history refers to them — but
+ * they are not part of the group's present, so nothing they ever recorded may
+ * reach a tally computed now (voting-spec: "Removed members leave the present,
+ * not the past").
+ */
+function removedIds(v: Vector): Set<MemberId> {
+	return new Set(
+		v.input.members.filter((m) => m.removed_at !== undefined && m.removed_at !== null).map((m) => m.id)
+	);
+}
+
+/**
+ * The attendee set: `attending = true` AND still in the group. A removed member's
+ * RSVP is inert even when it was cast before they were removed — the mid-round
+ * edge the removal rule names explicitly.
+ */
 function toAttendeeIds(v: Vector): MemberId[] {
-	return v.input.attendance.filter((row) => row.attending).map((row) => row.user_id);
+	const removed = removedIds(v);
+	return v.input.attendance
+		.filter((row) => row.attending && !removed.has(row.user_id))
+		.map((row) => row.user_id);
 }
 
 function toMovies(v: Vector): MovieInput[] {
@@ -268,20 +331,27 @@ function toMovies(v: Vector): MovieInput[] {
 }
 
 function toStandingVotes(v: Vector): StandingVoteInput[] {
-	return v.input.standing_votes.map((s) => ({
-		memberId: s.user_id,
-		movieId: s.movie_id,
-		value: s.value
-	}));
+	const removed = removedIds(v);
+	return v.input.standing_votes
+		.filter((s) => !removed.has(s.user_id))
+		.map((s) => ({
+			memberId: s.user_id,
+			movieId: s.movie_id,
+			value: s.value,
+			starred: s.starred === true
+		}));
 }
 
 function toFairness(v: Vector): FairnessInput[] {
-	return v.input.members.map((m) => ({
-		memberId: m.id,
-		joinedAt: Date.parse(m.joined_at),
-		lastWinAt: ms(m.fairness.last_win_at),
-		winsCount: m.fairness.wins_count
-	}));
+	const removed = removedIds(v);
+	return v.input.members
+		.filter((m) => !removed.has(m.id))
+		.map((m) => ({
+			memberId: m.id,
+			joinedAt: Date.parse(m.joined_at),
+			lastWinAt: ms(m.fairness.last_win_at),
+			winsCount: m.fairness.wins_count
+		}));
 }
 
 /**
@@ -290,21 +360,29 @@ function toFairness(v: Vector): FairnessInput[] {
  * format's way of recording "done, vetoed nothing".
  */
 function toVetoes(v: Vector): VetoInput[] {
+	const removed = removedIds(v);
 	const withRow = new Set(v.input.vetoes.map((x) => x.user_id));
-	const explicit: VetoInput[] = v.input.vetoes.map((x) => ({ memberId: x.user_id, movieId: x.movie_id }));
+	const explicit: VetoInput[] = v.input.vetoes
+		.filter((x) => !removed.has(x.user_id))
+		.map((x) => ({ memberId: x.user_id, movieId: x.movie_id }));
 	const passes: VetoInput[] = v.input.attendance
-		.filter((row) => row.attending && row.runoff_submitted_at !== null && !withRow.has(row.user_id))
+		.filter(
+			(row) => row.attending && row.runoff_submitted_at !== null && !withRow.has(row.user_id) && !removed.has(row.user_id)
+		)
 		.map((row) => ({ memberId: row.user_id, movieId: null }));
 	return [...explicit, ...passes];
 }
 
 function toPairVotes(v: Vector): PairVoteInput[] {
-	return v.input.pair_votes.map((p) => ({
-		memberId: p.user_id,
-		movieAId: p.movie_a_id,
-		movieBId: p.movie_b_id,
-		winnerId: p.winner_id
-	}));
+	const removed = removedIds(v);
+	return v.input.pair_votes
+		.filter((p) => !removed.has(p.user_id))
+		.map((p) => ({
+			memberId: p.user_id,
+			movieAId: p.movie_a_id,
+			movieBId: p.movie_b_id,
+			winnerId: p.winner_id
+		}));
 }
 
 /** The vectors' seeds are opaque strings; the mapping to a uint32 is ours. */
@@ -399,10 +477,10 @@ const sorted = (ids: readonly string[]) => [...ids].sort();
 /* ------------------------------------------------------------------ */
 
 describe('spec vectors (independently derived from voting-spec.md)', () => {
-	it('found all 40 vector files', () => {
-		expect(vectors.length).toBe(40);
+	it('found all 44 vector files', () => {
+		expect(vectors.length).toBe(44);
 		expect(vectors.map((v) => v.id)).toEqual(
-			Array.from({ length: 40 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
+			Array.from({ length: 44 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
 		);
 	});
 
@@ -452,6 +530,9 @@ describe('spec vectors (independently derived from voting-spec.md)', () => {
 				expect(tally!.yesVotes, `${movieId}.yes_votes`).toBe(want2.yes_votes);
 				expect(tally!.coverage, `${movieId}.coverage`).toBeCloseTo(want2.coverage, 4);
 				expect(tally!.approval, `${movieId}.approval`).toBeCloseTo(want2.approval, 4);
+				if (want2.star_votes !== undefined) {
+					expect(tally!.starVotes, `${movieId}.star_votes`).toBe(want2.star_votes);
+				}
 			}
 
 			/* --- load-bearing: finalists ------------------------------- */
@@ -623,7 +704,8 @@ describe('spec vectors (independently derived from voting-spec.md)', () => {
 		expect(Object.keys(SETTLED_BY_SPEC_AMENDMENT)).toEqual([
 			'ROTATION_FAIRNESS_NARROWING',
 			'VETO_FLIP_FEEDBACK',
-			'MIN_ATTENDEE_VOTES_REMOVED'
+			'MIN_ATTENDEE_VOTES_REMOVED',
+			'STARS_AND_MEMBER_REMOVAL'
 		]);
 	});
 });

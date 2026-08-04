@@ -57,6 +57,13 @@ export interface StandingVoteInput {
 	memberId: MemberId;
 	movieId: MovieId;
 	value: StandingVoteValue;
+	/**
+	 * An UPGRADED yes (voting-spec, Phase 1 → Stars). Omitted or `false` is a
+	 * plain yes; `true` alongside `value: 'no'` is not a representable position and
+	 * is read as an unstarred "no" rather than trusted — the database rejects such
+	 * a row outright, so it can only arrive from a hand-built caller.
+	 */
+	starred?: boolean;
 }
 
 /**
@@ -104,14 +111,24 @@ export interface PairVoteInput {
  * The shared tail of the tiebreak chain, reused at the finalist boundary and
  * inside the runoff cycle resolution (voting-spec: "Reuse the runoff's chain").
  */
-export type BoundaryTiebreakRule =
+export type SharedTiebreakRule =
 	| 'approval'
 	| 'rotation_fairness'
 	| 'shortest_runtime'
 	| 'seeded_random';
 
-/** The runoff's full chain: Copeland first, then the shared tail. */
-export type CycleTiebreakRule = 'copeland' | BoundaryTiebreakRule;
+/**
+ * Phase 1's chain: the shared tail, preceded by stars.
+ *
+ * voting-spec, Stars: "A star is the highest-priority tie-breaker after the
+ * approval count when selecting finalists in Phase 1. Nothing else." `stars` is
+ * therefore in this union and deliberately NOT in `CycleTiebreakRule` — the type
+ * is what stops a star from ever deciding a runoff.
+ */
+export type BoundaryTiebreakRule = 'stars' | SharedTiebreakRule;
+
+/** The runoff's full chain: Copeland first, then the shared tail. No stars. */
+export type CycleTiebreakRule = 'copeland' | SharedTiebreakRule;
 
 export interface TiebreakOutcome<R extends string> {
 	/** Which rule separated the top two contenders. */
@@ -134,6 +151,13 @@ export interface MovieTally {
 	yesVotes: number;
 	/** Attendee standing votes with value `no`. */
 	noVotes: number;
+	/**
+	 * Attendee standing votes that are a STARRED yes — a subset of `yesVotes`.
+	 *
+	 * Tiebreak only: it never enters `coverage`, `approval`, eligibility or the
+	 * approval floor, and it is not consulted anywhere in Phase 2.
+	 */
+	starVotes: number;
 	/** attendeeVotes / attendees (0 when there are no attendees). */
 	coverage: number;
 	/** yesVotes / attendeeVotes — divides by voters who saw the card (0 when none did). */
