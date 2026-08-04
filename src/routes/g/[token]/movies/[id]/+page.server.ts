@@ -3,7 +3,7 @@
 import { error, fail as formFail, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { members, movies, standingVotes } from '$lib/server/db/index.js';
-import { formValue, requireActor } from '$lib/server/http.js';
+import { formBoolean, formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
 import { backfillDetails } from '$lib/server/services/details.js';
 import { removeMovie, setStandingVote } from '$lib/server/services/movies.js';
@@ -24,14 +24,11 @@ export const load: PageServerLoad = async (event) => {
 		.get();
 	if (!row) error(404, 'No such film in this group');
 
-	const myVote =
-		actor.db
-			.select({ value: standingVotes.value })
-			.from(standingVotes)
-			.where(
-				and(eq(standingVotes.movieId, row.movie.id), eq(standingVotes.memberId, actor.member.id))
-			)
-			.get()?.value ?? null;
+	const mine = actor.db
+		.select({ value: standingVotes.value, starred: standingVotes.starred })
+		.from(standingVotes)
+		.where(and(eq(standingVotes.movieId, row.movie.id), eq(standingVotes.memberId, actor.member.id)))
+		.get();
 
 	// This screen is the one that prints all of it, so it is the read most worth
 	// backfilling: one film, one call, cached for everyone after.
@@ -56,13 +53,18 @@ export const load: PageServerLoad = async (event) => {
 			suggestedBy: row.suggesterName,
 			details: filled.get(row.movie.id) ?? row.movie.details ?? null
 		},
-		/** Only ever the viewer's own vote. */
-		myVote
+		/** Only ever the viewer's own vote — and their own star on it. */
+		myVote: mine?.value ?? null,
+		myStarred: mine?.starred === true
 	};
 };
 
 export const actions: Actions = {
-	/** Standing votes are "editable at any time"; no phase gate. */
+	/**
+	 * Standing votes are "editable at any time"; no phase gate. The same action
+	 * carries the star: `starred` absent = a plain vote that preserves the existing
+	 * star, `true`/`false` = star / unstar (see `setStandingVote`).
+	 */
 	vote: async (event) => {
 		const actor = requireActor(event);
 		const data = await event.request.formData();
@@ -72,9 +74,12 @@ export const actions: Actions = {
 			memberId: actor.member.id,
 			movieId: event.params.id,
 			value: formValue(data, 'value'),
+			starred: formBoolean(data, 'starred'),
 			now: actor.now
 		});
-		return result.ok ? { myVote: result.value.value } : reject(result);
+		return result.ok
+			? { myVote: result.value.value, myStarred: result.value.starred }
+			: reject(result);
 	},
 
 	/** Any member, one confirm tap. Standing votes survive for a later restore. */

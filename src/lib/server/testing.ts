@@ -244,6 +244,10 @@ export const AGGREGATE_KEYS = [
 	'coverage',
 	'yesVotes',
 	'noVotes',
+	// A star count is an aggregate like any other. The viewer's own star travels as
+	// `myStarred` (inside `me`, or beside `myVote` on the pool screen), which is
+	// their own answer and never gated.
+	'starVotes',
 	'attendeeVotes',
 	'tallies',
 	'matrix',

@@ -73,13 +73,17 @@ export function loadTallyMovies(db: Db, groupId: string): MovieInput[] {
 		.all();
 }
 
-/** Live standing votes for the whole group, scoped through the movie's group. */
+/**
+ * Live standing votes — stars included — for the whole group, scoped through the
+ * movie's group.
+ */
 export function loadStandingVotes(db: Db, groupId: string): StandingVoteInput[] {
 	return db
 		.select({
 			memberId: standingVotes.memberId,
 			movieId: standingVotes.movieId,
-			value: standingVotes.value
+			value: standingVotes.value,
+			starred: standingVotes.starred
 		})
 		.from(standingVotes)
 		.innerJoin(movies, eq(movies.id, standingVotes.movieId))
@@ -146,12 +150,18 @@ export function loadAttendance(db: Db, roundId: string): Attendance[] {
 	return db.select().from(attendance).where(eq(attendance.roundId, roundId)).all();
 }
 
-/** The frozen snapshot, in the tally module's input shape. */
+/**
+ * The frozen snapshot, in the tally module's input shape.
+ *
+ * A snapshot written before stars existed has no `starred` key; `?? false` reads
+ * that as "no star was cast", which is the truth rather than a default.
+ */
 export function snapshotToStandingVotes(snapshot: SnapshotVote[] | null): StandingVoteInput[] {
 	return (snapshot ?? []).map((row) => ({
 		memberId: row.member_id,
 		movieId: row.movie_id,
-		value: row.value
+		value: row.value,
+		starred: row.starred ?? false
 	}));
 }
 
@@ -340,7 +350,12 @@ export function planAdvance(input: {
 		const finalistSet = new Set(phase1.finalistIds);
 		const snapshot: SnapshotVote[] = liveVotes
 			.filter((vote) => finalistSet.has(vote.movieId))
-			.map((vote) => ({ member_id: vote.memberId, movie_id: vote.movieId, value: vote.value }));
+			.map((vote) => ({
+				member_id: vote.memberId,
+				movie_id: vote.movieId,
+				value: vote.value,
+				starred: vote.starred === true
+			}));
 
 		if (phase1.outcome === 'runoff') {
 			return ok({
@@ -717,12 +732,18 @@ export function castVeto(input: {
 				roundId: input.roundId,
 				memberId: input.memberId,
 				movieId,
-				previousStandingValue: flip.previousStandingValue,
+				previousStandingValue: flip.value,
+				previousStarred: flip.starred,
 				createdAt: now
 			})
 			.onConflictDoUpdate({
 				target: [vetoes.roundId, vetoes.memberId],
-				set: { movieId, previousStandingValue: flip.previousStandingValue, createdAt: now }
+				set: {
+					movieId,
+					previousStandingValue: flip.value,
+					previousStarred: flip.starred,
+					createdAt: now
+				}
 			})
 			.run();
 
@@ -734,6 +755,12 @@ export function castVeto(input: {
 
 /** What a veto row remembers about the standing vote it overwrote. */
 export type PreviousStandingValue = 'yes' | 'no' | 'absent';
+
+/** ...and whether that vote was a STARRED yes. */
+export interface PreviousStanding {
+	value: PreviousStandingValue | null;
+	starred: boolean | null;
+}
 
 /**
  * The whole of the veto's effect on the permanent layer, for ONE member.
@@ -750,7 +777,9 @@ export type PreviousStandingValue = 'yes' | 'no' | 'absent';
  *  2. **Moving or retracting a veto restores the old target exactly**, including
  *     back to *no row at all* — "not yet seen" is a distinct third state, and
  *     leaving a "no" behind would both destroy a real answer and inflate the
- *     coverage denominator for every future round.
+ *     coverage denominator for every future round. A star is part of "exactly":
+ *     the flip writes "no", a "no" cannot carry a star (the database refuses), so
+ *     the star is destroyed and has to be remembered to be put back.
  *  3. **A later explicit edit by that member wins.** If the standing row was
  *     touched after the flip (`updated_at > veto.created_at`), the member has
  *     since answered for themselves and the restore is skipped.
@@ -761,7 +790,7 @@ export function applyOwnVetoFlip(input: {
 	previous: Veto | undefined;
 	nextMovieId: string | null;
 	now: Date;
-}): { previousStandingValue: PreviousStandingValue | null } {
+}): PreviousStanding {
 	const { db, memberId, previous, nextMovieId, now } = input;
 
 	// Same target as before. Nothing to restore, but the flip must be re-asserted:
@@ -771,7 +800,7 @@ export function applyOwnVetoFlip(input: {
 	if (previous && previous.movieId === nextMovieId) {
 		// Both null: the member re-submitted an explicit pass. Nothing was ever
 		// flipped, so there is nothing to re-assert.
-		if (nextMovieId === null) return { previousStandingValue: null };
+		if (nextMovieId === null) return { value: null, starred: null };
 		const current = db
 			.select()
 			.from(standingVotes)
@@ -782,11 +811,14 @@ export function applyOwnVetoFlip(input: {
 		// Only an edit made since the flip may replace the remembered value; reading
 		// it unconditionally would remember the "no" this very flip wrote and destroy
 		// the real pre-veto answer.
-		const remembered: PreviousStandingValue | null = editedSinceFlip
-			? (current?.value ?? 'absent')
-			: (previous.previousStandingValue ?? null);
-		upsertStandingVote(db, { memberId, movieId: nextMovieId, value: 'no', now });
-		return { previousStandingValue: remembered ?? 'absent' };
+		const remembered: PreviousStanding = editedSinceFlip
+			? { value: current?.value ?? 'absent', starred: current?.starred ?? false }
+			: {
+					value: previous.previousStandingValue ?? null,
+					starred: previous.previousStarred ?? null
+				};
+		upsertStandingVote(db, { memberId, movieId: nextMovieId, value: 'no', starred: false, now });
+		return { value: remembered.value ?? 'absent', starred: remembered.starred ?? false };
 	}
 
 	// Undo the old flip first.
@@ -796,11 +828,12 @@ export function applyOwnVetoFlip(input: {
 			memberId,
 			movieId: previous.movieId,
 			to: previous.previousStandingValue,
+			starred: previous.previousStarred ?? false,
 			flippedAt: previous.createdAt
 		});
 	}
 
-	if (nextMovieId === null) return { previousStandingValue: null };
+	if (nextMovieId === null) return { value: null, starred: null };
 
 	// Remember what we are about to overwrite, then overwrite it.
 	const current = db
@@ -808,9 +841,10 @@ export function applyOwnVetoFlip(input: {
 		.from(standingVotes)
 		.where(and(eq(standingVotes.memberId, memberId), eq(standingVotes.movieId, nextMovieId)))
 		.get();
-	const remembered: PreviousStandingValue = current ? current.value : 'absent';
-	upsertStandingVote(db, { memberId, movieId: nextMovieId, value: 'no', now });
-	return { previousStandingValue: remembered };
+	upsertStandingVote(db, { memberId, movieId: nextMovieId, value: 'no', starred: false, now });
+	return current
+		? { value: current.value, starred: current.starred }
+		: { value: 'absent', starred: false };
 }
 
 /**
@@ -822,6 +856,8 @@ function restoreStandingVote(input: {
 	memberId: string;
 	movieId: string;
 	to: PreviousStandingValue;
+	/** Whether the restored `yes` was a starred one. Meaningless for `no`/`absent`. */
+	starred: boolean;
 	flippedAt: Date;
 }): void {
 	const { db, memberId, movieId } = input;
@@ -841,7 +877,14 @@ function restoreStandingVote(input: {
 			.run();
 		return;
 	}
-	upsertStandingVote(db, { memberId, movieId, value: input.to, now: input.flippedAt });
+	upsertStandingVote(db, {
+		memberId,
+		movieId,
+		value: input.to,
+		// Only a restored "yes" can carry the star back; a "no" never could.
+		starred: input.to === 'yes' && input.starred,
+		now: input.flippedAt
+	});
 }
 
 /* ------------------------------------------------------------------ */

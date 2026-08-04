@@ -13,7 +13,7 @@ import { setStandingVote } from '$lib/server/services/movies.js';
 import { buildPoolView } from '$lib/server/services/views.js';
 import { getTmdb } from '$lib/server/tmdb.js';
 import { fail as formFail } from '@sveltejs/kit';
-import { formValue } from '$lib/server/http.js';
+import { formBoolean, formValue } from '$lib/server/http.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function reject(failure: Failure) {
@@ -80,7 +80,12 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	/** One swipe. Idempotent upsert, so re-answering just overwrites. */
+	/**
+	 * One swipe, or one star. Idempotent upsert, so re-answering just overwrites.
+	 *
+	 * `starred` is absent for a plain swipe, which is what lets a right-swipe on an
+	 * already-starred film keep the star — see `setStandingVote`.
+	 */
 	vote: async (event) => {
 		const actor = requireActor(event);
 		const data = await event.request.formData();
@@ -92,8 +97,11 @@ export const actions: Actions = {
 			memberId: actor.member.id,
 			movieId,
 			value: formValue(data, 'value'),
+			starred: formBoolean(data, 'starred'),
 			now: actor.now
 		});
-		return result.ok ? { movieId, value: result.value.value } : reject(result);
+		return result.ok
+			? { movieId, value: result.value.value, starred: result.value.starred }
+			: reject(result);
 	}
 };

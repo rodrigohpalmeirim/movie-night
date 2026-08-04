@@ -164,6 +164,8 @@ export interface RevealView {
 		attendeeVotes: number;
 		yesVotes: number;
 		noVotes: number;
+		/** Starred yes-votes among attendees — the Phase 1 tie-breaker, now public. */
+		starVotes: number;
 		coverage: number;
 		approval: number;
 	}>;
@@ -439,6 +441,9 @@ export function buildRevealView(input: {
 				attendeeVotes: tally.attendeeVotes,
 				yesVotes: tally.yesVotes,
 				noVotes: tally.noVotes,
+				// An aggregate like any other, so it lives here and nowhere else — the
+				// reveal is the first moment anyone may learn how many stars a film got.
+				starVotes: tally.starVotes,
 				coverage: tally.coverage,
 				approval: tally.approval
 			})),
@@ -465,6 +470,13 @@ export function buildRevealView(input: {
 export interface PoolMovieView extends MovieCard {
 	/** The viewer's OWN standing vote. `null` = not yet seen — a third state. */
 	myVote: StandingVoteValue | null;
+	/**
+	 * Whether the viewer's own yes is a STARRED yes. Their own answer, not an
+	 * aggregate, so it is visible at every phase — the same reasoning as `myVote`
+	 * ("A voter always sees their own standing votes"). Always false when `myVote`
+	 * is not `yes`.
+	 */
+	myStarred: boolean;
 }
 
 export interface PoolView {
@@ -482,7 +494,7 @@ export function buildPoolView(input: { db: Db; group: Group; me: Member }): Pool
 	const { db, group, me } = input;
 	const byId = memberIndex(db, group.id);
 	const rows = db
-		.select({ movie: movies, myVote: standingVotes.value })
+		.select({ movie: movies, myVote: standingVotes.value, myStarred: standingVotes.starred })
 		.from(movies)
 		.leftJoin(
 			standingVotes,
@@ -492,7 +504,11 @@ export function buildPoolView(input: { db: Db; group: Group; me: Member }): Pool
 		.orderBy(desc(movies.addedAt))
 		.all();
 
-	const list = rows.map((row) => ({ ...movieCard(row.movie, byId), myVote: row.myVote ?? null }));
+	const list = rows.map((row) => ({
+		...movieCard(row.movie, byId),
+		myVote: row.myVote ?? null,
+		myStarred: row.myStarred === true
+	}));
 	return {
 		movies: list,
 		unswipedCount: list.filter((movie) => movie.status === 'pool' && movie.myVote === null).length

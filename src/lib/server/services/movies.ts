@@ -157,22 +157,51 @@ export async function suggestMovie(input: {
 }
 
 /**
- * Standing-vote upsert. Idempotent on the unique (member_id, movie_id) key:
- * "a voter changing their mind updates in place. Re-submitting must not
- * double-count."
+ * Standing-vote upsert, stars included. Idempotent on the unique
+ * (member_id, movie_id) key: "a voter changing their mind updates in place.
+ * Re-submitting must not double-count."
+ *
+ * One action surface for both, because a star is not a second vote: voting-spec,
+ * "Starring is part of that same upsert, not a separate row: `starred` travels
+ * with the value it upgrades, which is what makes 'a star implies a yes'
+ * unbreakable rather than merely enforced." Both fields are optional and the
+ * resolution is fixed:
+ *
+ *  - `{ value }` alone — the plain swipe. A `yes` **keeps** any existing star
+ *    (the pool screen posts no star flag, and re-affirming a yes must not quietly
+ *    demote a starred film); a `no` **drops** it, because a star cannot outlive
+ *    the yes it upgrades.
+ *  - `{ starred: true }` — starring, and therefore a `yes`. Consistent with the
+ *    existing upsert, which never required a row to already exist: starring a film
+ *    answered `no`, or never answered at all, upserts it to a starred yes rather
+ *    than failing. `{ value: 'no', starred: true }` is the one contradiction, and
+ *    it is rejected rather than silently reinterpreted.
+ *  - `{ starred: false }` — unstarring, which "falls back to plain yes": the
+ *    stored value is kept as it is. With no stored row there is nothing to unstar,
+ *    which is `invalid_input` rather than an invented `yes`.
  */
 export function setStandingVote(input: {
 	db: Db;
 	groupId: string;
 	memberId: string;
 	movieId: string;
-	value: unknown;
+	value?: unknown;
+	starred?: unknown;
 	now?: Date;
 }): Result<StandingVote> {
-	if (input.value !== 'yes' && input.value !== 'no') {
+	const { value, starred } = input;
+	if (value !== undefined && value !== 'yes' && value !== 'no') {
 		return fail('invalid_input', 'Vote must be "yes" or "no"');
 	}
-	const value = input.value as StandingVoteValue;
+	if (starred !== undefined && typeof starred !== 'boolean') {
+		return fail('invalid_input', 'starred must be true or false');
+	}
+	if (value === undefined && starred === undefined) {
+		return fail('invalid_input', 'Send a vote, a star, or both');
+	}
+	if (starred === true && value === 'no') {
+		return fail('invalid_input', 'A star is an upgraded yes — it cannot sit on a "no"');
+	}
 	const now = input.now ?? new Date();
 
 	const movie = input.db
@@ -182,20 +211,45 @@ export function setStandingVote(input: {
 		.get();
 	if (!movie) return fail('unknown_movie', 'That movie is not in this group');
 
+	const existing = input.db
+		.select()
+		.from(standingVotes)
+		.where(and(eq(standingVotes.memberId, input.memberId), eq(standingVotes.movieId, input.movieId)))
+		.get();
+
+	let nextValue: StandingVoteValue;
+	if (starred === true) nextValue = 'yes';
+	else if (value !== undefined) nextValue = value;
+	else if (existing) nextValue = existing.value;
+	else return fail('invalid_input', 'There is no vote here to unstar yet');
+
+	// A "no" never carries a star, whatever was asked for; an omitted flag on a
+	// "yes" preserves what is already there.
+	const nextStarred =
+		nextValue === 'no' ? false : starred !== undefined ? starred : (existing?.starred ?? false);
+
 	const row = upsertStandingVote(input.db, {
 		memberId: input.memberId,
 		movieId: input.movieId,
-		value,
+		value: nextValue,
+		starred: nextStarred,
 		now
 	});
 	notifyGroup(input.groupId);
 	return ok(row);
 }
 
-/** Shared by the pool screen and by the veto's forward-looking flip. */
+/**
+ * Shared by the pool screen and by the veto's forward-looking flip.
+ *
+ * `starred` is deliberately required rather than defaulted: every caller has to
+ * say what happens to the star, because the one thing that must never happen is a
+ * star being kept or dropped by accident. (The database would reject a starred
+ * "no" outright, so a mistake here is a 500, not a corrupt row.)
+ */
 export function upsertStandingVote(
 	db: Db,
-	input: { memberId: string; movieId: string; value: StandingVoteValue; now: Date }
+	input: { memberId: string; movieId: string; value: StandingVoteValue; starred: boolean; now: Date }
 ): StandingVote {
 	return db
 		.insert(standingVotes)
@@ -203,11 +257,12 @@ export function upsertStandingVote(
 			memberId: input.memberId,
 			movieId: input.movieId,
 			value: input.value,
+			starred: input.starred,
 			updatedAt: input.now
 		})
 		.onConflictDoUpdate({
 			target: [standingVotes.memberId, standingVotes.movieId],
-			set: { value: input.value, updatedAt: input.now }
+			set: { value: input.value, starred: input.starred, updatedAt: input.now }
 		})
 		.returning()
 		.get();
