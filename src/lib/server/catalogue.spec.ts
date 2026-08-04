@@ -429,12 +429,13 @@ describe('removing movies', () => {
 });
 
 describe('settings', () => {
-	test('accepts all five knobs inside their ranges', () => {
+	test('accepts all six knobs inside their ranges', () => {
 		const patch = unwrap(
 			validateConfigPatch({
 				n_finalists: 4,
 				approval_floor: 0.6,
 				coverage_floor: 0.5,
+				vetoes_enabled: false,
 				veto_threshold: 2,
 				rewatch_cooldown: 90
 			})
@@ -443,9 +444,46 @@ describe('settings', () => {
 			n_finalists: 4,
 			approval_floor: 0.6,
 			coverage_floor: 0.5,
+			vetoes_enabled: false,
 			veto_threshold: 2,
 			rewatch_cooldown: 90
 		});
+	});
+
+	/**
+	 * The one boolean knob. A form posts it as a string, so both spellings are
+	 * accepted — but nothing else is: a truthiness test would read `"off"` as ON,
+	 * which is the quietest possible way to leave vetoes running.
+	 */
+	test('vetoes_enabled takes true/false in either form, and nothing else', () => {
+		expect(unwrap(validateConfigPatch({ vetoes_enabled: 'false' }))).toEqual({
+			vetoes_enabled: false
+		});
+		expect(unwrap(validateConfigPatch({ vetoes_enabled: 'true' }))).toEqual({
+			vetoes_enabled: true
+		});
+		expect(unwrap(validateConfigPatch({ vetoes_enabled: true }))).toEqual({ vetoes_enabled: true });
+		for (const raw of ['off', 'on', '0', '1', 0, 1, '', null]) {
+			expect(code(validateConfigPatch({ vetoes_enabled: raw }))).toBe('invalid_input');
+		}
+	});
+
+	test('vetoes_enabled defaults to on, so an older group keeps its veto', () => {
+		world = createTestWorld({ memberNames: ['Ana'] });
+		expect(withConfigDefaults(world.group.config).vetoes_enabled).toBe(true);
+
+		// A blob written before the knob existed: the key is simply absent.
+		const { vetoes_enabled: _omitted, ...older } = DEFAULT_GROUP_CONFIG;
+		world.db
+			.update(groups)
+			.set({ config: older as GroupConfig })
+			.where(eq(groups.id, world.group.id))
+			.run();
+		expect(withConfigDefaults(world.reloadGroup().config).vetoes_enabled).toBe(true);
+
+		// ...and a stored `false` survives the same projection.
+		unwrap(updateSettings(world.db, { groupId: world.group.id, config: { vetoes_enabled: false } }));
+		expect(withConfigDefaults(world.reloadGroup().config).vetoes_enabled).toBe(false);
 	});
 
 	// The eligibility floor it set is gone, so it is an unknown setting like any
@@ -501,7 +539,8 @@ describe('settings', () => {
 			'coverage_floor',
 			'n_finalists',
 			'rewatch_cooldown',
-			'veto_threshold'
+			'veto_threshold',
+			'vetoes_enabled'
 		]);
 	});
 
@@ -674,7 +713,8 @@ describe('regression: config validation ignores the prototype chain', () => {
 			'coverage_floor',
 			'n_finalists',
 			'rewatch_cooldown',
-			'veto_threshold'
+			'veto_threshold',
+			'vetoes_enabled'
 		]);
 	});
 });

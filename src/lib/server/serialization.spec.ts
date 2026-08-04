@@ -685,7 +685,8 @@ describe('settings view', () => {
 			'coverage_floor',
 			'n_finalists',
 			'rewatch_cooldown',
-			'veto_threshold'
+			'veto_threshold',
+			'vetoes_enabled'
 		]);
 		expect(settings.members.map((m) => m.displayName)).toEqual(MEMBERS);
 	});

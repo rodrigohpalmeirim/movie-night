@@ -327,8 +327,22 @@ interface KnobSpec {
 	nullable?: boolean;
 }
 
+/** The one knob that is a switch rather than a quantity — see `KNOB_RANGES`. */
+export const TOGGLE_KNOBS = ['vetoes_enabled'] as const;
+type ToggleKnob = (typeof TOGGLE_KNOBS)[number];
+type NumericKnob = Exclude<keyof GroupConfig, ToggleKnob>;
+
+function isToggleKnob(key: string): key is ToggleKnob {
+	return (TOGGLE_KNOBS as readonly string[]).includes(key);
+}
+
 /**
- * Validated ranges for the five knobs.
+ * Validated ranges for the five NUMERIC knobs. The sixth, `vetoes_enabled`, has no
+ * range to validate — it is a boolean, so it lives in `TOGGLE_KNOBS` above and the
+ * two lists together are the complete set. Keeping them apart is what lets the
+ * settings screen draw a slider for everything in here and a latched On/Off pair for
+ * everything in there, without either list carrying a "kind" it would have to
+ * narrow on.
  *
  * `n_finalists` is capped at 5 because the spec makes it load-bearing: "Keep
  * `N_FINALISTS` at or below 5 so this stays true" — i.e. so a full round robin
@@ -339,7 +353,7 @@ interface KnobSpec {
  * gone. A client that still posts it gets `invalid_input` ("Unknown setting")
  * rather than a silently ignored field.
  */
-export const KNOB_RANGES: Record<keyof GroupConfig, KnobSpec> = {
+export const KNOB_RANGES: Record<NumericKnob, KnobSpec> = {
 	n_finalists: { min: 2, max: 5, integer: true },
 	approval_floor: { min: 0, max: 1, integer: false },
 	coverage_floor: { min: 0, max: 1, integer: false },
@@ -347,13 +361,29 @@ export const KNOB_RANGES: Record<keyof GroupConfig, KnobSpec> = {
 	rewatch_cooldown: { min: 0, max: 3650, integer: true, nullable: true }
 };
 
+/** Every knob a settings form may post, numbers and switches alike. */
+export const CONFIG_KNOBS: readonly (keyof GroupConfig)[] = [
+	...(Object.keys(KNOB_RANGES) as NumericKnob[]),
+	...TOGGLE_KNOBS
+];
+
 export function validateConfigPatch(patch: Record<string, unknown>): Result<Partial<GroupConfig>> {
 	const out: Partial<GroupConfig> = {};
 	for (const [key, raw] of Object.entries(patch)) {
+		// A switch, not a quantity: no range, and the only accepted values are the two
+		// a form can post for it. Anything else is a typo, not a falsy value to be
+		// helpfully coerced — `"off"` silently reading as `true` is exactly the kind of
+		// quiet wrong answer this validator exists to refuse.
+		if (isToggleKnob(key)) {
+			if (raw === true || raw === 'true') out[key] = true;
+			else if (raw === false || raw === 'false') out[key] = false;
+			else return fail('invalid_input', `"${key}" must be true or false`);
+			continue;
+		}
 		// `Object.hasOwn`, not `key in`: `in` walks the prototype chain, so a body of
 		// `{"toString": 7}` used to validate and be written into the config blob.
 		if (!Object.hasOwn(KNOB_RANGES, key)) return fail('invalid_input', `Unknown setting "${key}"`);
-		const spec = KNOB_RANGES[key as keyof GroupConfig];
+		const spec = KNOB_RANGES[key as NumericKnob];
 
 		if (raw === null || raw === '' || raw === undefined) {
 			if (!spec.nullable) return fail('invalid_input', `"${key}" cannot be empty`);

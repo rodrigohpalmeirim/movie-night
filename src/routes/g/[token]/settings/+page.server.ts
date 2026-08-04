@@ -9,6 +9,7 @@ import { MEMBER_COOKIE_OPTIONS, memberCookieName } from '$lib/server/context.js'
 import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
 import {
+	CONFIG_KNOBS,
 	KNOB_RANGES,
 	regenerateInviteToken,
 	removeMember,
@@ -32,12 +33,15 @@ export const load: PageServerLoad = (event) => {
 };
 
 export const actions: Actions = {
-	/** Group name and/or any of the five knobs. */
+	/** Group name and/or any of the six knobs. */
 	save: async (event) => {
 		const actor = requireActor(event);
 		const data = await event.request.formData();
 		const config: Record<string, unknown> = {};
-		for (const knob of Object.keys(KNOB_RANGES)) {
+		// A field the form did not post is a knob left alone (`updateSettings` merges
+		// onto the stored blob), which is what lets the veto switch submit this form
+		// on its own without the numbers having to travel with it.
+		for (const knob of CONFIG_KNOBS) {
 			const raw = data.get(knob);
 			if (raw !== null) config[knob] = raw;
 		}

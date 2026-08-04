@@ -106,16 +106,16 @@ const groupId = newId();
 db.insert(groups).values({ id: groupId, name: 'Movie Night', inviteToken: newInviteToken() }).run();
 
 // A config-less ORM insert gets DEFAULT_GROUP_CONFIG injected client-side by
-// drizzle's .default(), so the six-knob literal frozen in 0000_init.sql only
-// ever reaches rows written by raw SQL. Rows from before the removal of the
-// `min_attendee_votes` eligibility floor still carry that key, and no
-// migration rewrites them: reads project the blob onto the current knobs, so
-// a leftover key is ignored rather than honoured, and the next settings save
-// drops it.
-ok('group config defaults to all five knobs, ignoring retired keys', () => {
+// drizzle's .default(), so the literal frozen in 0000_init.sql only ever reaches
+// rows written by raw SQL. That literal is a museum piece in both directions: it
+// still carries the retired `min_attendee_votes` key and it predates
+// `vetoes_enabled`. No migration rewrites it, because reads project the blob onto
+// the current knobs — the leftover is ignored rather than honoured, the missing one
+// is filled in with its default, and the next settings save writes exactly six.
+ok('group config defaults to all six knobs, ignoring retired keys', () => {
 	const row = db.select().from(groups).where(eq(groups.id, groupId)).get();
 	assert.deepEqual(withConfigDefaults(row?.config), DEFAULT_GROUP_CONFIG);
-	assert.equal(Object.keys(withConfigDefaults(row?.config)).length, 5);
+	assert.equal(Object.keys(withConfigDefaults(row?.config)).length, 6);
 
 	const legacyId = newId();
 	db.run(
@@ -123,8 +123,27 @@ ok('group config defaults to all five knobs, ignoring retired keys', () => {
 	);
 	const legacy = db.select().from(groups).where(eq(groups.id, legacyId)).get();
 	assert.equal((legacy!.config as unknown as Record<string, unknown>).min_attendee_votes, 3);
+	assert.equal('vetoes_enabled' in (legacy!.config as object), false);
 	assert.deepEqual(withConfigDefaults(legacy?.config), DEFAULT_GROUP_CONFIG);
 	assert.equal('min_attendee_votes' in withConfigDefaults(legacy?.config), false);
+	// The whole point of an additive knob: a group that predates it keeps its veto.
+	assert.equal(withConfigDefaults(legacy?.config).vetoes_enabled, true);
+});
+
+// A stored `false` is an answer, not an absent key, so it has to survive the
+// projection that fills defaults in — `??`, never `||`.
+ok('group config: vetoes switched off survives a read', () => {
+	const offId = newId();
+	db.insert(groups)
+		.values({
+			id: offId,
+			name: 'No vetoes here',
+			inviteToken: newInviteToken(),
+			config: { ...DEFAULT_GROUP_CONFIG, vetoes_enabled: false }
+		})
+		.run();
+	const stored = db.select().from(groups).where(eq(groups.id, offId)).get();
+	assert.equal(withConfigDefaults(stored?.config).vetoes_enabled, false);
 });
 
 const ana = newId();

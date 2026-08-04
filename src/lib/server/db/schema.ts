@@ -50,14 +50,16 @@ export const groups = sqliteTable(
 		inviteToken: text('invite_token').notNull(),
 		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
 		/**
-		 * The five voting knobs, as one JSON blob.
+		 * The six voting knobs, as one JSON blob.
 		 *
 		 * `createGroup` always writes the blob explicitly, so this default only
 		 * covers a raw insert. It is the SQL literal frozen in
 		 * `drizzle/0000_init.sql` and therefore still carries the retired
-		 * `min_attendee_votes` key — no migration chases it, because
-		 * `withConfigDefaults` drops the key on read and the next settings save
-		 * rewrites the row without it.
+		 * `min_attendee_votes` key — and, being frozen, lacks the later
+		 * `vetoes_enabled` one. No migration chases either: `withConfigDefaults`
+		 * drops the retired key on read and fills the missing one in with `true`,
+		 * so an older row reads as a group whose veto step is on, and the next
+		 * settings save rewrites the blob as exactly the current six.
 		 */
 		config: text('config', { mode: 'json' })
 			.$type<GroupConfig>()
