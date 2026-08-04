@@ -17,6 +17,16 @@
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
 	let addingNew = $state(false);
+
+	/**
+	 * A rejected name posts through the plain HTML path (no `use:enhance` here), so
+	 * the page re-renders and `addingNew` starts false again — the notice would
+	 * explain a slot that had folded itself away. Two of the rejections are about
+	 * the name you just typed, and one of those is the removed-member case, whose
+	 * whole message is an instruction ("restore them instead"): the slot has to
+	 * stay open next to it for that to read as an answer to what you tried.
+	 */
+	const rejectedName = $derived(form?.code === 'name_taken' || form?.code === 'invalid_input');
 </script>
 
 <div class="space-y-5">
@@ -68,7 +78,7 @@
 			</p>
 		{/if}
 
-		{#if addingNew || data.members.length === 0}
+		{#if addingNew || rejectedName || data.members.length === 0}
 			<div class="pop-settle tile space-y-3 px-3.5 py-3.5">
 				<div>
 					<label for="new-name" class="field-label text-ink">Your name</label>
