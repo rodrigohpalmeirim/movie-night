@@ -98,7 +98,6 @@
 		PROMOTE_MS,
 		SPRING_EASE,
 		SPRING_MS,
-		TAP_SLOP,
 		commitProgress,
 		createVelocityTracker,
 		decideAxis,
