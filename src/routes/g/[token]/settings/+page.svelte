@@ -76,6 +76,13 @@
 
 	/** The two knobs that are a SHARE of something, printed as a percentage. */
 	const SHARE_KNOBS = ['approval_floor', 'coverage_floor'];
+	/**
+	 * How far a share's thumb moves in one stop: a whole 5%, so every stop prints as
+	 * a round number. Named because the rail's step and the ruler's mark count are
+	 * the same fact said twice, and a scale that marks stops the input cannot land
+	 * on is a lying scale.
+	 */
+	const SHARE_STEP = 0.05;
 	/** The one knob whose rail walks a ladder of labels instead of its own units. */
 	const LADDER_KNOB = 'rewatch_cooldown';
 
@@ -136,15 +143,20 @@
 	}
 
 	/**
-	 * How many gaps to rule along a rail — see `--rail-steps`. A count knob marks
-	 * every stop it has, and the ladder marks every rung, because those are the
-	 * numbers a group is choosing BETWEEN. The shares would come to twenty-one marks
-	 * on a phone's width, which is hatching rather than a scale, so they are ruled at
-	 * every tenth: ten gaps, a mark every 10%, and the odd 5% stops sit between two.
+	 * How many GAPS to rule along a rail's ruler — see `--rail-steps`; there is
+	 * always one more mark than gap. Every rail marks every stop it has, because
+	 * every stop is a number the group is choosing BETWEEN, and the scale hangs
+	 * below the groove in a soft pencil rather than being ruled through the channel:
+	 * twenty-one faint marks under a share read as a scale, where twenty-one marks
+	 * across the groove read as grit in it.
+	 *
+	 * So: a count knob's own stops (four for the finalists, five for the veto), a
+	 * rung per wait on the ladder, and every 5% of a share — the step the input
+	 * actually moves in, not the tenths the old ruling settled for.
 	 */
 	function railSteps(knob: string, range: { min: number; max: number }) {
 		if (knob === LADDER_KNOB) return COOLDOWN_LADDER.length - 1;
-		if (SHARE_KNOBS.includes(knob)) return 10;
+		if (SHARE_KNOBS.includes(knob)) return Math.round((range.max - range.min) / SHARE_STEP);
 		return range.max - range.min;
 	}
 
@@ -342,7 +354,7 @@
 						type="range"
 						min={isLadder ? 0 : range.min}
 						max={isLadder ? COOLDOWN_LADDER.length - 1 : range.max}
-						step={isLadder || range.integer ? 1 : 0.05}
+						step={isLadder || range.integer ? 1 : SHARE_STEP}
 						value={knobValues[knob]}
 						oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
 						aria-describedby="help-{knob}"

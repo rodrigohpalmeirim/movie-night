@@ -728,45 +728,93 @@
 	.rail {
 		--rail-groove: 0.625rem;
 		--rail-thumb: 1.375rem;
-		/* HOW MANY GAPS between step marks, set per rail by the page that draws it —
-		   not how many marks (there is always one more mark than gap). The knobs do
-		   not all step alike, and a rail that ruled every step of a twenty-one-stop
-		   share would be hatching rather than a scale, so a rail is free to mark its
-		   MAJOR stops and leave the rest to the thumb. The default is the widest
-		   sensible ruling; nothing should rely on it. */
+		/* HOW MANY GAPS between marks on the ruler, set per rail by the page that
+		   draws it — not how many marks (there is always one more mark than gap).
+		   Now that the scale hangs BELOW the groove instead of being ruled into it,
+		   every rail marks every stop it has: a soft mark under each one is a scale
+		   a finger can count, where the same count ruled through the channel was
+		   hatching. The default is the widest sensible ruling; nothing should rely
+		   on it. */
 		--rail-steps: 10;
 		--rail-tick: 2px;
 		/* The groove's ink edge. Named because the thumb's offset is arithmetic on
 		   it — see the note on `margin-top` below — and a border width that only
 		   half the formula knows about is how the piece ended up sitting low. */
 		--rail-border: 2px;
+		/* The ruler's own two numbers: how tall a mark stands, and how much air is
+		   left between the groove's bottom edge and the top of the scale. The air is
+		   what keeps a mark visible when the piece is parked on it — the thumb is
+		   twice the groove's height, so it hangs below the channel and would cover
+		   a mark ruled any closer. */
+		--rail-mark: 6px;
+		--rail-mark-gap: 9px;
+		/* The touch target, not the groove: 44px of height to put a thumb in, which
+		   is what makes this draggable on a phone. Named because the ruler is
+		   placed by arithmetic on it (see `background-position`). */
+		--rail-height: 2.75rem;
 		width: 100%;
-		/* The touch target, not the groove: 44px of height to put a thumb in,
-		   which is what makes this draggable on a phone. */
-		height: 2.75rem;
+		height: var(--rail-height);
 		appearance: none;
+		/* ── The ruler under the groove ─────────────────────────────────
+		   The scale is painted on the INPUT's own background, not on the track and
+		   not in a wrapper element: the input box is 44px tall around a 10px
+		   groove, so there is room below the channel for a scale on the element
+		   that already has the rail's geometry — one declaration for both engines,
+		   nothing extra in the markup for the page to keep in step, and it hides
+		   with the rail because it IS the rail.
+
+		   `<datalist>` ticks are no use here: Chrome draws its own, Firefox ignores
+		   them and neither can be styled, which is no way to tell somebody a slider
+		   has twelve stops. So the marks are one repeating gradient in ink-soft at
+		   low strength — a pencilled scale beside the groove rather than a second
+		   component competing with it.
+
+		   The mark's colour is written as a RELATIVE COLOUR and not as the
+		   `color-mix()` this file reaches for everywhere else, which is not a
+		   preference: measured in both engines at 1x, 2x and 3x, a stop given as
+		   `color-mix()` or `color(srgb …)` makes Gecko rasterize a pattern this fine
+		   (a 2px mark on a ~16px pitch) wrongly — it paints NO marks at 1x and four
+		   of twenty-one at 2x, while Blink paints all twenty-one. Written as a hex,
+		   an `rgb()` or the `rgb(from …)` below, both engines paint all twenty-one,
+		   identically, at every scale. So the fade is taken off `--color-ink-soft`
+		   by the one route that survives the trip, and stays derived from the
+		   palette rather than pasted in as a shade of its own.
+
+		   The horizontal geometry is the THUMB's, not the track's: a range thumb's
+		   centre travels from half a thumb in to half a thumb from the end, so the
+		   marks are laid in that inset span or they would promise stops the thumb
+		   cannot reach. The background box is that span widened by one mark (and
+		   shifted half a mark left), which puts every mark's centre exactly on a
+		   stop — including the two at the ends — with `--rail-steps` gaps between
+		   them. The vertical offset is measured from the groove's own bottom edge:
+		   the channel is centred in the box, so half the box plus half the groove
+		   lands on it, and the gap above hangs the scale clear of the piece.
+		   Lengths, not percentages, because a percentage background-position is a
+		   share of the leftover room rather than of the box. */
 		background-color: transparent;
+		background-image: repeating-linear-gradient(
+			to right,
+			rgb(from var(--color-ink-soft) r g b / 28%) 0 var(--rail-tick),
+			transparent var(--rail-tick) calc((100% - var(--rail-tick)) / var(--rail-steps))
+		);
+		background-origin: border-box;
+		background-position: calc(var(--rail-thumb) / 2 - var(--rail-tick) / 2)
+			calc((var(--rail-height) + var(--rail-groove)) / 2 + var(--rail-mark-gap));
+		background-size: calc(100% - var(--rail-thumb) + var(--rail-tick)) var(--rail-mark);
+		background-repeat: no-repeat;
 		cursor: pointer;
 	}
 
-	/* ── The groove, and the marks ruled along it ─────────────────────
+	/* ── The groove ───────────────────────────────────────────────────
 	   The groove is felt dusted with board rather than the felt-DEEP it started
 	   as: cut into kraft, the deep shade read as a hole punched clean through
 	   the pad instead of a channel routed into it. Mixed from the palette's own
 	   two ends so it stays on this table.
 
-	   The step marks are painted, not native: `<datalist>` ticks are drawn by
-	   Chrome, ignored by Firefox and unstyleable in both, which is no way to
-	   tell somebody a slider has five stops. So they are one repeating gradient
-	   on the groove itself, in the same board-shade the ticket's tear line uses
-	   — a ruled scale, not a second component.
-
-	   The geometry is the thumb's, not the track's: a range thumb's CENTRE
-	   travels from half a thumb in to half a thumb from the end, so the marks
-	   are laid in that inset span or they would promise stops the thumb cannot
-	   reach. The background box is that span widened by one mark (and shifted
-	   half a mark left), which puts every mark's centre exactly on a stop —
-	   including the two at the ends — with `--rail-steps` gaps between them.
+	   Nothing is ruled INSIDE it: a channel with marks across it reads as a
+	   channel with grit in it, and the marks had to fight the piece riding over
+	   them. The scale hangs below instead — see `.rail`'s background above — so
+	   the groove is one clean cut and the counting happens beside it.
 
 	   Both engines, written twice and identical, per the note above. */
 	.rail::-webkit-slider-runnable-track {
@@ -774,15 +822,6 @@
 		border: var(--rail-border) solid var(--color-ink);
 		border-radius: 999px;
 		background-color: color-mix(in srgb, var(--color-felt) 80%, var(--color-board-shade));
-		background-image: repeating-linear-gradient(
-			to right,
-			var(--color-board-shade) 0 var(--rail-tick),
-			transparent var(--rail-tick) calc((100% - var(--rail-tick)) / var(--rail-steps))
-		);
-		background-origin: border-box;
-		background-position: calc(var(--rail-thumb) / 2 - var(--rail-tick) / 2) center;
-		background-size: calc(100% - var(--rail-thumb) + var(--rail-tick)) 100%;
-		background-repeat: no-repeat;
 	}
 
 	.rail::-moz-range-track {
@@ -790,15 +829,6 @@
 		border: var(--rail-border) solid var(--color-ink);
 		border-radius: 999px;
 		background-color: color-mix(in srgb, var(--color-felt) 80%, var(--color-board-shade));
-		background-image: repeating-linear-gradient(
-			to right,
-			var(--color-board-shade) 0 var(--rail-tick),
-			transparent var(--rail-tick) calc((100% - var(--rail-tick)) / var(--rail-steps))
-		);
-		background-origin: border-box;
-		background-position: calc(var(--rail-thumb) / 2 - var(--rail-tick) / 2) center;
-		background-size: calc(100% - var(--rail-thumb) + var(--rail-tick)) 100%;
-		background-repeat: no-repeat;
 	}
 
 	/* The brass token in the groove. Its lip is the same one-ply shadow every
