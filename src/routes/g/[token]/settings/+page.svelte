@@ -263,50 +263,68 @@
 				     that is a `group`: everything inside it that only exists while vetoes
 				     do says so with `WHEN_VETOES_OFF`. -->
 				<div class={isVeto ? 'group/veto min-w-0' : 'min-w-0'}>
-					<!-- A slider hides its number, so the number is printed beside the
-					     label and moves with the thumb. `<output>` is the element for a
+					<!-- A slider hides its number, so the number is printed on the label
+					     line and moves with the thumb. `<output>` is the element for a
 					     value the page calculates, and it is rendered server-side from the
 					     stored setting: with scripting off it simply stays put while the
-					     thumb moves, which is a static number rather than a broken one. -->
+					     thumb moves, which is a static number rather than a broken one.
+
+					     Every knob but the veto prints it at the far end of that line. The
+					     veto prints it INLINE, right after the label — "Veto threshold · 3" —
+					     because the end of ITS line belongs to the switch, and read in that
+					     order the row says the setting in the order it is decided: what it
+					     is, how many, whether at all. -->
 					<div class="mb-1 flex items-center justify-between gap-2">
-						<label for="knob-{knob}" class="field-label mb-0 text-ink">{KNOB_LABELS[knob]}</label>
-						<div class="flex shrink-0 items-center gap-2">
+						<span class="flex min-w-0 items-center gap-1.5">
+							<label for="knob-{knob}" class="field-label mb-0 text-ink">{KNOB_LABELS[knob]}</label>
 							{#if isVeto}
-								<!-- The one knob that is a rule rather than a quantity, so the one
-								     drawn as a pair of latched tokens instead of a slider — and drawn
-								     on the threshold's own label line, because the rule and the number
-								     it governs are one setting: On/Off, then how many. Sized like the
-								     roster's IN/OUT pair, which is the same gesture at the same weight.
-								     Two native radios do the latching through `.token-latch`, so the
-								     marked option is marked with JavaScript off, and it posts as an
-								     ordinary field in this same form, saved by the same button. -->
-								<fieldset class="flex shrink-0 gap-1.5">
-									<legend class="sr-only">Vetoes</legend>
-									{#each [{ value: 'true', label: 'On', ink: 'token-latch-jade' }, { value: 'false', label: 'Off', ink: 'token-latch-cherry' }] as option (option.value)}
-										<label
-											class="token token-sm token-latch {option.ink} cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2"
-										>
-											<input
-												type="radio"
-												name="vetoes_enabled"
-												value={option.value}
-												checked={String(data.settings.config.vetoes_enabled) === option.value}
-												class="sr-only"
-											/>
-											{option.label}
-										</label>
-									{/each}
-								</fieldset>
+								<!-- Leaves with the rail: struck out, there is no threshold to
+								     print, and the label on its own still names the row. -->
+								<span class="flex items-center gap-1.5 {WHEN_VETOES_OFF}">
+									<span aria-hidden="true" class="text-ink-soft">·</span>
+									<output
+										for="knob-{knob}"
+										class="stencil text-sm font-semibold text-ink tabular-nums"
+									>
+										{printed(knob, knobValues[knob])}
+									</output>
+								</span>
 							{/if}
+						</span>
+						{#if isVeto}
+							<!-- The one knob that is a rule rather than a quantity, so the one
+							     drawn as a pair of latched tokens instead of a slider — and drawn
+							     at the end of the threshold's own label line, because the rule and
+							     the number it governs are one setting. Sized like the roster's
+							     IN/OUT pair, which is the same gesture at the same weight. Two
+							     native radios do the latching through `.token-latch`, so the marked
+							     option is marked with JavaScript off, and it posts as an ordinary
+							     field in this same form, saved by the same button. -->
+							<fieldset class="flex shrink-0 gap-1.5">
+								<legend class="sr-only">Vetoes</legend>
+								{#each [{ value: 'true', label: 'On', ink: 'token-latch-jade' }, { value: 'false', label: 'Off', ink: 'token-latch-cherry' }] as option (option.value)}
+									<label
+										class="token token-sm token-latch {option.ink} cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-brass has-[input:focus-visible]:outline-offset-2"
+									>
+										<input
+											type="radio"
+											name="vetoes_enabled"
+											value={option.value}
+											checked={String(data.settings.config.vetoes_enabled) === option.value}
+											class="sr-only"
+										/>
+										{option.label}
+									</label>
+								{/each}
+							</fieldset>
+						{:else}
 							<output
 								for="knob-{knob}"
-								class="stencil text-sm font-semibold text-ink tabular-nums {isVeto
-									? WHEN_VETOES_OFF
-									: ''}"
+								class="stencil shrink-0 text-sm font-semibold text-ink tabular-nums"
 							>
 								{printed(knob, knobValues[knob])}
 							</output>
-						</div>
+						{/if}
 					</div>
 					<!-- The cooldown's rail is the one that does not slide along its own
 					     units. Days are unslidable (one day per pixel, and no position at
