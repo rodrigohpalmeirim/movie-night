@@ -757,9 +757,14 @@
 		appearance: none;
 		width: var(--rail-thumb);
 		height: var(--rail-thumb);
-		/* Centres the thumb on the groove: half the difference between the groove's
-		   full box (its height plus both borders) and the thumb. */
-		margin-top: calc((var(--rail-groove) + 4px - var(--rail-thumb)) / 2);
+		/* WebKit does not centre the thumb on the track — it drops it at the top of
+		   the track's CONTENT box and leaves the rest to us, so the offset is half
+		   the difference between the groove and the thumb: (10px − 22px) / 2 = −6px.
+		   The border does not enter into it. It is symmetric, so the content box and
+		   the border box share a centre, and adding it here (as this rule used to)
+		   only pushed the piece 2px below the groove — which is exactly how it
+		   read. Firefox centres its own thumb, hence no twin of this line below. */
+		margin-top: calc((var(--rail-groove) - var(--rail-thumb)) / 2);
 		border: 2px solid var(--color-ink);
 		border-radius: 6px;
 		background-color: var(--color-brass);
