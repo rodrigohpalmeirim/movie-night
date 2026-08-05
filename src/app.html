@@ -5,8 +5,13 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="text-scale" content="scale" />
 		<!-- Installable PWA: manifest, icons, theme colour. No service worker — offline
-		     is explicitly not a v1 requirement and every action needs the network. -->
-		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		     is explicitly not a v1 requirement and every action needs the network.
+
+		     The manifest link itself is emitted from src/routes/+layout.svelte, not
+		     here: inside a group it must point at that group's own manifest, so the
+		     icon opens the group instead of the create-a-group screen. Browsers honour
+		     the FIRST rel=manifest in the document, so there can only be one, and the
+		     one that knows which group this is is the layout's. -->
 		<link rel="icon" href="%sveltekit.assets%/icon.svg" type="image/svg+xml" />
 		<!-- Raster fallback for browsers that ignore SVG favicons. -->
 		<link rel="icon" href="%sveltekit.assets%/icon-192.png" sizes="192x192" type="image/png" />
@@ -23,7 +28,9 @@
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black" />
-		<meta name="apple-mobile-web-app-title" content="Movie Night" />
+		<!-- The home-screen title iOS reads is emitted from src/routes/+layout.svelte
+		     alongside the manifest link, for the same reason: inside a group it is the
+		     group's name. One tag, one place. -->
 		<!-- No third-party CDN assets: fonts, scripts and styles are all self-hosted,
 		     so the invite token in the URL cannot leak through a Referer to anyone
 		     except image.tmdb.org (and Referrer-Policy: same-origin covers that). -->

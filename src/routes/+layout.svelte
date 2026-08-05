@@ -1,8 +1,31 @@
 <script lang="ts">
 	import '../app.css';
 	import { onNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 
 	let { children } = $props();
+
+	/**
+	 * Which manifest this page installs from. Inside a group it is the group's own
+	 * (`/g/<token>/manifest.webmanifest`), whose `start_url` is the group — so the
+	 * icon a member adds from their group opens their group and not the landing
+	 * page. Everywhere else it is the static one, whose `start_url` is `/`.
+	 *
+	 * Emitted here rather than in app.html, and in exactly one place, because
+	 * browsers honour the FIRST `rel=manifest` in document order: a second link
+	 * added lower down would silently lose to the hardcoded one.
+	 */
+	const manifestHref = $derived(
+		page.params.token ? `/g/${page.params.token}/manifest.webmanifest` : '/manifest.webmanifest'
+	);
+
+	/**
+	 * The home-screen label on iOS, which reads this meta rather than the
+	 * manifest's `short_name`. The group's name comes from the group layout's load
+	 * through the merged `page.data`, which is what lets this stay a single tag in
+	 * a single file — two `apple-mobile-web-app-title` metas would be a coin toss.
+	 */
+	const installTitle = $derived(page.data.groupName ?? 'Movie Night');
 
 	/**
 	 * Which of the four felt tables a route belongs to, in tab-bar order — the
@@ -56,6 +79,11 @@
 		});
 	});
 </script>
+
+<svelte:head>
+	<link rel="manifest" href={manifestHref} />
+	<meta name="apple-mobile-web-app-title" content={installTitle} />
+</svelte:head>
 
 <!--
 	No app-wide footer. TMDB's credit belongs where their data is used — the

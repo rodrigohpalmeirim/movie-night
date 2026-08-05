@@ -283,6 +283,14 @@ Mobile-first, installable PWA (manifest + icons + theme color). Offline support 
 v1 requirement; the service worker may cache the shell but every action requires the
 network.
 
+The manifest is **per group**: `GET /g/<token>/manifest.webmanifest` (404 on unknown
+token) serves the shared fields plus the group's name as `name`/`short_name`, and
+`/g/<token>` as `start_url`, `scope` and `id`. So installing from inside a group installs
+*that group* — the icon is labelled with the group's name and opens its round screen, and
+two groups can be installed side by side without one replacing the other. The response
+embeds the invite token, so it is privately cacheable only. The static root manifest
+remains the landing page's, and pages link exactly one of the two.
+
 Live-ness: **SSE invalidation pings, no websockets.** Because all state is
 server-computed and tallies are hidden until reveal, real-time sync never pushes data —
 only "something changed, refetch". Each group has an in-process emitter (one Bun server,
