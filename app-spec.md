@@ -283,13 +283,23 @@ Mobile-first, installable PWA (manifest + icons + theme color). Offline support 
 v1 requirement; the service worker may cache the shell but every action requires the
 network.
 
-The manifest is **per group**: `GET /g/<token>/manifest.webmanifest` (404 on unknown
-token) serves the shared fields plus the group's name as `name`/`short_name`, and
-`/g/<token>` as `start_url`, `scope` and `id`. So installing from inside a group installs
-*that group* — the icon is labelled with the group's name and opens its round screen, and
-two groups can be installed side by side without one replacing the other. The response
-embeds the invite token, so it is privately cacheable only. The static root manifest
-remains the landing page's, and pages link exactly one of the two.
+There is **one app**: every install is "Movie Night" with `id` and `scope` `/`, so a
+member with three groups has one icon, not three. What differs is where the icon starts.
+`GET /g/<token>/manifest.webmanifest` (404 on unknown token) is the static root manifest
+with exactly one field changed — `start_url` is `/?g=<token>` — and group pages link it
+while every other page links the static one. The `?g` hint exists because an installed
+PWA on iOS launches with an **empty cookie jar** (it does not inherit Safari's), so
+without it a member who installed from inside their group would land on `/` as a stranger
+with no way back. The response embeds the invite token, so it is privately cacheable only.
+
+`/` is therefore the front door, and it reads the device's `member_*` cookies to decide:
+**one** live membership redirects (303) straight into that group; **several** render a
+"Your groups" switchboard above the lid, each row naming the group and who you are there;
+**none** falls back to `?g` if it names a real group, and otherwise is just the landing
+page. Cookies win over `?g`. Cookies that no longer resolve — group gone, member removed
+— are deleted as they are read. `/?all` never redirects: it always shows the switchboard
+plus the create form, which is how a device with one group reaches the lid to start a
+second; Settings links it as "All groups".
 
 Live-ness: **SSE invalidation pings, no websockets.** Because all state is
 server-computed and tallies are hidden until reveal, real-time sync never pushes data —

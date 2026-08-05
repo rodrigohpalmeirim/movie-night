@@ -1,5 +1,6 @@
 <!--
-	Landing — "Create a group; nothing else."
+	Landing — "Create a group; nothing else", and the switchboard for a device
+	that already belongs somewhere.
 
 	The app's first impression, so it is the box lid: the title in wood-type
 	slab, the three steps printed on the side of the box (genuinely a sequence —
@@ -12,16 +13,24 @@
 	group can switch off in Settings, so it is not one of the three things that
 	always happen.
 
-	The form is a plain action, so it works with JavaScript off, and the two
-	fields are punched blanks in the lid rather than components sitting on it.
+	Its second job: `/` is where the one installed app starts, so it is also the
+	page that says which tables this device has a seat at. With one group the load
+	redirects and this screen is never seen; the groups only print when there are
+	several, or when `?all` asked for them — and they print ABOVE the lid, because
+	a returning member came to walk into a room, not to read the box again. With
+	none, this is the lid and nothing else.
+
+	The form is a plain action, so it works with JavaScript off, the rows are plain
+	links, and the two fields are punched blanks in the lid rather than components
+	sitting on it.
 -->
 <script lang="ts">
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
-	import type { ActionData } from './$types';
+	import type { ActionData, PageServerData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageServerData; form: ActionData } = $props();
 
 	/** The three phases of a night, in the order they happen. */
 	const steps = [
@@ -45,6 +54,36 @@
 -->
 <div class="h-full overflow-x-clip overflow-y-auto overscroll-contain">
 	<main class="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-5 px-4 py-8">
+		{#if data.groups.length > 0}
+			<!-- ── Your groups ───────────────────────────────────────────────
+			     A switchboard, so rows and not seats: each one is the group's name
+			     with the name you go by there stencilled under it, pressed IN under
+			     the finger like every other tappable row inside a flat tile. Plain
+			     anchors — the whole screen works with JavaScript off.
+			-->
+			<section class="tile px-4 pt-4 pb-3">
+				<h2 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Your groups</h2>
+				<ul class="mt-1 divide-y-2 divide-dashed divide-board-shade">
+					{#each data.groups as group, i (group.inviteToken)}
+						<li class="deal-in" style="--deal:{i}">
+							<a
+								href="/g/{group.inviteToken}"
+								class="row-press -mx-1 flex items-center gap-2 rounded px-1 py-2.5 focus-visible:outline-offset-[-3px]"
+							>
+								<span class="min-w-0 flex-1">
+									<span class="display block truncate text-[1.05rem] text-ink">{group.groupName}</span>
+									<span class="stencil block text-[0.7rem] tracking-[0.06em] text-ink-soft uppercase">
+										You're {group.memberName}
+									</span>
+								</span>
+								<ArrowRight size={18} class="shrink-0 text-ink-soft" />
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
 		<!-- ── The lid ───────────────────────────────────────────────────── -->
 		<section class="tile relative px-4 pt-4 pb-4">
 			<p class="eyebrow text-ink-soft">Pick what to watch, together</p>

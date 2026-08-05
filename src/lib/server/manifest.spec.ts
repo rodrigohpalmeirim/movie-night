@@ -1,11 +1,12 @@
 /**
- * The per-group web app manifest.
+ * The group's web app manifest.
  *
- * app-spec: "installing from inside a group installs *that group*". The point of
- * these tests is the four fields that make that true — `id`, `start_url`, `scope`
- * and the pair of names — plus the two things that would quietly undo it: a
- * publicly cacheable response (the body carries the invite token) and drift away
- * from `static/manifest.webmanifest`, which stays the landing page's manifest.
+ * app-spec: "There is **one app** ... What differs is where the icon starts." So
+ * the whole of this endpoint is `static/manifest.webmanifest` with `start_url`
+ * rewritten to `/?g=<token>`, and these tests pin exactly that: identical except
+ * that one field, the hint actually present in it, and the two things that would
+ * quietly undo the model — a second app identity, or a publicly cacheable response
+ * (the body carries the invite token).
  *
  * The real route handler is imported and called with a real database, so the
  * token resolution and the 404 are the actual ones.
@@ -74,48 +75,48 @@ const STATIC_MANIFEST = JSON.parse(
 	readFileSync('static/manifest.webmanifest', 'utf8')
 ) as Record<string, unknown>;
 
-describe('installing from inside a group installs that group', () => {
-	test('start_url, scope and id are all the group URL', async () => {
+describe('installing from inside a group installs the app, started at the group', () => {
+	test('the start_url carries the group as a hint on the root page', async () => {
+		// The empty-cookie-jar bootstrap: an iOS PWA's first launch has no member
+		// cookie, so the token in the query is the only thing that can get it home.
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const { response, body } = await manifestOf(world, world.group);
-		const token = world.group.inviteToken;
-
 		expect(response.status).toBe(200);
-		expect(body.start_url).toBe(`/g/${token}`);
-		expect(body.scope).toBe(`/g/${token}`);
-		expect(body.id).toBe(`/g/${token}`);
+		expect(body.start_url).toBe(`/?g=${world.group.inviteToken}`);
 	});
 
-	test('the scope has no trailing slash, so the start_url is inside it', async () => {
-		// `/g/<token>/` would put the extensionless start_url out of its own scope,
-		// and a start_url outside the scope makes the manifest uninstallable.
-		world = createTestWorld({ memberNames: ['Ana'] });
-		const { body } = await manifestOf(world, world.group);
-		expect(String(body.scope).endsWith('/')).toBe(false);
-		expect(String(body.start_url).startsWith(String(body.scope))).toBe(true);
-	});
-
-	test('the icon is labelled with the group name, not the app name', async () => {
-		world = createTestWorld({ memberNames: ['Ana'] });
-		const other = unwrap(createGroup(world.db, { name: 'Thursday Cinema', memberName: 'Zed' }));
-		const { body } = await manifestOf(world, other.group);
-		expect(body.name).toBe('Thursday Cinema');
-		expect(body.short_name).toBe('Thursday Cinema');
-		// The description describes the app, so it does not change per group.
-		expect(body.description).toBe(STATIC_MANIFEST.description);
-	});
-
-	test('two groups get two identities, so both can be installed at once', async () => {
+	test('the identity and scope stay the app’s, so two groups are one install', async () => {
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const other = unwrap(createGroup(world.db, { name: 'Thursday Cinema', memberName: 'Zed' }));
 		const mine = await manifestOf(world, world.group);
 		const theirs = await manifestOf(world, other.group);
-		expect(mine.body.id).not.toBe(theirs.body.id);
+
+		expect(mine.body.id).toBe('/');
+		expect(mine.body.scope).toBe('/');
+		// Same id means the second install replaces nothing and adds no second icon.
+		expect(mine.body.id).toBe(theirs.body.id);
+		// ...and only the start_url tells the two manifests apart.
+		expect(mine.body.start_url).not.toBe(theirs.body.start_url);
+	});
+
+	test('the icon is labelled with the app’s name, not the group’s', async () => {
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const other = unwrap(createGroup(world.db, { name: 'Thursday Cinema', memberName: 'Zed' }));
+		const { body } = await manifestOf(world, other.group);
+		expect(body.name).toBe('Movie Night');
+		expect(body.short_name).toBe('Movie Night');
+	});
+
+	test('the start_url is inside the scope', async () => {
+		// A start_url outside its own scope makes the manifest uninstallable.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const { body } = await manifestOf(world, world.group);
+		expect(String(body.start_url).startsWith(String(body.scope))).toBe(true);
 	});
 
 	test('it is served as a manifest and cached privately', async () => {
-		// The body embeds the invite token, which IS the credential: a shared cache
-		// holding it would hand one group's link to whoever asked next.
+		// The start_url embeds the invite token, which IS the credential: a shared
+		// cache holding it would hand one group's link to whoever asked next.
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const { response } = await manifestOf(world, world.group);
 		expect(response.headers.get('content-type')).toBe('application/manifest+json');
@@ -131,34 +132,25 @@ describe('installing from inside a group installs that group', () => {
 		expect((thrown as { status: number }).status).toBe(404);
 	});
 
-	test('everything else matches the static manifest', async () => {
+	test('it is the static manifest, identical except start_url', async () => {
 		// The static manifest stays the landing page's, and the two must not drift:
-		// same felt colours, same display mode, same icons.
+		// same identity, same names, same felt colours, same icons — one field apart.
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const { body } = await manifestOf(world, world.group);
-		for (const key of [
-			'description',
-			'lang',
-			'dir',
-			'categories',
-			'display',
-			'orientation',
-			'background_color',
-			'theme_color',
-			'icons'
-		]) {
-			expect(body[key]).toEqual(STATIC_MANIFEST[key]);
-		}
-		// And no field of the static manifest was simply forgotten.
-		expect(Object.keys(body).sort()).toEqual(Object.keys(STATIC_MANIFEST).sort());
+
+		// No field was added, renamed or forgotten, and the order is the same too.
+		expect(Object.keys(body)).toEqual(Object.keys(STATIC_MANIFEST));
+		const differing = Object.keys(STATIC_MANIFEST).filter(
+			(key) => JSON.stringify(body[key]) !== JSON.stringify(STATIC_MANIFEST[key])
+		);
+		expect(differing).toEqual(['start_url']);
 	});
 });
 
 describe('regression: exactly one manifest link, and it is the layout’s', () => {
 	test('app.html no longer hardcodes the manifest or the iOS title', () => {
 		// Browsers honour the FIRST rel=manifest in document order, so a link left
-		// in app.html would beat the group's own and every install would open the
-		// create-a-group screen again.
+		// in app.html would beat the group's own and the hint would never be read.
 		const html = readFileSync('src/app.html', 'utf8');
 		expect(html).not.toMatch(/rel="manifest"/);
 		expect(html).not.toMatch(/name="apple-mobile-web-app-title"/);
@@ -171,6 +163,14 @@ describe('regression: exactly one manifest link, and it is the layout’s', () =
 		// Group pages point at the group's manifest, everything else at the static one.
 		expect(layout).toContain('/manifest.webmanifest');
 		expect(layout).toContain('page.params.token');
+	});
+
+	test('the iOS home-screen title is the app’s, not the group’s', () => {
+		// One app means one label: a per-group title would name whichever group the
+		// install happened to start from, on an icon shared by all of them.
+		const layout = readFileSync('src/routes/+layout.svelte', 'utf8');
+		expect(layout).toContain("const installTitle = 'Movie Night'");
+		expect(layout).not.toContain('page.data.groupName');
 	});
 
 	test('no other component emits a manifest link or an iOS title', () => {

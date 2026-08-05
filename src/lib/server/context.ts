@@ -18,13 +18,26 @@ import type { Db, Group, Member } from './db/index.js';
 import { groups, members } from './db/index.js';
 import { withConfigDefaults, type GroupConfig } from './db/config.js';
 
+const MEMBER_COOKIE_PREFIX = 'member_';
+
 /**
  * Cookie name is keyed by **group id**, not by invite token, which is what makes
  * "regenerate invite link" non-destructive: app-spec, "Existing device sessions
  * survive regeneration; only the link changes."
  */
 export function memberCookieName(groupId: string): string {
-	return `member_${groupId}`;
+	return `${MEMBER_COOKIE_PREFIX}${groupId}`;
+}
+
+/**
+ * The inverse: the group id a cookie name carries, or `undefined` if this cookie
+ * is not a member cookie at all. The landing page reads the whole jar, which also
+ * holds unrelated site cookies (`swipe_intro_seen`), so the prefix is the filter.
+ */
+export function groupIdFromCookieName(name: string): string | undefined {
+	if (!name.startsWith(MEMBER_COOKIE_PREFIX)) return undefined;
+	const groupId = name.slice(MEMBER_COOKIE_PREFIX.length);
+	return groupId.length > 0 ? groupId : undefined;
 }
 
 /** One year. Long enough that a monthly movie night never re-picks a name. */
@@ -107,6 +120,58 @@ export function resolveFromCookies(input: {
 		token: input.token,
 		memberIdFromCookie: input.getCookie(memberCookieName(group.id))
 	});
+}
+
+/** One group this device is signed into, as the landing page prints it. */
+export interface DeviceGroup {
+	groupName: string;
+	inviteToken: string;
+	memberName: string;
+}
+
+/**
+ * Every group this device holds a usable member cookie for — the landing page's
+ * switchboard, and the thing that decides whether `/` redirects.
+ *
+ * Pure in the cookie jar it is handed, so the route stays a reader: it reports the
+ * cookie names that resolved to nothing and lets the caller do the deleting.
+ * Unusable here means gone for good from this device's point of view — no group
+ * row, or no live member — because unlike `resolveContext` there is no group in
+ * the URL to fall back to a picker for, so a cookie that names nothing is only
+ * noise in a list of the groups you can walk into.
+ *
+ * Sorted by group name so the switchboard's order is the app's and not the
+ * browser's; the token breaks ties, since two groups may share a name.
+ */
+export function resolveDeviceGroups(input: {
+	db: Db;
+	cookies: { name: string; value: string }[];
+}): { groups: DeviceGroup[]; staleCookieNames: string[] } {
+	const live: DeviceGroup[] = [];
+	const staleCookieNames: string[] = [];
+
+	for (const cookie of input.cookies) {
+		const groupId = groupIdFromCookieName(cookie.name);
+		if (groupId === undefined) continue;
+
+		const group = input.db.select().from(groups).where(eq(groups.id, groupId)).get();
+		const member = group ? findMember(input.db, group.id, cookie.value) : undefined;
+		if (!group || !member) {
+			staleCookieNames.push(cookie.name);
+			continue;
+		}
+
+		live.push({
+			groupName: group.name,
+			inviteToken: group.inviteToken,
+			memberName: member.displayName
+		});
+	}
+
+	live.sort(
+		(a, b) => a.groupName.localeCompare(b.groupName) || a.inviteToken.localeCompare(b.inviteToken)
+	);
+	return { groups: live, staleCookieNames };
 }
 
 /** Everything a service needs to act on behalf of a member. */

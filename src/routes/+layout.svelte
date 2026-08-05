@@ -6,10 +6,12 @@
 	let { children } = $props();
 
 	/**
-	 * Which manifest this page installs from. Inside a group it is the group's own
-	 * (`/g/<token>/manifest.webmanifest`), whose `start_url` is the group — so the
-	 * icon a member adds from their group opens their group and not the landing
-	 * page. Everywhere else it is the static one, whose `start_url` is `/`.
+	 * Which manifest this page installs from. One app either way — same `id`, same
+	 * name, same icon — the difference is only where the icon starts. Inside a group
+	 * it is the group's own (`/g/<token>/manifest.webmanifest`), whose `start_url`
+	 * is `/?g=<token>`: an installed PWA on iOS launches with an empty cookie jar,
+	 * so the token is what gets that first launch back to the group it was installed
+	 * from. Everywhere else it is the static one, whose `start_url` is plain `/`.
 	 *
 	 * Emitted here rather than in app.html, and in exactly one place, because
 	 * browsers honour the FIRST `rel=manifest` in document order: a second link
@@ -21,11 +23,10 @@
 
 	/**
 	 * The home-screen label on iOS, which reads this meta rather than the
-	 * manifest's `short_name`. The group's name comes from the group layout's load
-	 * through the merged `page.data`, which is what lets this stay a single tag in
-	 * a single file — two `apple-mobile-web-app-title` metas would be a coin toss.
+	 * manifest's `short_name`. A constant, because the install is one app wherever
+	 * it was added from: a device with two groups has one icon, and it is the app's.
 	 */
-	const installTitle = $derived(page.data.groupName ?? 'Movie Night');
+	const installTitle = 'Movie Night';
 
 	/**
 	 * Which of the four felt tables a route belongs to, in tab-bar order — the

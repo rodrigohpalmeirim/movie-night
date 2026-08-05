@@ -528,6 +528,18 @@
 		<form method="POST" action="?/forget">
 			<button class="token w-full">Not you?</button>
 		</form>
+		<!-- The door out to the other tables, and the only way back to the create
+		     form once this device belongs to a group: `/` walks a one-group device
+		     straight back in here, so `?all` is what asks it to show the list
+		     instead. A quiet row, like the removed pile's summary above — it is a
+		     signpost, not a move. -->
+		<a
+			href="/?all"
+			class="eyebrow row-press -mx-1 flex items-center gap-1.5 rounded px-1 py-1.5 text-ink-soft hover:text-ink focus-visible:outline-offset-[-3px]"
+		>
+			<ChevronRight size={14} />
+			All groups
+		</a>
 	</section>
 
 	<!-- The credit's permanent home: printed on the felt below the pads, in the
