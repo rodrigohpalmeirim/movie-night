@@ -96,9 +96,16 @@ export function computeVeto(
  * Winner resolution:
  *   1. A Condorcet winner (beats every surviving finalist) wins with
  *      `tiebreak === null`.
- *   2. Otherwise the cycle chain decides: Copeland → approval →
+ *   2. Otherwise the cycle chain decides: Copeland → approval → stars →
  *      rotation fairness → shortest runtime → seeded random, and the rule that
  *      separated the top two is reported.
+ *
+ * The star rung is the newest link and the one that reads oddly next to the old
+ * "stars are a Phase 1 thing" habit: it sits below approval, so a star decides a
+ * runoff only when the live pairwise vote and standing approval have both tied,
+ * and it can never lift a finalist over a better-approved one. Its count is
+ * attendee-scoped like every other tally here, so no absent member's star
+ * reaches it.
  */
 export function computeRunoff(input: RunoffInput): RunoffResult {
 	const { finalistIds, attendeeIds, movies, standingVotes, vetoes, pairVotes, config, fairness, seed } = input;
@@ -133,7 +140,15 @@ export function computeRunoff(input: RunoffInput): RunoffResult {
 			const tally = tallyById.get(id)!;
 			return buildRankRow(
 				movie,
-				{ yesVotes: tally.yesVotes, approval: tally.approval, copeland: copeland[id] ?? 0 },
+				{
+					yesVotes: tally.yesVotes,
+					// Rule 3 reads this. `tally` comes from `computeTallies` over the
+					// frozen snapshot and the *current* attendee set, so the count is
+					// already attendee-scoped and star-for-star what the reveal prints.
+					starVotes: tally.starVotes,
+					approval: tally.approval,
+					copeland: copeland[id] ?? 0
+				},
 				{ attendees, fairness: fair, seed }
 			);
 		})

@@ -114,7 +114,7 @@ describe('TMDB proxy', () => {
 });
 
 describe('suggesting a movie', () => {
-	test('fetches the runtime at save time because it feeds tiebreak rule 4', async () => {
+	test('fetches the runtime at save time because it feeds tiebreak rule 5', async () => {
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const result = unwrap(
 			await suggestMovie({

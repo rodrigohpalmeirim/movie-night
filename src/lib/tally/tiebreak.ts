@@ -5,16 +5,27 @@
  * voting-spec, Phase 1: "Ties at the finalist boundary ... must be broken
  * deterministically, never by insertion order", by the key
  * `yes_votes → star_votes → approval → rotation fairness → shortest runtime →
- * seeded random`. Everything from `approval` down is the runoff's own chain,
- * reused verbatim ("Reuse the runoff's chain"); `star_votes` is the one rung
- * that exists only here.
+ * seeded random`.
  *
  * voting-spec, Phase 2: "1. Copeland score — most pairwise victories wins.
  * 2. Approval — the higher-approved finalist wins (the `approval` fraction, not
- * the raw yes count). 3. Rotation fairness. 4. Shortest runtime. 5. Seeded
- * random."
+ * the raw yes count). 3. Stars — more `star_votes` among attendees wins.
+ * 4. Rotation fairness. 5. Shortest runtime. 6. Seeded random."
  *
- * Rung 2 being the fraction rather than the yes-count was ambiguous in the
+ * So both chains are assembled from the same five tie-breakers and differ only
+ * in where the star sits: above approval at the boundary, below it in the
+ * runoff. Stars USED to be a boundary rung and nothing else ("Stars play no part
+ * in Phase 2"); the amended spec gives them the runoff rung directly below
+ * approval, on the reasoning that the cycle chain already falls back to standing
+ * signals the moment the live vote ties — `approval` is one — so a star is not a
+ * new kind of input there, only a finer-grained one, and it is reached only once
+ * both the pairwise vote and approval have refused to decide. The product rule
+ * both chains keep: stars are seasoning, not votes. Every rung above them is a
+ * yes-signal, so they separate films that signal has already tied and never
+ * promote one past it — past more yes-votes at the boundary, past a better
+ * approval in the runoff.
+ *
+ * Approval being the fraction rather than the yes-count was ambiguous in the
  * original spec text and has since been made explicit there; the independent
  * spec vectors pin it as V029.
  *
@@ -42,11 +53,11 @@ export interface RankRow {
 	movieId: MovieId;
 	/** Attendee yes-votes: the Phase 1 ranking key. */
 	yesVotes: number;
-	/** Attendee starred yes-votes: the Phase 1 boundary chain's first rung. */
+	/** Attendee starred yes-votes: boundary rung 1, and runoff rule 3. */
 	starVotes: number;
-	/** Attendee approval ratio: tiebreak rule 2. */
+	/** Attendee approval ratio: runoff rule 2, boundary rung 2. */
 	approval: number;
-	/** Pairwise victories: tiebreak rule 1 (0 outside the runoff). */
+	/** Pairwise victories: runoff rule 1 (0 outside the runoff). */
 	copeland: number;
 	/** Rotation fairness: epoch ms since which the suggester has been waiting; lower wins. */
 	fairnessKey: number;
@@ -65,38 +76,59 @@ interface ChainStep<R extends string> {
 	dir: Direction;
 }
 
+/*
+ * The five shared steps, as named parts rather than one array: `approval` and
+ * `stars` swap places between the two chains, so only the bottom three are a
+ * contiguous run either chain can splice in whole.
+ *
+ * They are typed at `SharedTiebreakRule`, which every chain's rule union
+ * contains, so both chains below compose them without a cast.
+ */
+const STARS: ChainStep<SharedTiebreakRule> = { rule: 'stars', field: 'starVotes', dir: 'desc' };
+const APPROVAL: ChainStep<SharedTiebreakRule> = { rule: 'approval', field: 'approval', dir: 'desc' };
 const TAIL: ChainStep<SharedTiebreakRule>[] = [
-	{ rule: 'approval', field: 'approval', dir: 'desc' },
 	{ rule: 'rotation_fairness', field: 'fairnessKey', dir: 'asc' },
 	{ rule: 'shortest_runtime', field: 'runtimeKey', dir: 'asc' },
 	{ rule: 'seeded_random', field: 'randomKey', dir: 'asc' }
 ];
 
 /**
- * Phase 1: rank by attendee yes-votes, then STARS, then the shared tail.
+ * Phase 1: rank by attendee yes-votes, then STARS, then approval, then the tail.
  *
  * voting-spec, Selecting finalists:
  *   1. yes_votes  among attendees, descending   -- the primary ranking key
  *   2. star_votes among attendees, descending
  *   3. approval / 4. rotation fairness / 5. shortest runtime / 6. seeded random
  *
- * Stars sit *below* yes-votes by construction, which is the whole guarantee the
- * spec makes about them: "a star can never promote a movie past one with more
- * yes-votes; it separates only films the approval count has already tied."
+ * Stars sit *below* yes-votes by construction, which is the guarantee the spec
+ * makes about them here: "a star separates only films those signals have already
+ * tied and never promotes one past them: past a film with more yes-votes in
+ * Phase 1, or past a better-approved one in the runoff."
  */
 export const BOUNDARY_CHAIN: ChainStep<BoundaryTiebreakRule>[] = [
 	{ rule: null, field: 'yesVotes', dir: 'desc' },
-	{ rule: 'stars', field: 'starVotes', dir: 'desc' },
-	...(TAIL as ChainStep<BoundaryTiebreakRule>[])
+	STARS,
+	APPROVAL,
+	...TAIL
 ];
 
 /**
- * Phase 2 cycle resolution: Copeland first, then the shared tail — and no stars
- * at any rung ("Stars play no part in Phase 2").
+ * Phase 2 cycle resolution: Copeland, then approval, then STARS, then the tail.
+ *
+ * voting-spec, Tally: "1. Copeland score. 2. Approval. 3. Stars — more
+ * `star_votes` among attendees wins. Below approval and not above it: a star may
+ * separate finalists that both the pairwise vote and standing approval have
+ * tied, and never promotes a film past a better-approved one."
+ *
+ * Stars sit one rung lower here than at the boundary (where they are above
+ * approval) on purpose: in the runoff a star speaks only when the live pairwise
+ * vote AND standing approval have both refused to decide.
  */
 export const CYCLE_CHAIN: ChainStep<CycleTiebreakRule>[] = [
 	{ rule: 'copeland', field: 'copeland', dir: 'desc' },
-	...(TAIL as ChainStep<CycleTiebreakRule>[])
+	APPROVAL,
+	STARS,
+	...TAIL
 ];
 
 function stepCompare<R extends string>(step: ChainStep<R>, a: RankRow, b: RankRow): number {
@@ -166,7 +198,7 @@ export function describeDecision<R extends string>(
 }
 
 /**
- * voting-spec rule 3: "the finalist suggested by whichever *attendee* has gone
+ * voting-spec rule 4: "the finalist suggested by whichever *attendee* has gone
  * longest without a winning suggestion ... Restrict it to attendees, or absent
  * members accumulate 'owed a win' credit for nights they skipped. Measure
  * members who have never won from their join date, not as infinitely overdue."
@@ -175,7 +207,7 @@ export function describeDecision<R extends string>(
  * longer = stronger claim). `+Infinity` means "no claim at all": the suggester
  * is not attending, or has no fairness record.
  *
- * SETTLED by the amended spec: "at rule 3 a finalist whose suggester is not
+ * SETTLED by the amended spec: "at rule 4 a finalist whose suggester is not
  * attending has the worst possible fairness claim and is eliminated by that rung
  * (rather than the rung being skipped as indecisive)." `+Infinity` is exactly
  * that worst possible claim, so such a finalist loses the rung and drops out of
@@ -192,7 +224,7 @@ export function rotationFairnessKey(
 	return record.lastWinAt ?? record.joinedAt;
 }
 
-/** voting-spec rule 4. Unknown runtimes rank last rather than first. */
+/** voting-spec rule 5. Unknown runtimes rank last rather than first. */
 export function runtimeKey(movie: MovieInput): number {
 	return movie.runtimeMin ?? Number.POSITIVE_INFINITY;
 }
@@ -209,8 +241,9 @@ export function buildRankRow(
 	return {
 		movieId: movie.id,
 		yesVotes: stats.yesVotes,
-		// Defaults to 0, which makes the star rung separate nothing — the correct
-		// reading for the runoff, whose chain does not include it at all.
+		// Defaults to 0 — "nobody starred this" — which makes the star rung separate
+		// nothing. Both chains have a star rung now, so both callers pass the real
+		// count; the default only keeps a hand-built row honest.
 		starVotes: stats.starVotes ?? 0,
 		approval: stats.approval,
 		copeland: stats.copeland ?? 0,

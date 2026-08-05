@@ -73,7 +73,14 @@ export function formatPercent(value: number): string {
 	return `${Math.round(value * 100)}%`;
 }
 
-/** Human label for the tiebreak rule stored on a round. */
+/**
+ * Human label for the tiebreak rule stored on a round.
+ *
+ * One table for both chains: `stars` names the Phase 1 boundary rung and the
+ * runoff's rule 3, and reads the same either way — it is the same count doing the
+ * same job at a different height. Listed in the runoff's order, with `stars`
+ * hoisted because it is the one rung the boundary chain reaches first.
+ */
 export const TIEBREAK_LABELS: Record<string, string> = {
 	stars: 'most stars',
 	copeland: 'most pairwise wins (Copeland)',

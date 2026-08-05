@@ -123,7 +123,7 @@ Suggestion is TMDB-search only:
    server-side).
 2. Results show poster, title, year. Tapping one saves the movie with
    `tmdb_id, title, year, runtime_min, poster_path` (runtime fetched from the movie
-   detail endpoint at save time — it feeds tiebreak rule 4), plus the cached `details`
+   detail endpoint at save time — it feeds tiebreak rule 5), plus the cached `details`
    blob the same call returns (Movie details, below).
 3. Duplicates are blocked per group on `tmdb_id`: suggesting an existing pool movie
    just navigates to it; re-suggesting a *watched* movie follows the re-watch/cooldown

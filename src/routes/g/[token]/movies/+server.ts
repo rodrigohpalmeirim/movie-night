@@ -1,6 +1,6 @@
 /**
  * `POST movies { tmdb_id }` — suggest. Runtime is fetched server-side at save
- * time because it feeds tiebreak rule 4.
+ * time because it feeds tiebreak rule 5.
  *
  * The response's `kind` tells the client which of the spec's four duplicate
  * behaviours happened: created / exists (navigate to it) / restored / rewatch.

@@ -489,7 +489,10 @@ export function planAdvance(input: {
 			kind: 'runoff_to_decided',
 			roundId: round.id,
 			winnerId: runoff.winnerId,
-			tiebreakRuleUsed: (runoff.tiebreak?.rule ?? null) as TiebreakRule | null,
+			// No cast: `CycleTiebreakRule` and the column's `TIEBREAK_RULES` are the
+			// same six values, and a rung added to one and not the other should fail
+			// here rather than be silently written to the round.
+			tiebreakRuleUsed: runoff.tiebreak?.rule ?? null,
 			runoff,
 			at: now
 		});

@@ -60,6 +60,11 @@
 	 * row of zeroes would push the sheet sideways to say nothing. It is also the
 	 * only place stars appear as numbers — a star is a tie-breaker, so when one
 	 * actually decided the night the sentence at the bottom names it in words.
+	 *
+	 * That holds for the runoff's star rung too, and needs no clause of its own: a
+	 * star can only decide anything by out-counting another film, so a round
+	 * decided by "most stars" always has a non-zero count in this table, and the
+	 * column is already here to show it.
 	 */
 	const anyStars = $derived(reveal.tallies.some((tally) => tally.starVotes > 0));
 

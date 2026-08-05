@@ -314,7 +314,33 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('approval');
 	});
 
-	it('rule 3 — rotation fairness: the attendee who has waited longest', () => {
+	it('rule 3 — stars: the more-starred finalist wins a Copeland-and-approval tie', () => {
+		// Every approval identical, so rule 2 separates nothing and the star rung is
+		// the first thing that can. Runtime would have picked mA under the old
+		// chain, where Phase 2 never looked at a star.
+		const result = computeRunoff(
+			runoff({
+				finalistIds,
+				movies: [
+					movie('mA', { suggestedBy: 'v1', runtimeMin: 95 }),
+					movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
+					movie('mC', { suggestedBy: 'v1', runtimeMin: 120 })
+				],
+				pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+				standingVotes: [
+					...standing('mA', 4, 2, ATTENDEES, 0),
+					...standing('mB', 4, 2, ATTENDEES, 2),
+					...standing('mC', 4, 2, ATTENDEES, 1)
+				]
+			})
+		);
+		expect(result.copeland).toEqual({ mA: 1, mB: 1, mC: 1 });
+		expect(result.winnerId).toBe('mB');
+		expect(result.tiebreak?.rule).toBe('stars');
+		expect(result.tiebreak?.contested.slice().sort()).toEqual(['mA', 'mB', 'mC']);
+	});
+
+	it('rule 4 — rotation fairness: the attendee who has waited longest', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -333,7 +359,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 3 measures a past winner from their last win, never-won members from their join date', () => {
+	it('rule 4 measures a past winner from their last win, never-won members from their join date', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -356,7 +382,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 3 gives a brand-new member no head start', () => {
+	it('rule 4 gives a brand-new member no head start', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -378,7 +404,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.winnerId).toBe('mA');
 	});
 
-	it('rule 3 is restricted to attendees', () => {
+	it('rule 4 is restricted to attendees', () => {
 		// v9 joined at the dawn of time and has never won, but is not coming
 		// tonight: no "owed a win" credit for nights they skipped.
 		const result = computeRunoff(
@@ -398,7 +424,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('rotation_fairness');
 	});
 
-	it('rule 3 falls through when no suggester has a claim', () => {
+	it('rule 4 falls through when no suggester has a claim', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -415,7 +441,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('shortest_runtime');
 	});
 
-	it('rule 4 — shortest runtime', () => {
+	it('rule 5 — shortest runtime', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -433,7 +459,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.contested.slice().sort()).toEqual(['mA', 'mB', 'mC']);
 	});
 
-	it('rule 4 ranks an unknown runtime last', () => {
+	it('rule 5 ranks an unknown runtime last', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
@@ -450,7 +476,7 @@ describe('runoff: cycle tiebreak chain', () => {
 		expect(result.tiebreak?.rule).toBe('shortest_runtime');
 	});
 
-	it('rule 5 — seeded random, reproducible and recorded', () => {
+	it('rule 6 — seeded random, reproducible and recorded', () => {
 		const identical: MovieInput[] = finalistIds.map((id) => movie(id, { suggestedBy: 'v1', runtimeMin: 100 }));
 		const build = (seed: number) =>
 			computeRunoff(
@@ -525,57 +551,111 @@ describe('runoff: cycle tiebreak chain', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Stars are a Phase 1 rung only                                      */
+/* Stars: a runoff rung, but the one below approval                   */
 /* ------------------------------------------------------------------ */
 
-describe('runoff: stars play no part in Phase 2', () => {
-	// voting-spec, Stars: "Stars play no role anywhere else: not in coverage,
-	// approval or eligibility; not in the veto step; not in the round robin; not
-	// in the runoff's cycle tiebreak chain."
+describe('runoff: stars are rule 3, below approval', () => {
+	// voting-spec, Tally rule 3: "more `star_votes` among attendees wins. Below
+	// approval and not above it: a star may separate finalists that both the
+	// pairwise vote and standing approval have tied, and never promotes a film
+	// past a better-approved one."
 	const finalistIds = ['mA', 'mB', 'mC'];
 
-	/** Every Phase 1 number tied, so only the cycle chain's lower rungs are left. */
+	/** Every Phase 1 number tied except the stars, so rule 3 is the first live rung. */
 	function stars(spec: Record<string, number>) {
 		return Object.entries(spec).flatMap(([movieId, count]) => standing(movieId, 4, 2, ATTENDEES, count));
 	}
 
-	it('a starred finalist does not win a Copeland tie', () => {
+	it('a star never beats a better approval, at any star distribution', () => {
+		// mC is unstarred and best-approved (6 of 6); mA and mB carry every star
+		// there is. Approval is rule 2, so it decides before the stars are read.
+		for (const spec of [
+			{ mA: 4, mB: 0 },
+			{ mA: 0, mB: 4 },
+			{ mA: 1, mB: 2 }
+		]) {
+			const result = computeRunoff(
+				runoff({
+					finalistIds,
+					movies: finalistIds.map((id) => movie(id, { suggestedBy: 'v1', runtimeMin: 100 })),
+					pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+					standingVotes: [
+						...standing('mA', 4, 2, ATTENDEES, spec.mA),
+						...standing('mB', 4, 2, ATTENDEES, spec.mB),
+						...standing('mC', 6, 0, ATTENDEES, 0)
+					]
+				})
+			);
+			expect(result.winnerId, JSON.stringify(spec)).toBe('mC');
+			expect(result.tiebreak?.rule).toBe('approval');
+		}
+	});
+
+	it('stars separate only what approval has already tied', () => {
+		// Rule 2 narrows to the two 100%-approved films and drops the most-starred
+		// film of the night; rule 3 then picks between the survivors. So the winner
+		// is not the film with the most stars — it is the better-approved film that
+		// happens to hold one.
+		const ids = ['mA', 'mB', 'mC'];
+		const result = computeRunoff(
+			runoff({
+				finalistIds: ids,
+				movies: ids.map((id) => movie(id, { suggestedBy: 'v1', runtimeMin: 100 })),
+				// Nobody compared anything: Copeland is 0 across the board, so rule 1
+				// separates nothing and there is no Condorcet winner.
+				pairVotes: [],
+				standingVotes: [
+					...standing('mA', 6, 0, ATTENDEES, 0),
+					...standing('mB', 6, 0, ATTENDEES, 1),
+					...standing('mC', 4, 2, ATTENDEES, 4)
+				]
+			})
+		);
+		expect(result.copeland).toEqual({ mA: 0, mB: 0, mC: 0 });
+		expect(result.winnerId).toBe('mB');
+		expect(result.tiebreak?.rule).toBe('stars');
+		// mC held four stars and never made it past rule 2.
+		expect(result.tiebreak?.contested.slice().sort()).toEqual(['mA', 'mB']);
+	});
+
+	it('an absent member’s star cannot decide a runoff', () => {
 		const result = computeRunoff(
 			runoff({
 				finalistIds,
-				// Runtime is the only genuine separator: mC is shortest.
+				movies: [
+					movie('mA', { suggestedBy: 'v1', runtimeMin: 95 }),
+					movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
+					movie('mC', { suggestedBy: 'v1', runtimeMin: 120 })
+				],
+				pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
+				standingVotes: [
+					...stars({ mA: 0, mB: 1, mC: 0 }),
+					// v7 and v8 are not attending: two starred yeses on mA that count for
+					// nothing, exactly as their yeses do.
+					...standing('mA', 2, 0, ['v7', 'v8'], 2)
+				]
+			})
+		);
+		expect(result.tallies.find((t) => t.movieId === 'mA')?.starVotes).toBe(0);
+		expect(result.winnerId).toBe('mB');
+		expect(result.tiebreak?.rule).toBe('stars');
+	});
+
+	it('an equal star count separates nothing and falls through', () => {
+		const result = computeRunoff(
+			runoff({
+				finalistIds,
 				movies: [
 					movie('mA', { suggestedBy: 'v1', runtimeMin: 180 }),
 					movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
 					movie('mC', { suggestedBy: 'v1', runtimeMin: 95 })
 				],
 				pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
-				// mA is unanimously starred; mC has no stars at all.
-				standingVotes: stars({ mA: 4, mB: 2, mC: 0 })
+				standingVotes: stars({ mA: 2, mB: 2, mC: 2 })
 			})
 		);
-		expect(result.copeland).toEqual({ mA: 1, mB: 1, mC: 1 });
 		expect(result.winnerId).toBe('mC');
 		expect(result.tiebreak?.rule).toBe('shortest_runtime');
-	});
-
-	it('stars never appear as the deciding rule, at any star distribution', () => {
-		for (const spec of [{ mA: 4, mB: 0, mC: 0 }, { mA: 0, mB: 4, mC: 0 }, { mA: 1, mB: 2, mC: 3 }]) {
-			const result = computeRunoff(
-				runoff({
-					finalistIds,
-					movies: [
-						movie('mA', { suggestedBy: 'v1', runtimeMin: 180 }),
-						movie('mB', { suggestedBy: 'v1', runtimeMin: 150 }),
-						movie('mC', { suggestedBy: 'v1', runtimeMin: 95 })
-					],
-					pairVotes: matrixVotes(THREE_WAY_CYCLE, ATTENDEES),
-					standingVotes: stars(spec)
-				})
-			);
-			expect(result.winnerId, JSON.stringify(spec)).toBe('mC');
-			expect(result.tiebreak?.rule).toBe('shortest_runtime');
-		}
 	});
 
 	it('still counts stars in the recomputed tallies, for the reveal', () => {

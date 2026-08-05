@@ -1,9 +1,12 @@
 /**
- * Stars: the write path, the database's cross-column rule, the Phase 1 rung, the
- * frozen snapshot, and the veto flip's obligation to put a star back.
+ * Stars: the write path, the database's cross-column rule, both tiebreak rungs
+ * (the Phase 1 boundary and the Phase 2 runoff), the frozen snapshot, and the
+ * veto flip's obligation to put a star back.
  *
- * voting-spec, Phase 1 → Stars: a star is an UPGRADED yes, unlimited, and the
- * highest-priority tie-breaker after the approval count — "Nothing else."
+ * voting-spec, Phase 1 → Stars: a star is an UPGRADED yes, unlimited, and "a
+ * tie-breaker, and only ever a tie-breaker": the highest-priority one after the
+ * yes-count at the finalist boundary, and the highest-priority one after approval
+ * when the runoff has to break a cycle.
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
@@ -13,6 +16,7 @@ import { unwrap, type Result } from './result.js';
 import { setStandingVote } from './services/movies.js';
 import {
 	advanceRound,
+	castPairVote,
 	castVeto,
 	createRound,
 	evaluateRunoff,
@@ -248,7 +252,7 @@ function tiedBoundary(options: { starOn?: string; starBy?: string } = {}) {
 	return { w, round };
 }
 
-describe('stars decide the finalist boundary and nothing else', () => {
+describe('stars decide the finalist boundary', () => {
 	test('one star promotes the film it is on', () => {
 		const { w, round } = tiedBoundary({ starOn: 'Brazil' });
 		world = w;
@@ -360,6 +364,119 @@ describe('stars decide the finalist boundary and nothing else', () => {
 		);
 		const runoff = unwrap(evaluateRunoff({ db: w.db, groupId: w.group.id, round: advanced.round }));
 		expect(runoff.tallies.find((t) => t.movieId === w.movie('Alien').id)?.starVotes).toBe(0);
+	});
+});
+
+/* ------------------------------------------------------------------ */
+/* The Phase 2 rung, end to end                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A round that ends in a genuine pairwise cycle with every standing number tied.
+ *
+ * Three attendees, three films, each film swiped yes by Ana and Ben and no by
+ * Cal — coverage 1.00, approval 2/3 each — and all three suggested by Ana with
+ * the same runtime, so nothing below the stars can separate them either. The
+ * round robin is a perfect cycle (Alien > Brazil > Casino > Alien), which ties
+ * Copeland at 1 apiece. That leaves the star rung as the only live link in the
+ * chain: rule 1 and rule 2 both separate nothing, and rules 4-6 are unreachable
+ * while a star is outstanding.
+ */
+function cycledRunoff(options: { starOn?: string } = {}) {
+	const names = ['Ana', 'Ben', 'Cal'];
+	const titles = ['Alien', 'Brazil', 'Casino'];
+	const w = createTestWorld({
+		memberNames: names,
+		movies: titles.map((title) => ({ title, runtimeMin: 100, suggestedBy: 'Ana' }))
+	});
+	const round = unwrap(
+		createRound({ db: w.db, groupId: w.group.id, actorId: w.member('Ana').id, now: BASE_NOW, seed: 4321 })
+	);
+	for (const name of names) {
+		unwrap(
+			setRsvp({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: round.id,
+				memberId: w.member(name).id,
+				attending: true,
+				actorId: w.member(name).id,
+				now: BASE_NOW
+			})
+		);
+	}
+	for (const title of titles) {
+		for (const [name, value] of [['Ana', 'yes'], ['Ben', 'yes'], ['Cal', 'no']] as const) {
+			unwrap(
+				setStandingVote({
+					db: w.db,
+					groupId: w.group.id,
+					memberId: w.member(name).id,
+					movieId: w.movie(title).id,
+					value,
+					starred: value === 'yes' && name === 'Ana' && options.starOn === title,
+					now: BASE_NOW
+				})
+			);
+		}
+	}
+	const runoff = unwrap(
+		advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id, now: BASE_NOW })
+	).round;
+	// Alien > Brazil > Casino > Alien, each pair 2-1.
+	const cycle: Array<[string, string, string[]]> = [
+		['Alien', 'Brazil', ['Ana', 'Ben']],
+		['Brazil', 'Casino', ['Ana', 'Ben']],
+		['Casino', 'Alien', ['Ben', 'Cal']]
+	];
+	for (const [first, second, backers] of cycle) {
+		for (const name of ['Ana', 'Ben', 'Cal']) {
+			unwrap(
+				castPairVote({
+					db: w.db,
+					groupId: w.group.id,
+					roundId: runoff.id,
+					memberId: w.member(name).id,
+					a: w.movie(first).id,
+					b: w.movie(second).id,
+					winner: backers.includes(name) ? w.movie(first).id : w.movie(second).id,
+					now: BASE_NOW
+				})
+			);
+		}
+	}
+	return { w, round: runoff };
+}
+
+describe('stars decide a runoff cycle once Copeland and approval have tied', () => {
+	test('the star rung picks the winner and is recorded as the rule that did', () => {
+		const { w, round } = cycledRunoff({ starOn: 'Brazil' });
+		world = w;
+		const runoff = unwrap(evaluateRunoff({ db: w.db, groupId: w.group.id, round }));
+		expect(runoff.condorcetWinnerId).toBeNull();
+		expect(Object.values(runoff.copeland)).toEqual([1, 1, 1]);
+		expect(runoff.winnerId).toBe(w.movie('Brazil').id);
+		expect(runoff.tiebreak?.rule).toBe('stars');
+
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id, now: BASE_NOW })
+		).round;
+		expect(decided.winnerId).toBe(w.movie('Brazil').id);
+		// The rung is a legal value of `rounds.tiebreak_rule_used`, so the reveal can
+		// name it in words like any other.
+		expect(decided.tiebreakRuleUsed).toBe('stars');
+		const reveal = buildRevealView({ db: w.db, group: w.group, round: decided });
+		expect(reveal.tiebreakRuleUsed).toBe('stars');
+		expect(reveal.tallies.find((t) => t.movieId === w.movie('Brazil').id)?.starVotes).toBe(1);
+	});
+
+	test('the same cycle with no star at all falls through to a lower rung', () => {
+		// Nothing about the round changes except the star: without it the chain runs
+		// past rules 3 and 4 (one suggester, one fairness claim) to a seeded draw.
+		const { w, round } = cycledRunoff();
+		world = w;
+		const runoff = unwrap(evaluateRunoff({ db: w.db, groupId: w.group.id, round }));
+		expect(runoff.tiebreak?.rule).toBe('seeded_random');
 	});
 });
 

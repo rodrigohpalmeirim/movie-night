@@ -58,17 +58,19 @@ A **star** is an *upgraded yes*, not a third vote value.
 - **Unlimited.** Any member may star any number of films. There is no budget, so there is nothing to reset and no counter that can drift — the property that made per-round intensity budgets untenable (see *Deliberately not included*).
 - **Editable whenever the underlying swipe is**, from the same screens.
 
-Stars do exactly one job:
+Stars do exactly one job, in two places:
 
-> A star is the **highest-priority tie-breaker after the approval count** when selecting finalists in Phase 1. Nothing else.
+> A star is a **tie-breaker, and only ever a tie-breaker**: the highest-priority one after the yes-count when selecting finalists in Phase 1, and the highest-priority one after approval when the runoff has to break a cycle. Nothing else.
 
 ```
 star_votes(movie) = attendees whose standing vote on this movie is a STARRED yes
 ```
 
-Because stars are consulted only *after* `yes_votes`, a star can never promote a movie past one with more yes-votes; it separates only films the approval count has already tied. Where yes-vote counts differ, stars are irrelevant.
+**Stars are seasoning, not votes.** Every rung above them, in either chain, is a yes-signal, so a star separates only films those signals have already tied and never promotes one past them: past a film with more yes-votes in Phase 1, or past a better-approved one in the runoff. Where the signals above differ, stars are irrelevant.
 
-Stars play **no** role anywhere else: not in `coverage`, `approval` or eligibility; not in the veto step; not in the round robin; not in the runoff's cycle tiebreak chain. They are counted from attendees only, like every other tally.
+The Phase 2 seat is deliberately more subordinate than the Phase 1 one. At the finalist boundary a star sits *between* the yes-count and the approval share; in the runoff it sits *below* approval, so a star speaks there only when both the live pairwise vote **and** standing approval have refused to decide. That is not a new intrusion into Phase 2: the cycle chain already falls back to standing signals the moment the live vote ties, and `approval` is exactly such a signal — the star is not a different kind of thing, only a finer-grained one, reached after it.
+
+Stars play **no** role anywhere else: not in `coverage`, `approval` or eligibility; not in the veto step; not in the round robin. They are counted from attendees only, like every other tally — in Phase 2 exactly as in Phase 1, so no absent member's star reaches either chain.
 
 ### Attendance
 
@@ -108,7 +110,7 @@ Ties at the finalist boundary (e.g. 5th and 6th place with equal yes-votes) are 
 6. seeded random
 ```
 
-Steps 3–6 are the runoff's own chain, reused verbatim ("higher approval, then rotation fairness, then shortest runtime, then seeded random"). Step 2 is the one addition, and it exists only here: the runoff's chain itself is unchanged and never consults stars.
+Steps 3–6 are the runoff's own rungs, in the runoff's own order: higher approval, then rotation fairness, then shortest runtime, then seeded random. The two chains are built from the same five tie-breakers and differ only in where the star sits — above approval here, below it in the runoff (see *Phase 2 → Tally*), which is where step 2 comes from. From rotation fairness down they coincide rung for rung, so rules 4, 5 and 6 mean the same thing in either phase.
 
 The approval floor is load-bearing. Without it, a pool of uniformly unappealing movies still produces a confident-looking winner. If fewer than two movies clear the floor:
 
@@ -151,15 +153,16 @@ For each pair, count how many attendees preferred A to B. A beats B if it wins s
 
 Cycles are possible (A beats B beats C beats A) and must be handled rather than left to crash. Resolve in order:
 
-Each rule *ranks and narrows* the tied set; whatever remains tied falls through to the next rule. A rule that separates nothing is skipped. In particular, at rule 3 a finalist whose suggester is not attending has the worst possible fairness claim and is eliminated by that rung (rather than the rung being skipped as indecisive).
+Each rule *ranks and narrows* the tied set; whatever remains tied falls through to the next rule. A rule that separates nothing is skipped. In particular, at rule 4 a finalist whose suggester is not attending has the worst possible fairness claim and is eliminated by that rung (rather than the rung being skipped as indecisive).
 
 1. **Copeland score** — most pairwise victories wins.
 2. **Approval** — the higher-approved finalist wins (the `approval` fraction, not the raw yes count).
-3. **Rotation fairness** — the finalist suggested by whichever *attendee* has gone longest without a winning suggestion.
-4. **Shortest runtime.**
-5. **Seeded random**, recorded on the round so the result is reproducible and auditable.
+3. **Stars** — more `star_votes` among attendees wins. Below approval and not above it: a star may separate finalists that both the pairwise vote and standing approval have tied, and never promotes a film past a better-approved one (see *Phase 1 → Stars*).
+4. **Rotation fairness** — the finalist suggested by whichever *attendee* has gone longest without a winning suggestion.
+5. **Shortest runtime.**
+6. **Seeded random**, recorded on the round so the result is reproducible and auditable.
 
-Rule 3 is worth implementing properly rather than treating as a formality. Over many rounds it is what stops the person with unusual taste from never winning, and it is the main thing this app can do that a show of hands cannot. Restrict it to attendees, or absent members accumulate "owed a win" credit for nights they skipped. Measure members who have never won from their join date, not as infinitely overdue — otherwise someone who joined yesterday jumps the entire queue.
+Rule 4 is worth implementing properly rather than treating as a formality. Over many rounds it is what stops the person with unusual taste from never winning, and it is the main thing this app can do that a show of hands cannot. Restrict it to attendees, or absent members accumulate "owed a win" credit for nights they skipped. Measure members who have never won from their join date, not as infinitely overdue — otherwise someone who joined yesterday jumps the entire queue.
 
 ---
 
@@ -283,6 +286,6 @@ Recorded so these aren't re-derived later:
 
 - **Weighted "super-like" votes.** Considered and cut, and the cut still stands as written: a *weighted* vote — one that adds to a movie's score and so can outrank plain yes-votes — was not worth the budget state, reset semantics, and shortlist machinery it required, and the pairwise runoff already separates "tolerable" from "excited" with finer resolution.
 
-  **Superseded in part (see Phase 1 → Stars).** The star that was later adopted keeps the intent and none of the machinery: it is unlimited, so there is no budget to spend, reset or leak; it is a flag on the standing vote, so there is nothing new to store and no shortlist stage; and it is a *tie-breaker only*, so it can never outrank a yes-vote or nudge a film past a better-approved one. It changes an outcome in exactly one situation — two films tied on yes-votes at the finalist boundary — which is the situation the group actually wanted a say in.
+  **Superseded in part (see Phase 1 → Stars).** The star that was later adopted keeps the intent and none of the machinery: it is unlimited, so there is no budget to spend, reset or leak; it is a flag on the standing vote, so there is nothing new to store and no shortlist stage; and it is a *tie-breaker only* in both chains, so it can never outrank a yes-vote — nor, in the runoff, an approval share. It changes an outcome only where a yes-signal has already tied — two films level on yes-votes at the finalist boundary, or two finalists level on both pairwise wins and approval in the runoff — which are the situations the group actually wanted a say in.
 - **A shortlist stage between eligible and finalists.** Only needed to bound the cost of collecting per-movie intensity votes. With those gone, the finalist set is small enough to act on directly.
 - **Live vote counts.** See cross-cutting rules; this is a deliberate omission, not a missing feature.

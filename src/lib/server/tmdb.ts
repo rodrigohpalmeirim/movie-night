@@ -3,7 +3,7 @@
  *
  * app-spec: "Member types a title; the server proxies TMDB `/search/movie` (API
  * key stays server-side)" and "runtime fetched from the movie detail endpoint at
- * save time — it feeds tiebreak rule 4". Search responses are cached briefly
+ * save time — it feeds tiebreak rule 5". Search responses are cached briefly
  * server-side.
  *
  * `fetchImpl` is injectable so the integration tests never touch the network.
@@ -34,7 +34,7 @@ export interface TmdbDetail {
 	title: string;
 	year: number | null;
 	posterPath: string | null;
-	/** null when TMDB has no runtime — ranks last on tiebreak rule 4. */
+	/** null when TMDB has no runtime — ranks last on tiebreak rule 5. */
 	runtimeMin: number | null;
 	/** The extras from the same call: tagline, overview, genres, cast, trailer. */
 	details: MovieDetails;

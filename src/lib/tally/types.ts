@@ -45,9 +45,9 @@ export const DEFAULT_TALLY_CONFIG: TallyConfig = {
 
 export interface MovieInput {
 	id: MovieId;
-	/** `null` when TMDB had no runtime; ranks last on tiebreak rule 4. */
+	/** `null` when TMDB had no runtime; ranks last on tiebreak rule 5. */
 	runtimeMin: number | null;
-	/** Feeds rotation fairness (tiebreak rule 3). */
+	/** Feeds rotation fairness (tiebreak rule 4). */
 	suggestedBy: MemberId;
 	/** Defaults to `pool` when omitted. */
 	status?: MovieStatus;
@@ -69,13 +69,13 @@ export interface StandingVoteInput {
 /**
  * One record per member of the group.
  *
- * voting-spec rule 3: "Measure members who have never won from their join
+ * voting-spec rule 4: "Measure members who have never won from their join
  * date, not as infinitely overdue" — hence `joinedAt` is required and
  * `lastWinAt` is nullable. `lastWinAt` is stamped when a round reaches
  * WATCHED, never when it is merely DECIDED.
  *
  * A member with no record at all is treated as having no fairness claim
- * (ranked last on rule 3); callers should supply a record for every member.
+ * (ranked last on rule 4); callers should supply a record for every member.
  */
 export interface FairnessInput {
 	memberId: MemberId;
@@ -108,26 +108,39 @@ export interface PairVoteInput {
 /* ------------------------------------------------------------------ */
 
 /**
- * The shared tail of the tiebreak chain, reused at the finalist boundary and
- * inside the runoff cycle resolution (voting-spec: "Reuse the runoff's chain").
+ * The tie-breakers both chains are built from — the same five rules in both
+ * phases, in two different orders (voting-spec: "The two chains are built from
+ * the same five tie-breakers and differ only in where the star sits").
+ *
+ * `stars` used to be excluded from this union and admitted to the boundary chain
+ * alone, because the spec then said stars decided finalists and nothing else.
+ * The amended spec gives them a runoff rung too — below `approval`, so a star
+ * still never outranks a yes-signal — which makes the shared *set* of rules
+ * identical in both phases and leaves only the ordering to differ.
  */
 export type SharedTiebreakRule =
+	| 'stars'
 	| 'approval'
 	| 'rotation_fairness'
 	| 'shortest_runtime'
 	| 'seeded_random';
 
 /**
- * Phase 1's chain: the shared tail, preceded by stars.
+ * Phase 1's chain below its `yes_votes` ranking key: `stars → approval →
+ * rotation fairness → shortest runtime → seeded random`.
  *
- * voting-spec, Stars: "A star is the highest-priority tie-breaker after the
- * approval count when selecting finalists in Phase 1. Nothing else." `stars` is
- * therefore in this union and deliberately NOT in `CycleTiebreakRule` — the type
- * is what stops a star from ever deciding a runoff.
+ * Exactly the shared rules — the boundary chain has no rung of its own, since
+ * its primary key is a ranking key rather than a tiebreak.
  */
-export type BoundaryTiebreakRule = 'stars' | SharedTiebreakRule;
+export type BoundaryTiebreakRule = SharedTiebreakRule;
 
-/** The runoff's full chain: Copeland first, then the shared tail. No stars. */
+/**
+ * The runoff's chain: `copeland → approval → stars → rotation fairness →
+ * shortest runtime → seeded random`.
+ *
+ * `copeland` is the one rule that exists only here — nothing outside a round
+ * robin has pairwise victories to count.
+ */
 export type CycleTiebreakRule = 'copeland' | SharedTiebreakRule;
 
 export interface TiebreakOutcome<R extends string> {
@@ -154,8 +167,9 @@ export interface MovieTally {
 	/**
 	 * Attendee standing votes that are a STARRED yes — a subset of `yesVotes`.
 	 *
-	 * Tiebreak only: it never enters `coverage`, `approval`, eligibility or the
-	 * approval floor, and it is not consulted anywhere in Phase 2.
+	 * Tiebreak only, in both phases: it never enters `coverage`, `approval`,
+	 * eligibility or the approval floor, and in the runoff it is consulted only
+	 * once Copeland and approval have both failed to separate the leaders.
 	 */
 	starVotes: number;
 	/** attendeeVotes / attendees (0 when there are no attendees). */

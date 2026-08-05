@@ -13,9 +13,12 @@
  * the redundant `attendee_votes_below_minimum` reasons in V005/V008/V039, were
  * re-derived from the amended text. On 2026-08-04 stars and soft member removal
  * were added to the spec, which retired no rule and changed no existing vector's
- * expected values; four new vectors (V041-V044) pin the new text. Both edits are
- * dated and explained in spec-tests/README.md §0; every other vector is
- * untouched.
+ * expected values; four new vectors (V041-V044) pin the new text. On 2026-08-05
+ * the spec gave stars a *runoff* rung as well, directly below approval, revoking
+ * its own "Stars play no part in Phase 2" guarantee; no existing vector reaches
+ * the cycle chain with a star to its name, so again no expected value moved, and
+ * three new vectors (V045-V047) pin the new rung. Every edit is dated and
+ * explained in spec-tests/README.md §0; every other vector is untouched.
  *
  * Mapping notes (adapter concerns only, no semantics invented):
  *   - `random_seed` is a *string* in the vectors and the seed→choice mapping is
@@ -213,14 +216,16 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	 *
 	 * Amended spec: "Each rule *ranks and narrows* the tied set; whatever remains
 	 * tied falls through to the next rule. A rule that separates nothing is
-	 * skipped. In particular, at rule 3 a finalist whose suggester is not
+	 * skipped. In particular, at rule 4 a finalist whose suggester is not
 	 * attending has the worst possible fairness claim and is eliminated by that
 	 * rung (rather than the rung being skipped as indecisive)."
 	 *
 	 * → rank & narrow, i.e. `rotationFairnessKey` returning `+Infinity`
 	 *   eliminates a no-claim finalist. Already implemented; no change needed.
+	 *   (The spec called this rule 3 until the star rung pushed it down to 4; the
+	 *   rung itself never moved relative to anything below it.)
 	 */
-	ROTATION_FAIRNESS_NARROWING: 'settled: rank & narrow — +Infinity eliminates no-claim finalists at rung 3',
+	ROTATION_FAIRNESS_NARROWING: 'settled: rank & narrow — +Infinity eliminates no-claim finalists at rotation fairness',
 
 	/**
 	 * Whether the veto's standing-vote flip feeds back into its own round.
@@ -255,9 +260,10 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	/**
 	 * Stars, and soft member removal (2026-08-04).
 	 *
-	 * Amended spec: a star is "an UPGRADED yes", unlimited, and "the
-	 * highest-priority tie-breaker after the approval count when selecting
-	 * finalists in Phase 1. Nothing else." And: "Removed members leave the present,
+	 * Amended spec, as it read that day: a star is "an UPGRADED yes", unlimited,
+	 * and "the highest-priority tie-breaker after the approval count when selecting
+	 * finalists in Phase 1. Nothing else." (The "nothing else" half was revoked the
+	 * next day — see `STARS_IN_THE_RUNOFF` below.) And: "Removed members leave the present,
 	 * not the past" — a removed member is not in any attendee set, so nothing they
 	 * recorded reaches a tally computed after their removal, while history keeps
 	 * naming them.
@@ -267,7 +273,27 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	 *   nothing there and is skipped, and the attendee filter is a no-op. V041-V044
 	 *   pin the new text. See spec-tests/README.md §0.
 	 */
-	STARS_AND_MEMBER_REMOVAL: 'added: star rung below yes-votes in Phase 1 only; removal empties the attendee set'
+	STARS_AND_MEMBER_REMOVAL: 'added: star rung below yes-votes in Phase 1 only; removal empties the attendee set',
+
+	/**
+	 * Stars in the runoff (2026-08-05) — the one amendment that *revoked* a
+	 * guarantee rather than adding to one.
+	 *
+	 * The spec used to promise "Stars play no role ... in the runoff's cycle
+	 * tiebreak chain". It now reads: "3. Stars — more `star_votes` among attendees
+	 * wins. Below approval and not above it: a star may separate finalists that
+	 * both the pairwise vote and standing approval have tied, and never promotes a
+	 * film past a better-approved one." So the cycle chain is
+	 * `copeland → approval → stars → rotation fairness → shortest runtime →
+	 * seeded random`, and rules 4-6 keep the numbering the boundary chain gives
+	 * them.
+	 *
+	 * → ADDED, and it changed no existing answer either: every vector that reaches
+	 *   the cycle chain has zero stars on every finalist, so the new rung compares
+	 *   0 with 0 and is skipped. V045-V047 pin the rung, its position below
+	 *   approval, and its attendee scope. See spec-tests/README.md §0.
+	 */
+	STARS_IN_THE_RUNOFF: 'added: star rung directly below approval in Phase 2; the old "no part in Phase 2" guarantee is revoked'
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -477,10 +503,10 @@ const sorted = (ids: readonly string[]) => [...ids].sort();
 /* ------------------------------------------------------------------ */
 
 describe('spec vectors (independently derived from voting-spec.md)', () => {
-	it('found all 44 vector files', () => {
-		expect(vectors.length).toBe(44);
+	it('found all 47 vector files', () => {
+		expect(vectors.length).toBe(47);
 		expect(vectors.map((v) => v.id)).toEqual(
-			Array.from({ length: 44 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
+			Array.from({ length: 47 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
 		);
 	});
 
@@ -705,7 +731,8 @@ describe('spec vectors (independently derived from voting-spec.md)', () => {
 			'ROTATION_FAIRNESS_NARROWING',
 			'VETO_FLIP_FEEDBACK',
 			'MIN_ATTENDEE_VOTES_REMOVED',
-			'STARS_AND_MEMBER_REMOVAL'
+			'STARS_AND_MEMBER_REMOVAL',
+			'STARS_IN_THE_RUNOFF'
 		]);
 	});
 });

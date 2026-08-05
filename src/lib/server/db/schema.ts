@@ -151,7 +151,7 @@ export const movies = sqliteTable(
 		tmdbId: integer('tmdb_id').notNull(),
 		title: text('title').notNull(),
 		year: integer('year'),
-		/** Feeds tiebreak rule 4 (shortest runtime); null when TMDB has none. */
+		/** Feeds tiebreak rule 5 (shortest runtime); null when TMDB has none. */
 		runtimeMin: integer('runtime_min'),
 		posterPath: text('poster_path'),
 		/**
@@ -238,9 +238,15 @@ export type RoundState = (typeof ROUND_STATES)[number];
 /** States "before decided" — the ones that make a round *active*. */
 export const ACTIVE_ROUND_STATES = ['open', 'runoff'] as const;
 
+/**
+ * The runoff chain's rungs, in spec order — the values `tiebreak_rule_used` may
+ * hold. `stars` joined the list when the spec gave stars a runoff rung directly
+ * below approval; the column is plain `text`, so nothing had to migrate.
+ */
 export const TIEBREAK_RULES = [
 	'copeland',
 	'approval',
+	'stars',
 	'rotation_fairness',
 	'shortest_runtime',
 	'seeded_random'

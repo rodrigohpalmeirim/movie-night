@@ -121,6 +121,52 @@ Consequences, re-derived from the amended text:
   toggle is invisible to `decide_round`, which is handed one config block per
   round and has no notion of the group's live settings.
 
+**2026-08-05 — stars became a rung of the RUNOFF chain as well, directly below
+approval.** The first amendment here that *revokes* a guarantee rather than adding
+to one: the spec used to say "Stars play no role anywhere else … not in the
+runoff's cycle tiebreak chain", and the 2026-08-04 entry above records that
+reading. It is gone. The cycle chain is now `copeland → approval → stars →
+rotation fairness → shortest runtime → seeded random`, and the spec's stated
+reason for that seat is that the chain already falls back to standing signals the
+moment the live vote ties — `approval` is one — so a star is not a new kind of
+input there, only a finer-grained one, reached once both the pairwise vote and
+approval have refused to decide. The product rule both chains still share: stars
+are seasoning, not votes. Every rung above them is a yes-signal, so they separate
+only films that signal has already tied and never promote one past it — past more
+yes-votes at the boundary, past a better approval in the runoff. Consequences, all
+re-derived from the amended text:
+
+* **No existing vector's expected values changed**, for the same reason the
+  2026-08-04 addition changed none: every vector that reaches the cycle chain has
+  zero stars on every finalist (the only starred vectors, V041–V044, are decided
+  at the boundary or by Condorcet), so the new rung compares `0` with `0`,
+  separates nothing, and is skipped. The rung is *inserted*: nothing that reached
+  rotation fairness before stops reaching it.
+* **New: V045, V046, V047.** They pin, respectively, the rung deciding a runoff
+  once Copeland *and* approval have tied; its position **below** approval (the
+  most-starred film of the night is eliminated by approval, and the rung then
+  decides between the survivors); and its attendee scope (two stars from members
+  who are not coming decide nothing). All three name a different winner under a
+  chain with no star rung at all (rotation fairness picks it instead); V046 names a
+  third winner again under a chain that seats the rung *above* approval, and V047
+  under one that counts a non-attendee's star.
+* **`decided_by` gains `stars`.** The 2026-08-04 entry says it does not, on the
+  grounds that it names a rung of the runoff chain "which stars never join". That
+  sentence is now false and the enum in §2 has the value.
+* **The runoff's rungs 3–5 are renumbered 4–6.** Rotation fairness is rule 4,
+  shortest runtime 5, seeded random 6 — which is also what they are in the Phase 1
+  chain, so the two chains now agree rung for rung from rotation fairness down.
+  The V030 and V034 index lines below are re-worded accordingly; a *rationale*
+  inside a vector file still quoting the old numbers is left as derived, exactly as
+  the 2026-08-01 entry left its inert arithmetic. V041's `spec_clause` likewise
+  still quotes "Nothing else." from the pre-amendment Stars section: the Phase 1
+  rung that vector pins did not move, and vectors are not rewritten to track
+  prose.
+* Nothing changes in the input shape. `starred` was already an optional field on
+  `standing_votes` and `star_votes` an optional expected tally; the new vectors use
+  both, and a Phase-2-only runner that ignored `star_votes` before now needs the
+  star counts to reach the right winner.
+
 ---
 
 ## 1. Input shape
@@ -252,8 +298,9 @@ Consequences, re-derived from the amended text:
 
 * **`finalist_boundary_tiebreak.rule`** enum: `stars`, `approval`,
   `rotation_fairness`, `shortest_runtime`, `seeded_random` — the Phase 1 chain
-  below the `yes_votes` key. `stars` is deliberately *not* in `decided_by`, which
-  names a rung of the runoff chain.
+  below the `yes_votes` key. Since 2026-08-05 `decided_by` carries the same five
+  values plus `copeland`: the two chains are built from the same tie-breakers and
+  differ only in where the star sits (above approval here, below it there).
 * **`reason`** enum for `ineligible_movies`:
   `status_not_pool`, `coverage_below_floor`. (`attendee_votes_below_minimum` was
   the third value and is retired — see section 0. Vectors list every failing
@@ -262,8 +309,8 @@ Consequences, re-derived from the amended text:
   * `single_clear_approval_floor` — exactly one movie cleared `APPROVAL_FLOOR`,
     so it wins outright and Phase 2 is skipped.
   * `condorcet` — one surviving finalist beat every other finalist.
-  * `copeland`, `approval`, `rotation_fairness`, `shortest_runtime`,
-    `seeded_random` — the runoff chain, in spec order (1..5).
+  * `copeland`, `approval`, `stars`, `rotation_fairness`, `shortest_runtime`,
+    `seeded_random` — the runoff chain, in spec order (1..6).
   * `null` — no winner (`no_clear_favourite`).
 * **`rank_order_asserted`** — `true` when the ordering of
   `finalist_ids_ranked` is fully determined by the spec's chain and must match
@@ -315,8 +362,9 @@ that movie. There is no separate floor on the raw count (section 0).
 top `N_FINALISTS` that also satisfy `approval >= APPROVAL_FLOOR`. Boundary ties:
 more `star_votes` → higher approval → rotation fairness → shortest runtime →
 seeded random. `star_votes` counts attendees whose standing vote is a *starred*
-yes; it is a tie-breaker only, and sits below `yes_votes` by construction, so it
-can never promote a movie past a better-approved one.
+yes; it is a tie-breaker only — here and in the runoff — and sits below
+`yes_votes` by construction, so it can never promote a movie past a movie with
+more yes-votes.
 If fewer than two movies clear the floor: exactly one → wins outright, skip
 Phase 2; none → `no_clear_favourite`.
 
@@ -330,9 +378,11 @@ attendees preferring A to B; A beats B iff strictly more attendees prefer A.
 A finalist that beats every other is the Condorcet winner. Otherwise:
 1. Copeland score (most pairwise victories),
 2. approval,
-3. rotation fairness,
-4. shortest runtime,
-5. seeded random.
+3. `star_votes` among attendees — below approval, never above it, so a star
+   separates only finalists the pairwise vote and approval have both tied,
+4. rotation fairness,
+5. shortest runtime,
+6. seeded random.
 
 **Rotation fairness** — the finalist suggested by whichever *attendee* has gone
 longest without a winning suggestion. `waiting_since(user) = last_win_at`, or
@@ -400,7 +450,7 @@ vectors and named in the affected vector's `rationale`.
 
 ## 5. Index
 
-`vectors/NNN-slug.json`, 44 vectors. Each file's `description` names the exact
+`vectors/NNN-slug.json`, 47 vectors. Each file's `description` names the exact
 spec clause it exercises, `spec_clause` quotes it, and `rationale` shows the
 arithmetic.
 
@@ -435,11 +485,11 @@ arithmetic.
 | V027 | cycle-resolved-by-copeland | 4 finalists, cycle m1>m2>m4>m1, Copeland 2/1/1/1 -> m1 |
 | V028 | copeland-tie-resolved-by-approval | perfect 3-cycle, Copeland 1/1/1 -> approval 1.00 |
 | V029 | approval-tiebreak-uses-fraction-not-yes-count | cycle decided by approval 1.00 (3 yes) over 0.80 (4 yes) |
-| V030 | copeland-and-approval-tie-resolved-by-rotation-fairness | all Phase 1 numbers identical -> rung 3 picks the never-won suggester |
+| V030 | copeland-and-approval-tie-resolved-by-rotation-fairness | all Phase 1 numbers identical (stars included, at zero) -> rotation fairness picks the never-won suggester |
 | V031 | rotation-fairness-restricted-to-attendees | most-overdue member is absent; his movie must not win the rung |
 | V032 | never-won-measured-from-join-date | new member (joined 2026-07-01) does not jump the queue |
 | V033 | fairness-tie-resolved-by-shortest-runtime | fairness genuinely tied -> 96 < 118 |
-| V034 | all-rungs-exhausted-seeded-random | rung 5; rule + permissible winners asserted, winner_id null |
+| V034 | all-rungs-exhausted-seeded-random | the last rung; rule + permissible winners asserted, winner_id null |
 | V035 | no-preference-contributes-to-neither-side | explicit null and missing row both leave the tally at 2-1 |
 | V036 | coverage-divisor-is-attendees-not-members | 3/3 = 1.00, not 3/10 = 0.30, in a 10-member group |
 | V037 | watched-movie-not-eligible | status = watched excluded before any floor is applied |
@@ -450,15 +500,22 @@ arithmetic.
 | V042 | stars-never-outrank-a-yes-vote | 2 stars and 2 yes lose to 3 yes and no stars; no tiebreak is reached at all |
 | V043 | equal-stars-fall-through-to-approval | equal star counts separate nothing -> rung skipped, approval decides |
 | V044 | removed-member-counts-for-nothing | removed members' RSVPs, votes and stars all inert; two wrong readings give two different winners |
+| V045 | runoff-copeland-and-approval-tie-resolved-by-stars | Copeland 1/1/1 and approval 0.80 all round -> the star rung decides, and `decided_by` is `stars` |
+| V046 | runoff-approval-outranks-stars | approval eliminates the most-starred film of the night, and the rung then picks between the two survivors |
+| V047 | runoff-stars-are-attendee-scoped | two starred yeses from members who are not coming decide nothing; one attendee's star does |
 
 ### Coverage of the interesting discriminators
 
-Sixteen vectors are built so that a plausible *wrong* implementation produces a
+Twenty-one vectors are built so that a plausible *wrong* implementation produces a
 different documented outcome rather than merely a different number:
 V003/V036 (which divisor), V006 (approval divisor), V007 (absence as "no"),
 V008/V009/V024/V031 (attendee-only), V013 (`>` vs `>=`), V018 (insertion order),
 V029 (approval count vs fraction), V032 (never-won as infinitely overdue),
 V035 (crediting "no preference" to a side), V040 (evaluating vetoes on a skipped
-RUNOFF), V041 (no star rung, or a star rung below approval), V042/V043 (stars
-above `yes_votes`, or summed into the ranking key), V044 (a removed member left in
-the electorate, or their vote rows left in the tally).
+RUNOFF), V041 (no star rung, or a star rung below approval, in Phase 1),
+V042/V043 (stars above `yes_votes`, or summed into the ranking key),
+V044 (a removed member left in the electorate, or their vote rows left in the
+tally), V045 (a runoff chain with no star rung, which falls to rotation fairness
+and a different winner), V046 (a star rung seated above approval instead of below
+it — three readings, three winners), V047 (an absent member's star counted in the
+runoff).
