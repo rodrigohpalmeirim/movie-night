@@ -15,8 +15,8 @@
 	import Poster from '$lib/components/Poster.svelte';
 	import VoteBadge from '$lib/components/VoteBadge.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
+	import BrushCleaning from '$lib/icons/BrushCleaning.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
-	import Layers2 from '$lib/icons/Layers2.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { movieMeta } from '$lib/images.js';
@@ -216,7 +216,7 @@
 	<!-- ── The pool ──────────────────────────────────────────────────── -->
 	{#if shown.length === 0}
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
-			<Layers2 size={38} class="mx-auto text-brass" />
+			<BrushCleaning size={38} class="mx-auto text-brass" />
 			<h3 class="display text-[1.5rem] text-board">Nothing on the table</h3>
 			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
 				Suggest a film and everyone can start swiping it. The pool carries over between nights.

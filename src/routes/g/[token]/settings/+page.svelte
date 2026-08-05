@@ -134,14 +134,6 @@
 		return String(value);
 	}
 
-	/** The range in the help line, in the same units the number above it prints. */
-	function allowed(knob: string, range: { min: number; max: number }) {
-		// The ladder IS its range: every wait it allows is written on the rail.
-		if (knob === LADDER_KNOB) return '';
-		if (SHARE_KNOBS.includes(knob)) return ' Allowed: 0–100%.';
-		return ` Allowed: ${range.min}–${range.max}.`;
-	}
-
 	/**
 	 * How many GAPS to rule along a rail's ruler — see `--rail-steps`; there is
 	 * always one more mark than gap. Every rail marks every stop it has, because
@@ -168,11 +160,12 @@
 	const WHEN_VETOES_OFF = 'group-has-[input[value=false]:checked]/veto:hidden';
 
 	const KNOB_HELP: Record<string, string> = {
-		n_finalists: 'How many films reach the head-to-head round. Max 5, so it stays 10 taps.',
+		n_finalists:
+			'How many films reach the head-to-head round. The ceiling keeps the runoff at ten taps.',
 		approval_floor: 'Minimum share of yes-votes for a film to be promotable.',
-		coverage_floor: 'Minimum share of attendees who must have swiped a film.',
+		coverage_floor: 'Minimum share of attendees who must have swiped a film for it to be promotable.',
 		veto_threshold:
-			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Off removes the step entirely: nobody is asked to strike a film, and the runoff is the head-to-heads alone.',
+			'How many vetoes disqualify a finalist. 1 suits five friends, more suits twenty. Off removes the veto step entirely.',
 		rewatch_cooldown:
 			'How long a watched film waits before it can be suggested again, with its standing votes restored. Forever keeps it out for good.'
 	};
@@ -242,7 +235,7 @@
 			<Confirm
 				label="Regenerate invite link"
 				confirmLabel="Yes, replace the link"
-				question="The old link stops working immediately. Everyone will need the new one — but devices already signed in stay signed in."
+				question="The old link stops working immediately. Everyone will need the new one."
 				variant="quiet"
 			size="md"
 			/>
@@ -364,13 +357,12 @@
 						style="--rail-steps:{railSteps(knob, range)}"
 						class="rail {isVeto ? WHEN_VETOES_OFF : ''}"
 					/>
-					<!-- The help text stays put when vetoes go off — it is the line that says
-					     what Off does — but the range it quotes belongs to the rail, so that
-					     half leaves with it. -->
+					<!-- The help line says what a knob MEANS, never what it may be set to:
+					     the rail's own ends already say that, and a sentence repeating them
+					     only asks to be read twice. It stays put when vetoes go off, too —
+					     it is the line that says what Off does. -->
 					<p id="help-{knob}" class="mt-1 text-xs leading-relaxed text-ink-soft">
-						{KNOB_HELP[knob]}<span class={isVeto ? WHEN_VETOES_OFF : ''}
-							>{allowed(knob, range)}</span
-						>
+						{KNOB_HELP[knob]}
 					</p>
 				</div>
 			{/each}
@@ -432,7 +424,7 @@
 		</ul>
 		<p class="text-xs leading-relaxed text-ink-soft">
 			Removing someone takes them off the roster and out of tonight's coverage and count. Nobody is
-			ever deleted — history refers to them.
+			ever deleted — you can restore them later.
 		</p>
 
 		{#if data.settings.removedMembers.length > 0}
@@ -509,8 +501,7 @@
 		<div>
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">This device</h3>
 			<p class="mt-2 text-xs leading-relaxed text-ink-soft">
-				Signed in as {data.settings.me.displayName}. Handing the phone on? This forgets who you are on
-				this device and goes back to the name picker. Your votes stay where they are.
+				Signed in as {data.settings.me.displayName}. Handing the phone on? Go back to the name picker. Your votes stay where they are.
 			</p>
 		</div>
 		<!-- No confirm step, unlike the regenerate above: nothing is spent by taking

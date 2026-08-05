@@ -2,11 +2,15 @@
 	Landing — "Create a group; nothing else."
 
 	The app's first impression, so it is the box lid: the title in wood-type
-	slab, the rules of play printed on the side of the box in three steps
-	(genuinely a sequence — swiping, vetoing and comparing happen in that
+	slab, the three steps printed on the side of the box (genuinely a sequence —
+	a film is suggested, then swiped, then run against the others, in that
 	order), and a certification seal seated in the corner stating the one thing
 	people need to know before they start, which is that the link is the only
 	credential.
+
+	The veto is not on the lid, and that is deliberate: it is a house rule the
+	group can switch off in Settings, so it is not one of the three things that
+	always happen.
 
 	The form is a plain action, so it works with JavaScript off, and the two
 	fields are punched blanks in the lid rather than components sitting on it.
@@ -21,8 +25,8 @@
 
 	/** The three phases of a night, in the order they happen. */
 	const steps = [
-		{ n: '1', title: 'Swipe the pool', note: 'Yes or no, once per film, whenever' },
-		{ n: '2', title: 'Veto one film', note: 'The one you genuinely cannot sit through' },
+		{ n: '1', title: 'Suggest films', note: 'Anyone can add one to the shared pool, any time' },
+		{ n: '2', title: 'Swipe the pool', note: 'Yes or no, once per film, whenever' },
 		{ n: '3', title: 'Pick the winner', note: 'Finalists go head to head, two at a time' }
 	];
 </script>
@@ -43,14 +47,14 @@
 	<main class="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-5 px-4 py-8">
 		<!-- ── The lid ───────────────────────────────────────────────────── -->
 		<section class="tile relative px-4 pt-4 pb-4">
-			<p class="eyebrow text-ink-soft">A game for the group chat</p>
+			<p class="eyebrow text-ink-soft">Pick what to watch, together</p>
 			<h1 class="display mt-1.5 text-[2.6rem] leading-[0.95] text-ink">
 				Movie<br />Night
 			</h1>
 			<div class="mt-3 h-[3px] bg-ink"></div>
 			<div class="mt-[3px] border-t-2 border-dashed border-board-shade"></div>
 			<p class="mt-3 max-w-[21rem] text-sm leading-relaxed text-ink">
-				Keep one shared pool of film suggestions. On the night the group swipes, vetoes once, and picks
+				Keep one shared pool of film suggestions. On the night the group swipes and picks
 				between the finalists — and the app works out what everyone actually wants to watch.
 			</p>
 
@@ -72,7 +76,7 @@
 
 			<!-- The screen's one seal: the certification mark on the lid. -->
 			<div class="pointer-events-none absolute -top-3 -right-2">
-				<Stamp word="No logins" note="the link is the key" tone="brass" size="0.9rem" rotate={7} />
+				<Stamp word="No logins" note="the link is the key" tone="brass" size="1.2rem" rotate={7} />
 			</div>
 		</section>
 

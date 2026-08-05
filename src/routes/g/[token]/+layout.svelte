@@ -2,8 +2,8 @@
 	Group shell: header, bottom tab bar, and the live-update stream.
 
 	The header is the game-box lid: the group's name set in the slab face, the
-	member you're currently playing as on a board-stock chip, and a brass rule
-	closing the lid off from the table below.
+	name this device is claiming on a board-stock chip, and a brass rule closing
+	the lid off from the table below.
 
 	THE SHELL IS THE THING THAT DOES NOT MOVE. It is exactly as tall as the
 	viewport and it never scrolls: lid at the top, tray at the bottom, and one
@@ -86,10 +86,14 @@
 			<div class="flex items-center justify-between gap-3">
 				<h1 class="display truncate text-[1.35rem] text-board">{data.groupName}</h1>
 				{#if data.group}
+					<!-- The bare name, no preamble. A chip opposite the group's own name, on
+					     every screen, is already read as "this is who you are here"; saying so
+					     out loud only spent the chip's width on a label. Settings is where the
+					     name can be handed on ("Not you?"), which is where it says more. -->
 					<p
 						class="stencil shrink-0 rounded-full border-2 border-board-shade px-2.5 py-0.5 text-[0.7rem] tracking-[0.08em] text-chalk uppercase"
 					>
-						<span class="text-chalk-dim">playing as</span>&nbsp;{data.group.me.displayName}
+						{data.group.me.displayName}
 					</p>
 				{/if}
 			</div>

@@ -22,14 +22,14 @@
 	import Film from '$lib/icons/Film.svelte';
 	import Popcorn from '$lib/icons/Popcorn.svelte';
 	import ScrollText from '$lib/icons/ScrollText.svelte';
-	import SlidersHorizontal from '$lib/icons/SlidersHorizontal.svelte';
+	import Settings from '$lib/icons/Settings.svelte';
 
 	let { token, swipeCount = 0 }: { token: string; swipeCount?: number } = $props();
 
 	const tabs = $derived([
 		{
 			href: `/g/${token}`,
-			label: 'Round',
+			label: 'Tonight',
 			icon: Popcorn,
 			match: (p: string) => p === `/g/${token}`
 		},
@@ -49,7 +49,7 @@
 		{
 			href: `/g/${token}/settings`,
 			label: 'Settings',
-			icon: SlidersHorizontal,
+			icon: Settings,
 			match: (p: string) => p.startsWith(`/g/${token}/settings`)
 		}
 	]);

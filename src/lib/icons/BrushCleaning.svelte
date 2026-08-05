@@ -1,4 +1,4 @@
-<!-- Lucide "layers-2" (ISC/MIT), vendored: no icon package, no third-party origin. -->
+<!-- Lucide "brush-cleaning" (ISC/MIT), vendored: no icon package, no third-party origin. -->
 <script lang="ts">
 	let { size = 20, class: className = '' }: { size?: number | string; class?: string } = $props();
 </script>
@@ -17,6 +17,10 @@
 	focusable="false"
 	class={className}
 >
-	<path d="M13 13.74a2 2 0 0 1-2 0L2.5 8.87a1 1 0 0 1 0-1.74L11 2.26a2 2 0 0 1 2 0l8.5 4.87a1 1 0 0 1 0 1.74z" />
-	<path d="m20 14.285 1.5.845a1 1 0 0 1 0 1.74L13 21.74a2 2 0 0 1-2 0l-8.5-4.87a1 1 0 0 1 0-1.74l1.5-.845" />
+	<path d="m16 22-1-4" />
+	<path
+		d="M19 14a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1"
+	/>
+	<path d="M19 14H5l-1.973 6.767A1 1 0 0 0 4 22h16a1 1 0 0 0 .973-1.233z" />
+	<path d="m8 22 1-4" />
 </svg>
