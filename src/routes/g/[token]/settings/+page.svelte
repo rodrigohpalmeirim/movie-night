@@ -135,6 +135,15 @@
 	}
 
 	/**
+	 * What a finalist count costs: every pair meets once in the runoff, so n
+	 * finalists are n(n-1)/2 taps per attendee. Printed soft beside the number,
+	 * because the count is really chosen by the evening it buys.
+	 */
+	function runoffTaps(n: number) {
+		return (n * (n - 1)) / 2;
+	}
+
+	/**
 	 * How many GAPS to rule along a rail's ruler — see `--rail-steps`; there is
 	 * always one more mark than gap. Every rail marks every stop it has, because
 	 * every stop is a number the group is choosing BETWEEN, and the scale hangs
@@ -278,7 +287,10 @@
 					     veto prints it INLINE, right after the label — "Veto threshold · 3" —
 					     because the end of ITS line belongs to the switch, and read in that
 					     order the row says the setting in the order it is decided: what it
-					     is, how many, whether at all. -->
+					     is, how many, whether at all.
+
+					     The finalists' number alone carries a rider — "4 · 6 taps" — since
+					     what the group is actually choosing is the length of the runoff. -->
 					<div class="mb-1 flex items-center justify-between gap-2">
 						<span class="flex min-w-0 items-center gap-1.5">
 							<label for="knob-{knob}" class="field-label mb-0 text-ink">{KNOB_LABELS[knob]}</label>
@@ -327,7 +339,10 @@
 								for="knob-{knob}"
 								class="stencil shrink-0 text-sm font-semibold text-ink tabular-nums"
 							>
-								{printed(knob, knobValues[knob])}
+								{printed(knob, knobValues[knob])}{#if knob === 'n_finalists'}{@const taps =
+										runoffTaps(knobValues[knob])}
+									<span class="font-normal text-ink-soft">· {taps} {taps === 1 ? 'tap' : 'taps'}</span
+									>{/if}
 							</output>
 						{/if}
 					</div>
