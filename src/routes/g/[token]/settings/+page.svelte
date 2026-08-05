@@ -339,9 +339,11 @@
 								for="knob-{knob}"
 								class="stencil shrink-0 text-sm font-semibold text-ink tabular-nums"
 							>
+								<!-- The {' '} is explicit: whitespace at an {#if} boundary is
+								     trimmed by the compiler, and "4· 6 taps" reads glued. -->
 								{printed(knob, knobValues[knob])}{#if knob === 'n_finalists'}{@const taps =
-										runoffTaps(knobValues[knob])}
-									<span class="font-normal text-ink-soft">· {taps} {taps === 1 ? 'tap' : 'taps'}</span
+										runoffTaps(knobValues[knob])}{' '}<span
+										class="font-normal text-ink-soft">· {taps} {taps === 1 ? 'tap' : 'taps'}</span
 									>{/if}
 							</output>
 						{/if}

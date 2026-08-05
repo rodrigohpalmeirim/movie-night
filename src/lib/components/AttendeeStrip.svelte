@@ -126,9 +126,11 @@
 						{#if attending === null}
 							No answer yet
 						{:else if attending}
-							In{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+							<!-- The {' '} spaces are explicit: whitespace at an {#if} boundary
+							     is trimmed by the compiler, and "In— marked by" reads glued. -->
+							In{#if proxied}{' '}— marked by {person.markedBy?.displayName}{/if}
 						{:else}
-							Out{#if proxied} — marked by {person.markedBy?.displayName}{/if}
+							Out{#if proxied}{' '}— marked by {person.markedBy?.displayName}{/if}
 						{/if}
 						{#if showProgress && attending}
 							· {person.submitted ? 'voted' : 'not voted yet'}
