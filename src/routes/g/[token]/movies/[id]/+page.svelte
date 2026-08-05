@@ -213,8 +213,7 @@
 				</button>
 			</form>
 			<p class="text-xs leading-relaxed text-chalk-dim">
-				One star per film, as many films as you like. If two end the night level on yeses, the starred
-				one goes through.
+				Stars are used as tiebreakers. You can star as many films as you like.
 			</p>
 		{/if}
 	</section>

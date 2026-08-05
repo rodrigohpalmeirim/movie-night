@@ -2,7 +2,7 @@
  * The round screen (home tab) plus every lifecycle transition.
  *
  * app-spec: "Every transition is a single labeled button on the round screen
- * ('Close swiping & pick finalists', 'Reveal the winner', …) with a confirm step,
+ * ('Pick finalists', 'Reveal the winner', …) with a confirm step,
  * since transitions are one-way." Form actions, so they work without JS.
  */
 

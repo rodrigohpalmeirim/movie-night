@@ -381,7 +381,7 @@ export function buildRoundView(input: {
 		canAdvance: (round.state === 'open' || round.state === 'runoff') && haveElectorate,
 		advanceLabel:
 			round.state === 'open'
-				? 'Close swiping & pick finalists'
+				? 'Pick finalists'
 				: round.state === 'runoff'
 					? 'Reveal the winner'
 					: null,

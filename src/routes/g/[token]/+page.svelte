@@ -17,7 +17,6 @@
 	import RevealTally from '$lib/components/RevealTally.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
-	import Ban from '$lib/icons/Ban.svelte';
 	import Check from '$lib/icons/Check.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import Dice5 from '$lib/icons/Dice5.svelte';
@@ -237,9 +236,9 @@
 				<input type="hidden" name="round_id" value={round.id} />
 				{#if round.transitions.canAdvance}
 					<Confirm
-						label="Close swiping & pick finalists"
+						label="Pick finalists"
 						confirmLabel="Pick the finalists"
-						question="This freezes tonight's finalists and the swipes behind them. There's no going back."
+						question="This freezes tonight's finalists and the swipes behind them."
 					/>
 				{:else}
 					<p class="notice notice-brass">
@@ -331,8 +330,8 @@
 				     the way out of this state is one tap on this same screen. The old copy
 				     sent people looking for someone else to do it for them. -->
 				<span
-					>You're not marked as attending, so you can't vote in the runoff. Tap In next to your name
-					in the list below and you're in — your standing swipes count either way.</span
+					>You're not marked as attending, so you can't vote in the runoff. Tap IN next to your name
+					in the list below if you'd like to join.</span
 				>
 			</p>
 		{:else if myRunoffStep === 'veto'}
@@ -344,7 +343,7 @@
 			     through to the pairs. Both moves live behind this one button, so it
 			     names them both. -->
 			<a href="/g/{token}/veto" class="token token-lg token-brass w-full justify-between">
-				<span class="flex items-center gap-2"><Ban size={18} /> Veto a film, or pass</span>
+				<span class="flex items-center gap-2">Veto a film, or pass</span>
 				<ArrowRight size={20} />
 			</a>
 		{:else if myRunoffStep === 'pairs'}

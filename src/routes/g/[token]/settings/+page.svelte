@@ -161,7 +161,7 @@
 
 	const KNOB_HELP: Record<string, string> = {
 		n_finalists:
-			'How many films reach the head-to-head round. The ceiling keeps the runoff at ten taps.',
+			'How many films reach the head-to-head round.',
 		approval_floor: 'Minimum share of yes-votes for a film to be promotable.',
 		coverage_floor: 'Minimum share of attendees who must have swiped a film for it to be promotable.',
 		veto_threshold:

@@ -115,8 +115,7 @@
 		<h3 class="eyebrow border-b-2 border-ink pb-1.5">Approval</h3>
 		<p class="mt-2 text-xs leading-relaxed text-ink-soft">
 			Approval counts only attendees who had swiped the card; coverage is how many attendees had seen
-			it at all.{#if anyStars} Stars are the yeses somebody starred — they separate films with the same
-				number of yeses and nothing else.{/if}
+			it at all. {#if anyStars} Stars are only used as tiebreakers.{/if}
 		</p>
 		<div class="mt-2 overflow-x-auto">
 			<table class="scoresheet w-full text-sm">

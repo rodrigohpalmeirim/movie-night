@@ -202,7 +202,7 @@ OPEN → RUNOFF → DECIDED → WATCHED
 ```
 
 **Any member** can create a round and advance it. Every transition is a single labeled
-button on the round screen ("Close swiping & pick finalists", "Reveal the winner", …) with
+button on the round screen ("Pick finalists", "Reveal the winner", …) with
 a confirm step, since transitions are one-way.
 
 `ABANDONED` (addition to the voting spec's machine): any member can abandon a round at any
