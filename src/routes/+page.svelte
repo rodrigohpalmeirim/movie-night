@@ -54,36 +54,6 @@
 -->
 <div class="h-full overflow-x-clip overflow-y-auto overscroll-contain">
 	<main class="mx-auto flex min-h-full max-w-lg flex-col justify-center gap-5 px-4 py-8">
-		{#if data.groups.length > 0}
-			<!-- ── Your groups ───────────────────────────────────────────────
-			     A switchboard, so rows and not seats: each one is the group's name
-			     with the name you go by there stencilled under it, pressed IN under
-			     the finger like every other tappable row inside a flat tile. Plain
-			     anchors — the whole screen works with JavaScript off.
-			-->
-			<section class="tile px-4 pt-4 pb-3">
-				<h2 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Your groups</h2>
-				<ul class="mt-1 divide-y-2 divide-dashed divide-board-shade">
-					{#each data.groups as group, i (group.inviteToken)}
-						<li class="deal-in" style="--deal:{i}">
-							<a
-								href="/g/{group.inviteToken}"
-								class="row-press -mx-1 flex items-center gap-2 rounded px-1 py-2.5 focus-visible:outline-offset-[-3px]"
-							>
-								<span class="min-w-0 flex-1">
-									<span class="display block truncate text-[1.05rem] text-ink">{group.groupName}</span>
-									<span class="stencil block text-[0.7rem] tracking-[0.06em] text-ink-soft uppercase">
-										You're {group.memberName}
-									</span>
-								</span>
-								<ArrowRight size={18} class="shrink-0 text-ink-soft" />
-							</a>
-						</li>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
 		<!-- ── The lid ───────────────────────────────────────────────────── -->
 		<section class="tile relative px-4 pt-4 pb-4">
 			<p class="eyebrow text-ink-soft">Pick what to watch, together</p>
@@ -118,6 +88,38 @@
 				<Stamp word="No logins" note="the link is the key" tone="brass" size="1.2rem" rotate={7} />
 			</div>
 		</section>
+
+		{#if data.groups.length > 0}
+			<!-- ── Your groups ───────────────────────────────────────────────
+			     A switchboard, so rows and not seats: each one is the group's name
+			     with the name you go by there stencilled under it, pressed IN under
+			     the finger like every other tappable row inside a flat tile. Plain
+			     anchors — the whole screen works with JavaScript off. Seated between
+			     the lid and the create form: what the box is, where you already sit,
+			     then how to start another table.
+			-->
+			<section class="tile px-4 pt-4 pb-3">
+				<h2 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Your groups</h2>
+				<ul class="mt-1 divide-y-2 divide-dashed divide-board-shade">
+					{#each data.groups as group, i (group.inviteToken)}
+						<li class="deal-in" style="--deal:{i}">
+							<a
+								href="/g/{group.inviteToken}"
+								class="row-press -mx-1 flex items-center gap-2 rounded px-1 py-2.5 focus-visible:outline-offset-[-3px]"
+							>
+								<span class="min-w-0 flex-1">
+									<span class="display block truncate text-[1.05rem] text-ink">{group.groupName}</span>
+									<span class="stencil block text-[0.7rem] tracking-[0.06em] text-ink-soft uppercase">
+										You're {group.memberName}
+									</span>
+								</span>
+								<ArrowRight size={18} class="shrink-0 text-ink-soft" />
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<!-- ── Set up ────────────────────────────────────────────────────── -->
 		<form method="POST" action="?/createGroup" class="tile space-y-3.5 px-4 py-4">

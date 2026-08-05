@@ -531,15 +531,11 @@
 		<!-- The door out to the other tables, and the only way back to the create
 		     form once this device belongs to a group: `/` walks a one-group device
 		     straight back in here, so `?all` is what asks it to show the list
-		     instead. A quiet row, like the removed pile's summary above — it is a
-		     signpost, not a move. -->
-		<a
-			href="/?all"
-			class="eyebrow row-press -mx-1 flex items-center gap-1.5 rounded px-1 py-1.5 text-ink-soft hover:text-ink focus-visible:outline-offset-[-3px]"
-		>
-			<ChevronRight size={14} />
-			All groups
-		</a>
+		     instead. A full token at the same weight as "Not you?", because it is
+		     one of this pad's two moves — and the label names the half people
+		     actually come for, since nothing else on this screen says where a
+		     second group gets made. -->
+		<a href="/?all" class="token w-full">Your groups, or start a new one</a>
 	</section>
 
 	<!-- The credit's permanent home: printed on the felt below the pads, in the
