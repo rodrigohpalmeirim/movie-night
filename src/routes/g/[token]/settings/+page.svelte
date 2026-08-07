@@ -528,6 +528,9 @@
 		<form method="POST" action="?/forget">
 			<button class="token w-full">Not you?</button>
 		</form>
+		<p class="mt-6 text-xs leading-relaxed text-ink-soft">
+			Want to switch groups? See your previously joined groups or create a new one.
+		</p>
 		<!-- The door out to the other tables, and the only way back to the create
 		     form once this device belongs to a group: `/` walks a one-group device
 		     straight back in here, so `?all` is what asks it to show the list
@@ -535,7 +538,7 @@
 		     one of this pad's two moves — and the label names the half people
 		     actually come for, since nothing else on this screen says where a
 		     second group gets made. -->
-		<a href="/?all" class="token w-full">Your groups, or start a new one</a>
+		<a href="/?all" class="token w-full">Other groups</a>
 	</section>
 
 	<!-- The credit's permanent home: printed on the felt below the pads, in the
