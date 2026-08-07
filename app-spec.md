@@ -269,10 +269,7 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   reveal anyway?") but never blocks: friends nag, the app doesn't.
 - **WATCHED** — one button on the decided screen ("We watched it 🎬"), typically tapped
   night-of or after. Retires the movie, stamps `watched_at`, updates the fairness
-  counter per the voting spec. Once bookkept, the screen becomes a between-nights
-  surface: the winner's receipt and tally stay, and the lobby's two doors (the viewer's
-  swipe stack, the suggest sheet) open above "Start the next night" — the decided state
-  deliberately does not get them, so the celebration stays clean until then.
+  counter per the voting spec.
 
 ---
 

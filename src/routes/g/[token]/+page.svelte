@@ -587,31 +587,6 @@
 			</div>
 		</details>
 
-		{#if round.state === 'watched' && lobby}
-			<!-- The film is bookkept, so this screen is the between-nights surface
-			     now and the lobby's two doors open here too: the same numbered
-			     stack, and the suggest pad. The suggest door stays board stock —
-			     on this screen the winner's seal keeps the brass of celebration,
-			     and the stack's brass is the standing "you have cards" call it is
-			     everywhere else. -->
-			{#if lobby.unswipedCount > 0}
-				<a href="/g/{token}/swipe" class="deal-in token token-lg token-brass w-full justify-between">
-					<span class="flex items-center gap-2.5">
-						<span
-							class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
-							aria-hidden="true">{lobby.unswipedCount}</span
-						>
-						{lobby.unswipedCount === 1 ? 'card to swipe' : 'cards to swipe'}
-					</span>
-					<ArrowRight size={20} />
-				</a>
-			{/if}
-			<a href="/g/{token}/pool?suggest" class="token w-full justify-between">
-				Add a film to the pool
-				<ArrowRight size={18} />
-			</a>
-		{/if}
-
 		<form method="POST" action="?/createRound" use:enhance>
 			<button class="token token-slot w-full">Start the next night</button>
 		</form>
