@@ -56,7 +56,12 @@ export const load: PageServerLoad = (event) => {
 };
 
 export const actions: Actions = {
-	/** Any member can start the night. */
+	/**
+	 * Any member can start the night — from the lobby, which is the one screen that
+	 * posts here. The service is the looser of the two on purpose (it refuses only an
+	 * *active* round, so a decided one does not lock the group out of ever dealing
+	 * again); which screens ask is the app's rule, and it is one screen.
+	 */
 	createRound: async (event) => {
 		const actor = requireActor(event);
 		const result = createRound({
@@ -90,6 +95,11 @@ export const actions: Actions = {
 		return { state: result.value.round.state, transition: result.value.plan.kind };
 	},
 
+	/**
+	 * "Abandon this round" in the open and runoff menus, and "We didn't watch it" (or,
+	 * with nothing picked, "Clear the night away") at the bottom of the reveal: one
+	 * transition, asked wherever a night can fall through.
+	 */
 	abandon: async (event) => {
 		const actor = requireActor(event);
 		const data = await event.request.formData();

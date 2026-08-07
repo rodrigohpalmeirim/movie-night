@@ -10,7 +10,7 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
-import { rounds, type MovieDetails } from './db/index.js';
+import { fairness, movies, rounds, standingVotes, type MovieDetails } from './db/index.js';
 import { unwrap } from './result.js';
 import { removeMovie, setStandingVote } from './services/movies.js';
 import {
@@ -120,6 +120,15 @@ function roundPage(w: TestWorld, name: string) {
 		round: ReturnType<typeof buildRoundView>;
 		lobby: ReturnType<typeof buildLobbyView> | null;
 	};
+}
+
+/** The whole standing layer, in a stable order, values and stars included. */
+function standingRows(w: TestWorld) {
+	return w.db
+		.select()
+		.from(standingVotes)
+		.orderBy(standingVotes.memberId, standingVotes.movieId)
+		.all();
 }
 
 /** Strips the viewer's own block, which is allowed to contain their own answers. */
@@ -618,12 +627,17 @@ describe('participation warnings', () => {
 			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: runoff.id })
 		).round;
 		const flags = view(w, 'Ana', decided).transitions;
-		// A decided round cannot be cancelled out of history, so nothing offers it.
-		expect(flags.canAbandon).toBe(false);
-		expect(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }).ok).toBe(false);
-		// What it does offer: the bookkeeping, and the next night for one that fell through.
+		// The two ways a picked night ends, both offered and both taken.
 		expect(flags.canMarkWatched).toBe(true);
-		expect(flags.canCreateRound).toBe(true);
+		expect(flags.canAbandon).toBe(true);
+		// The one flag deliberately quieter than the service behind it: `createRound`
+		// would accept a decided round, but the only button that deals a night lives
+		// on the lobby and a picked night does not show it. A flag may refuse what the
+		// service allows; it may never promise what the service refuses.
+		expect(flags.canCreateRound).toBe(false);
+		const jumped = unwrap(createRound({ db: w.db, groupId: w.group.id, actorId: w.member('Ana').id }));
+		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: jumped.id }));
+		expect(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }).ok).toBe(true);
 	});
 });
 
@@ -714,6 +728,60 @@ describe('lobby view', () => {
 		expect(page.round?.state).toBe('watched');
 		// The winner is retired, so the table is one film shorter than it was.
 		expect(page.lobby).toEqual({ poolSize: 2, unswipedCount: 0 });
+	});
+
+	/**
+	 * The other way a night ends, asserted end to end because "leaves no mark" is a
+	 * claim about four different things at once: the home tab, History, the table,
+	 * and the answers and counters underneath them.
+	 */
+	test('a night that fell through leaves no mark on anything', () => {
+		const { w, round } = scenario();
+		world = w;
+		// A star on the film that is about to win: the strongest answer in the pool,
+		// and the one a night filed wrongly would be likeliest to destroy.
+		unwrap(
+			setStandingVote({
+				db: w.db,
+				groupId: w.group.id,
+				memberId: w.member('Ana').id,
+				movieId: w.movie('Alien').id,
+				starred: true,
+				now: BASE_NOW
+			})
+		);
+		const standingBefore = standingRows(w);
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: toRunoff(w, round.id).id })
+		).round;
+		expect(decided.state).toBe('decided');
+		expect(decided.winnerId).not.toBeNull();
+
+		// "We didn't watch it."
+		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }));
+
+		// The home tab is the lobby again — and unlike the watched night above, which
+		// leaves the table one film shorter, this one takes nothing off it.
+		const page = roundPage(w, 'Ana');
+		expect(page.round?.state).toBe('abandoned');
+		expect(page.lobby).toEqual({ poolSize: 3, unswipedCount: 0 });
+		// Nothing happened, so there is nothing to file: History records the nights
+		// that were watched, and the one decided round it used to carry is gone.
+		expect(buildHistoryView({ db: w.db, group: w.group })).toEqual([]);
+		// The winner was never retired...
+		expect(w.db.select().from(movies).where(eq(movies.id, decided.winnerId!)).get()?.status).toBe(
+			'pool'
+		);
+		// ...nobody's turn was spent (every counter still on its opening zero)...
+		expect(
+			w.db
+				.select()
+				.from(fairness)
+				.all()
+				.map((row) => [row.winsCount, row.lastWinAt, row.lastWinRoundId])
+		).toEqual(MEMBERS.map(() => [0, null, null]));
+		// ...and every standing vote and star is exactly where it was.
+		expect(standingRows(w)).toEqual(standingBefore);
 	});
 
 	test("the lobby's own button deals the next night straight off a watched one", () => {

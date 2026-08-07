@@ -29,8 +29,8 @@ import {
 	vetoPrefillFor
 } from './services/rounds.js';
 import { removeMovie, setStandingVote } from './services/movies.js';
-import { updateSettings } from './services/groups.js';
-import { buildRoundView } from './services/views.js';
+import { claimMember, updateSettings } from './services/groups.js';
+import { buildRoundView, unswipedMovieIds } from './services/views.js';
 import { createTestWorld, BASE_NOW, type TestWorld } from './testing.js';
 
 let world: TestWorld | undefined;
@@ -1360,6 +1360,106 @@ describe('ABANDONED', () => {
 		).toBe(0);
 	});
 
+	/**
+	 * Cancelling one beat later must clear up in exactly the same way, so the
+	 * question is asked as a comparison rather than as a list of guesses about what
+	 * a decided round leaves behind. The night includes the part with a permanent
+	 * trace — a veto, which wrote "no" over Ana's STARRED yes on Casino and
+	 * remembered both — and a pair vote, which is the part that belongs to the round
+	 * alone.
+	 */
+	test('cancelling a decided night clears up exactly as cancelling a runoff does', () => {
+		const trace = (cancelAt: 'runoff' | 'decided') => {
+			const { w, round } = openWorld();
+			try {
+				unwrap(
+					setStandingVote({
+						db: w.db,
+						groupId: w.group.id,
+						memberId: w.member('Ana').id,
+						movieId: w.movie('Casino').id,
+						starred: true,
+						now: BASE_NOW
+					})
+				);
+				const runoff = unwrap(
+					advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+				).round;
+				unwrap(
+					castVeto({
+						db: w.db,
+						groupId: w.group.id,
+						roundId: runoff.id,
+						memberId: w.member('Ana').id,
+						movieId: w.movie('Casino').id
+					})
+				);
+				unwrap(
+					castPairVote({
+						db: w.db,
+						groupId: w.group.id,
+						roundId: runoff.id,
+						memberId: w.member('Ana').id,
+						a: w.movie('Alien').id,
+						b: w.movie('Brazil').id,
+						winner: w.movie('Alien').id
+					})
+				);
+				const target =
+					cancelAt === 'runoff'
+						? runoff
+						: unwrap(
+								advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: runoff.id })
+							).round;
+				expect(target.state).toBe(cancelAt);
+
+				unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: target.id }));
+				return {
+					state: getRound(w.db, w.group.id, target.id)?.state,
+					// Keyed by name, because two worlds share no ids.
+					standing: MEMBERS.flatMap((name) =>
+						POOL.map((movie) => {
+							const row = w.db
+								.select()
+								.from(standingVotes)
+								.where(
+									and(
+										eq(standingVotes.memberId, w.member(name).id),
+										eq(standingVotes.movieId, w.movie(movie.title).id)
+									)
+								)
+								.get();
+							return { name, title: movie.title, value: row?.value ?? null, starred: row?.starred ?? null };
+						})
+					),
+					fairness: MEMBERS.map((name) => {
+						const row = w.db
+							.select()
+							.from(fairness)
+							.where(eq(fairness.memberId, w.member(name).id))
+							.get();
+						return {
+							name,
+							wins: row?.winsCount ?? null,
+							lastWinAt: row?.lastWinAt ?? null,
+							/** A win names a round, and no two worlds share one. */
+							won: row?.lastWinRoundId != null
+						};
+					}),
+					pairVotes: w.db.select().from(pairVotes).all().length,
+					movieStatuses: POOL.map((movie) => w.movie(movie.title).title).map((title) => ({
+						title,
+						status: w.db.select().from(movies).where(eq(movies.id, w.movie(title).id)).get()?.status
+					}))
+				};
+			} finally {
+				w.cleanup();
+			}
+		};
+
+		expect(trace('decided')).toEqual(trace('runoff'));
+	});
+
 	test('a watched round cannot be abandoned', () => {
 		const { w, round } = runoffWorld();
 		world = w;
@@ -1723,7 +1823,7 @@ describe('regression: the veto flip never corrupts the permanent vote layer', ()
 	});
 });
 
-describe('regression: one viewing can only count once', () => {
+describe('regression: only watching takes a film off the table', () => {
 	/** Drives a round all the way to `decided` with Alien winning. */
 	function decideWithAlien(w: TestWorld, roundId: string) {
 		const alien = w.movie('Alien').id;
@@ -1751,15 +1851,52 @@ describe('regression: one viewing can only count once', () => {
 		return unwrap(advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId })).round;
 	}
 
-	test('a decided-but-unwatched winner cannot win the next round too', () => {
+	/**
+	 * A film that was picked and then not watched used to be excluded from every
+	 * later round — permanently, because nothing could close the night it won. Only
+	 * WATCHED retires a film (voting-spec: eligibility is `status = pool` plus
+	 * coverage, "that is the whole test"), so it goes straight back into the deal.
+	 *
+	 * What keeps one viewing counted once is not an exclusion any more but the shape
+	 * of the app: a night is CLOSED before the next is dealt. The decided screen
+	 * offers no round, only its two endings.
+	 */
+	test('a night that fell through puts its film straight back on the table', () => {
 		const { w, round } = runoffWorld();
 		world = w;
 		const decided = decideWithAlien(w, round.id);
 		expect(decided.winnerId).toBe(w.movie('Alien').id);
-
-		// Nobody has tapped "we watched it", so Alien is still status = pool.
+		// Nothing was watched, so nothing was retired.
 		expect(w.db.select().from(movies).where(eq(movies.id, w.movie('Alien').id)).get()?.status).toBe(
 			'pool'
+		);
+
+		const flags = buildRoundView({
+			db: w.db,
+			group: w.group,
+			config: w.config,
+			me: w.member('Ana'),
+			round: decided
+		})!.transitions;
+		// No next night from here: this one is not over until one of the two is tapped.
+		expect(flags.canCreateRound).toBe(false);
+		expect(flags.canMarkWatched).toBe(true);
+		expect(flags.canAbandon).toBe(true);
+
+		// "We didn't watch it."
+		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }));
+
+		// Dealt like any other card: a member who joins now gets the whole table,
+		// Alien included, in their stack.
+		const eve = unwrap(
+			claimMember(w.db, {
+				groupId: w.group.id,
+				name: 'Eve',
+				now: new Date(BASE_NOW.getTime() + 3_600_000)
+			})
+		);
+		expect(unswipedMovieIds(w.db, w.group.id, eve.id).sort()).toEqual(
+			POOL.map((movie) => w.movie(movie.title).id).sort()
 		);
 
 		const next = unwrap(
@@ -1785,9 +1922,9 @@ describe('regression: one viewing can only count once', () => {
 		const advanced = unwrap(
 			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: next.id })
 		);
-		expect(advanced.plan.kind).not.toBe('open_to_decided');
-		// Alien is spoken for and must not be eligible again.
-		expect(advanced.round.finalistIds).not.toContain(w.movie('Alien').id);
+		// Eligible again, and ranked on the same standing votes it had before.
+		expect(advanced.round.finalistIds).toContain(w.movie('Alien').id);
+		// And still nobody's turn spent: fairness moves on WATCHED and nowhere else.
 		expect(
 			w.db.select().from(fairness).where(eq(fairness.memberId, w.member('Ana').id)).get()?.winsCount
 		).toBe(0);
@@ -1909,17 +2046,6 @@ describe('regression: smaller findings', () => {
 		).toBe('wrong_phase');
 		// A non-finalist in the same round is still removable.
 		expect(round.finalistIds).not.toContain('nope');
-	});
-
-	test('a decided round cannot be abandoned out of history', () => {
-		const { w, round } = runoffWorld();
-		world = w;
-		unwrap(advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id }));
-		expect(code(abandonRound({ db: w.db, groupId: w.group.id, roundId: round.id }))).toBe(
-			'illegal_transition'
-		);
-		// ...so its winner can still be marked watched.
-		expect(markWatched({ db: w.db, groupId: w.group.id, roundId: round.id }).ok).toBe(true);
 	});
 
 	test('an abandoned round does not pre-fill the next veto', () => {

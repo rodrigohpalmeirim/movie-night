@@ -171,9 +171,12 @@
 
 		<!-- The night itself, second, in the same ruled-off footer the open state
 		     gives "Pick finalists": a transition is not a door, so it gets a line
-		     of print saying what it is for and one token under it. Board stock,
-		     like "Start the next night" on the reveal — the brass above belongs
-		     to whatever you can do this minute. -->
+		     of print saying what it is for and one token under it. Board stock —
+		     the brass above belongs to whatever you can do this minute.
+
+		     THIS IS THE ONLY BUTTON IN THE APP THAT DEALS A ROUND. Nothing on the
+		     reveal starts the next night: a night is closed first, one way or the
+		     other, and closing it is what brings this screen back. -->
 		<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
 			<p class="text-sm leading-relaxed text-chalk-dim">
 				Start a night when you're together and ready to pick. Suggestions and swipes carry over —
@@ -465,9 +468,11 @@
 	</div>
 {:else if revealed}
 	<!-- ── DECIDED: the reveal ──────────────────────────────────────
-	     Only DECIDED reaches here. Once the night is marked watched the screen
-	     above takes over: the receipt is filed in History, tally and all, and the
-	     home tab goes back to being the lobby. -->
+	     Only DECIDED reaches here, and it holds the home tab until the night is
+	     closed — which is the point of the two actions at the bottom. Watched: the
+	     receipt is filed in History, tally and all. Didn't watch: nothing is filed
+	     at all. Either way the screen above takes over and the home tab goes back
+	     to being the lobby. -->
 	<div class="space-y-5">
 		{#if revealed.outcome === 'no_clear_favourite'}
 			<div class="tile-slot space-y-3 px-4 py-7 text-center">
@@ -484,29 +489,6 @@
 				</a>
 			</div>
 		{:else if revealed.winner}
-			<!-- THE NIGHT THAT FELL THROUGH. "We watched it" is the way out of this
-			     screen, and it is the only close the server will accept: a decided
-			     round cannot be abandoned — that would erase a night from history and
-			     leave its winner permanently unwatchable — so the door for a night that
-			     never happened is simply the next one, and this round stays filed as
-			     decided-and-unwatched with nobody's turn spent. It sits in the same
-			     top-right overflow menu the open and runoff screens keep their abandon
-			     in: out of thumb range, and out of the celebration below it, because the
-			     one thing at the bottom of a reveal is the bookkeeping. -->
-			<div class="-mb-2 flex justify-end">
-				<Menu label="Round options">
-					<form method="POST" action="?/createRound" use:enhance>
-						<Confirm
-							label="Start the next night"
-							confirmLabel="Yes, deal a new round"
-							question="For a night that fell through. This one is filed unwatched — the film stays in the pool and nobody's turn is spent."
-							size="md"
-							variant="quiet"
-						/>
-					</form>
-				</Menu>
-			</div>
-
 			<!--
 				The winner moment. The night is announced on the felt, and the film
 				arrives under it as a ticket stub with the round's seal slammed across
@@ -583,19 +565,43 @@
 		{/if}
 
 		{#if round.transitions.canMarkWatched}
-			<form method="POST" action="?/watched" use:enhance>
-				<input type="hidden" name="round_id" value={round.id} />
-				<!-- Bookkeeping after the fact, not part of the celebration: board stock,
-				     so the marquee and the seal keep the brass to themselves. It is also
-				     the way out — filing the night hands the home tab back to the lobby —
-				     so it stands alone down here with nothing to compete with. -->
-				<Confirm
-					label="We watched it"
-					confirmLabel="Yes, we watched it"
-					question="This retires the film, gives its suggester their turn, and files the night in your history. Do it after the night, not before."
-					variant="quiet"
-				/>
-			</form>
+			<!-- HOW THE NIGHT ENDS — the two ways it can, together at the bottom.
+			     Bookkeeping after the fact, not part of the celebration: board stock
+			     both, so the marquee and the seal keep the brass to themselves.
+
+			     Stacked rather than in a row like the ticket's two RSVP tokens, because
+			     these two are not a toggle: each opens a torn question card that has to
+			     say what it does to the film, the history and whose turn it was, and
+			     half a phone column is not a place to read that. The pairing is carried
+			     by size instead — the night that happened is the full-width move, the
+			     one that didn't is the smaller line under it. -->
+			<div class="space-y-2.5">
+				<form method="POST" action="?/watched" use:enhance>
+					<input type="hidden" name="round_id" value={round.id} />
+					<Confirm
+						label="We watched it"
+						confirmLabel="Yes, we watched it"
+						question="This retires the film, gives its suggester their turn, and files the night in your history. Do it after the night, not before."
+						variant="quiet"
+					/>
+				</form>
+				{#if round.transitions.canAbandon}
+					<!-- The other exit: the night that fell through. Same move as the open
+					     and runoff screens' abandon, asked in the words this screen needs —
+					     a film was picked, so what the confirm has to promise is that it
+					     goes back on the table exactly as it was. -->
+					<form method="POST" action="?/abandon" use:enhance>
+						<input type="hidden" name="round_id" value={round.id} />
+						<Confirm
+							label="We didn't watch it"
+							confirmLabel="Yes, the night fell through"
+							question="Nothing is filed: the night leaves no entry in your history, the film goes back on the table with every swipe and star it had, and nobody's turn is spent."
+							size="md"
+							variant="quiet"
+						/>
+					</form>
+				{/if}
+			</div>
 		{/if}
 
 		<details class="tile group/tally expand overflow-hidden" open>
@@ -613,15 +619,23 @@
 			</div>
 		</details>
 
-		{#if revealed.outcome === 'no_clear_favourite'}
+		{#if revealed.outcome === 'no_clear_favourite' && round.transitions.canAbandon}
 			<!-- The night with nothing to watch is the one night with nothing to file:
 			     no film was picked, so there is no "we watched it" to press and no
-			     receipt waiting for History. The next round is therefore the whole
-			     move, and it keeps the bottom of the screen. A reveal WITH a winner
-			     has its own bottom action — see above — and hides this one in the
-			     overflow menu, where it belongs to the night that fell through. -->
-			<form method="POST" action="?/createRound" use:enhance>
-				<button class="token token-slot w-full">Start the next night</button>
+			     receipt waiting for History. Clearing it away is therefore the whole
+			     move, and it keeps the bottom of the screen — the same exit the winning
+			     reveal offers under "We didn't watch it", in the words of a night that
+			     picked nothing. The way on is not here: the table is what needs filling,
+			     the slot above says so, and the next night is started from the lobby
+			     this leaves behind. -->
+			<form method="POST" action="?/abandon" use:enhance>
+				<input type="hidden" name="round_id" value={round.id} />
+				<Confirm
+					label="Clear the night away"
+					confirmLabel="Yes, clear it"
+					question="Nothing was picked, so there is nothing to file: this leaves no entry in your history, and the table keeps every film, swipe and star it has."
+					variant="quiet"
+				/>
 			</form>
 		{/if}
 	</div>

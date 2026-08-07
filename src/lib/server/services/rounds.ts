@@ -130,25 +130,6 @@ export function loadFairness(db: Db, groupId: string): FairnessInput[] {
 }
 
 /**
- * Movies that already won a round which has been DECIDED but not yet marked
- * WATCHED.
- *
- * voting-spec keeps `status` and the fairness counter moving only at WATCHED, so
- * such a winner is legitimately still `status = pool`. But it must not be able to
- * win a *second* round: that produced two WATCHED transitions for one viewing and
- * `wins_count = 2` for a single film. Excluding it from eligibility fixes the
- * double count without touching the spec's WATCHED-only rule.
- */
-export function pendingWinnerIds(db: Db, groupId: string): string[] {
-	return db
-		.select({ winnerId: rounds.winnerId })
-		.from(rounds)
-		.where(and(eq(rounds.groupId, groupId), eq(rounds.state, 'decided'), isNotNull(rounds.winnerId)))
-		.all()
-		.flatMap((row) => (row.winnerId ? [row.winnerId] : []));
-}
-
-/**
  * Attendees are **current** members with `attending = true`; no row means "hasn't
  * answered".
  *
@@ -421,12 +402,23 @@ export function planAdvance(input: {
 		}
 
 		const liveVotes = loadStandingVotes(db, input.groupId);
-		// A film awaiting its "we watched it" tap is spoken for; it must not be able
-		// to win a second round and consume its suggester's turn twice.
-		const pending = new Set(pendingWinnerIds(db, input.groupId));
+		// EVERY film on the table is dealt, and the only thing that takes one off it
+		// is having been WATCHED (`status`, plus the re-watch cooldown) — voting-spec:
+		// "A movie is eligible if `status = pool` and ... That is the whole test."
+		//
+		// A previous winner that was never watched is therefore dealt again like any
+		// other card, which is the truth: nothing was watched, so nothing was retired
+		// and nobody's turn was spent. This used to be filtered out by a
+		// `pendingWinnerIds` query, to stop one viewing being counted twice — but a
+		// night that fell through was then never closed, and its film was excluded
+		// from every future round for good. What keeps a viewing single now is that a
+		// night must be CLOSED before the next one is dealt: round creation lives only
+		// on the lobby, which a decided round does not show, and its two exits are "we
+		// watched it" (which retires the film) and "we didn't watch it" (which files
+		// the night as abandoned and hands the film straight back).
 		const phase1 = computePhase1({
 			attendeeIds,
-			movies: loadTallyMovies(db, input.groupId).filter((movie) => !pending.has(movie.id)),
+			movies: loadTallyMovies(db, input.groupId),
 			standingVotes: liveVotes,
 			config: toTallyConfig(input.config),
 			fairness: loadFairness(db, input.groupId),
@@ -610,17 +602,21 @@ export function abandonRound(input: { db: Db; groupId: string; roundId: string }
 	const round = getRound(input.db, input.groupId, input.roundId);
 	if (!round) return fail('unknown_round', 'Round not found');
 	if (round.state === 'abandoned') return ok(round);
-	// Only a round that has not produced a result can be cancelled. Abandoning a
-	// DECIDED round would erase a night from history and leave its winner
-	// permanently unwatchable, so the fairness counter could never move.
-	if (round.state !== 'open' && round.state !== 'runoff') {
+	// Everything short of WATCHED can be cancelled, a picked night included: a film
+	// that was chosen and then not watched is a night that did not happen, and it
+	// should leave no more of a mark than one cancelled before the reveal. History
+	// records the nights that happened, so this one simply drops out of it, the film
+	// goes back on the table with its votes and stars intact, and nobody's turn is
+	// spent. Only WATCHED is final — that one is a fact about the group's evening,
+	// and it is the single transition that retires a film and moves fairness.
+	if (round.state !== 'open' && round.state !== 'runoff' && round.state !== 'decided') {
 		return fail('illegal_transition', `A ${round.state} round cannot be abandoned`);
 	}
 
 	const updated = input.db
 		.update(rounds)
 		.set({ state: 'abandoned' })
-		.where(and(eq(rounds.id, round.id), inArray(rounds.state, ['open', 'runoff'])))
+		.where(and(eq(rounds.id, round.id), inArray(rounds.state, ['open', 'runoff', 'decided'])))
 		.returning()
 		.get();
 	if (!updated) return fail('state_changed', 'That round changed while you were looking at it');

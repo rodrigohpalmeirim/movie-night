@@ -205,11 +205,26 @@ OPEN → RUNOFF → DECIDED → WATCHED
 button on the round screen ("Pick finalists", "Reveal the winner", …) with
 a confirm step, since transitions are one-way.
 
+Creating one is the exception that is *not* on the round screen: the app has exactly one
+round-creating button, "Start a movie night" on the lobby. Since the lobby is the home tab
+only when no night is in play, that single button is also the rule that a night is closed
+before the next is dealt.
+
 `ABANDONED` (addition to the voting spec's machine): any member can abandon a round at any
 point before `WATCHED` — movie night got cancelled. Abandoning frees the group to start a
 new round, discards the round's vetoes/pair votes (standing votes are permanent and
 unaffected), and — consistent with the voting spec — does **not** update fairness
 counters, which only move on `WATCHED`.
+
+`DECIDED` is included in "any point before `WATCHED`", deliberately: a film picked for a
+night that then fell through is a night that did not happen, and it should leave no more
+of a mark than one cancelled before the reveal. So it leaves none — no History entry, the
+film back on the table with every swipe and star it had, nobody's turn spent. History
+records the nights that *happened*; `WATCHED` is the one transition that is a fact about
+the group's evening, and the only one that retires a film. (This revokes an earlier rule
+that refused to abandon a decided round on the grounds that it would erase a night from
+history. What that actually produced was a night nothing could close, whose winner was
+then excluded from every future round for good — a worse lie than the missing entry.)
 
 ### Attendance (default out)
 
@@ -268,12 +283,20 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   vetoes, and which tiebreak rule (if any) decided it, including the seeded-random proof.
   The transition warns if attendees haven't submitted ("2 attendees haven't voted —
   reveal anyway?") but never blocks: friends nag, the app doesn't. The bottom of the
-  screen carries one action, "We watched it" — the only close the round has left, since a
-  decided round cannot be abandoned (that would erase a night from history and leave its
-  winner permanently unwatchable). The night that fell through is covered instead by
-  "Start the next night" in the round's overflow menu: this one stays filed as decided and
-  unwatched, and nobody's turn is spent. The no-winner presentation has nothing to mark
-  watched, so it keeps "Start the next night" as its bottom button.
+  screen carries the two ways a night ends, together: "We watched it", the full-width
+  move, and under it the quieter "We didn't watch it" for the night that fell through,
+  which cancels the round per `ABANDONED` above — no record, the film back in the pool,
+  nobody's turn spent. Each has its own confirm step saying which of those two things it
+  does. They are stacked rather than set side by side because each opens a question card
+  that has to be read, and half a phone column is no place to read one. The no-winner
+  presentation has nothing to mark watched, so it carries the second action alone
+  ("Clear the night away"), in the same bottom position, with the copy of a night that
+  picked nothing; the slot above it keeps its "Add some suggestions".
+  **No round-creating button appears anywhere on this screen, or on any other but the
+  lobby.** A picked night is not over until one of its two endings is tapped, and dealing
+  the next one over the top of it is exactly what used to leave films spoken for forever.
+  Closing it — either way — hands the home tab back to the lobby, where the next night is
+  started.
 - **WATCHED** — one button on the decided screen ("We watched it 🎬"), typically tapped
   night-of or after. Retires the movie, stamps `watched_at`, updates the fairness
   counter per the voting spec. It also retires the night: the home tab becomes the lobby
@@ -289,12 +312,12 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 |---|---|
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
-| **Round** (home tab) | State-dependent: the pool lobby whenever no night is in play — none yet, cancelled, or watched — else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. The reveal lasts until the night is marked watched; after that it is History's. |
+| **Round** (home tab) | State-dependent: the pool lobby whenever no night is in play — none yet, cancelled, or watched — else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. The reveal lasts until the night is closed, watched or not; after that it is History's, or nobody's. |
 | Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. Absent where the round was frozen with vetoes off — the route redirects to the pairs rather than dead-ending. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
 | **Pool** (tab) | Browsable pool + own standing votes + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, remove). |
-| **History** (tab) | Past nights, newest first: winner poster, date, suggested-by; expandable to the round's full revealed tally. Watched movies also live here. |
+| **History** (tab) | Past nights, newest first: winner poster, date, suggested-by; expandable to the round's full revealed tally. Watched movies also live here. A night that fell through left no entry to show. |
 | Settings | Group name, knobs, invite link + regenerate, members, "not you?". |
 
 Mobile-first, installable PWA (manifest + icons + theme color). Offline support is not a

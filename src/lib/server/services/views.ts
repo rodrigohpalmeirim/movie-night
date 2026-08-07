@@ -171,18 +171,26 @@ export interface MyRoundView {
  */
 export interface TransitionView {
 	/**
-	 * "Start a movie night" on the lobby; "Start the next night" under a no-winner
-	 * reveal, and in the decided screen's overflow menu for a night that fell
-	 * through. True from `decided` on, which is where `createRound` stops seeing an
-	 * active round.
+	 * "Start a movie night" — the lobby's, and the app's ONLY round-creating button.
+	 * True exactly where the lobby is the home tab and there is a round to describe
+	 * (cancelled, or watched); with no round at all there is no view to carry a flag.
+	 *
+	 * Deliberately false on `decided`, even though `createRound` would accept it: a
+	 * night that has picked a film is not over, and dealing the next one over the top
+	 * of it is what left films spoken-for forever. Its two exits are below — the
+	 * lobby, and this button with it, come back once one of them is taken.
 	 */
 	canCreateRound: boolean;
 	canAdvance: boolean;
 	advanceLabel: string | null;
 	advanceBlockedReason: string | null;
-	/** "Abandon this round", in the open and runoff headers' overflow menu. */
+	/**
+	 * "Abandon this round" in the open and runoff headers' overflow menu, and "We
+	 * didn't watch it" at the bottom of the decided screen — the same transition,
+	 * asked twice in the two places a night can fall through.
+	 */
 	canAbandon: boolean;
-	/** "We watched it" — the decided screen's one bottom action. */
+	/** "We watched it" — the decided screen's other bottom action. */
 	canMarkWatched: boolean;
 }
 
@@ -390,7 +398,7 @@ export function buildRoundView(input: {
 	const haveElectorate = attendeeIds.length >= MIN_ELECTORATE;
 
 	const transitions: TransitionView = {
-		canCreateRound: round.state === 'decided' || round.state === 'watched' || round.state === 'abandoned',
+		canCreateRound: round.state === 'watched' || round.state === 'abandoned',
 		canAdvance: (round.state === 'open' || round.state === 'runoff') && haveElectorate,
 		advanceLabel:
 			round.state === 'open'
@@ -404,11 +412,10 @@ export function buildRoundView(input: {
 				: round.state === 'runoff' && !haveElectorate
 					? NO_ELECTORATE_MESSAGE.runoff
 					: null,
-		// Mirrors `abandonRound`'s guard exactly. A round that has produced a result
-		// is NOT cancellable — that would erase a night from history and leave its
-		// winner permanently unwatchable — so the flag stops offering it from
-		// `decided` onward, rather than promising a button the service refuses.
-		canAbandon: round.state === 'open' || round.state === 'runoff',
+		// Mirrors `abandonRound`'s guard exactly, `decided` included: a picked night
+		// that never happened is cancelled like any other. Only WATCHED is final, so
+		// that is the one state where nothing offers this.
+		canAbandon: round.state === 'open' || round.state === 'runoff' || round.state === 'decided',
 		canMarkWatched: round.state === 'decided' && round.winnerId !== null
 	};
 
