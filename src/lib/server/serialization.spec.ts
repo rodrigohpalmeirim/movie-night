@@ -14,6 +14,7 @@ import { rounds, type MovieDetails } from './db/index.js';
 import { unwrap } from './result.js';
 import { removeMovie, setStandingVote } from './services/movies.js';
 import {
+	abandonRound,
 	advanceRound,
 	castPairVote,
 	castVeto,
@@ -25,6 +26,7 @@ import {
 } from './services/rounds.js';
 import {
 	buildHistoryView,
+	buildLobbyView,
 	buildPoolView,
 	buildRoundView,
 	buildSettingsView,
@@ -567,6 +569,75 @@ describe('participation warnings', () => {
 		const payload = view(world, 'Ana');
 		expect(payload.transitions.canAdvance).toBe(true);
 		expect(payload.transitions.advanceBlockedReason).toBeNull();
+	});
+});
+
+describe('lobby view', () => {
+	/**
+	 * The payload for having no round. app-spec: "Suggestions are open at all
+	 * times — the pool is persistent and independent of rounds", so the screen
+	 * that has no night to describe still has a table to count.
+	 */
+	test('counts the standing table and my own stack when no round has ever existed', () => {
+		world = createTestWorld({ memberNames: MEMBERS, movies: POOL });
+		const w = world;
+		expect(
+			buildRoundView({ db: w.db, group: w.group, config: w.config, me: w.member('Ana') })
+		).toBeNull();
+		unwrap(
+			setStandingVote({
+				db: w.db,
+				groupId: w.group.id,
+				memberId: w.member('Ana').id,
+				movieId: w.movie('Alien').id,
+				value: 'yes',
+				now: BASE_NOW
+			})
+		);
+		// The table is the group's; the stack is the viewer's.
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual({
+			poolSize: 3,
+			unswipedCount: 2
+		});
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ben') })).toEqual({
+			poolSize: 3,
+			unswipedCount: 3
+		});
+	});
+
+	test('only films in the pool are on the table — watched and removed ones are not', () => {
+		world = createTestWorld({
+			memberNames: MEMBERS,
+			movies: [
+				{ title: 'Alien' },
+				{ title: 'Brazil' },
+				{ title: 'Casino', status: 'watched', watchedAt: BASE_NOW }
+			]
+		});
+		const w = world;
+		unwrap(
+			removeMovie({
+				db: w.db,
+				groupId: w.group.id,
+				movieId: w.movie('Brazil').id,
+				actorId: w.member('Ana').id
+			})
+		);
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual({
+			poolSize: 1,
+			unswipedCount: 1
+		});
+	});
+
+	test('a cancelled night leaves the table exactly as it was', () => {
+		const { w, round } = scenario();
+		world = w;
+		const before = buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') });
+		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: round.id }));
+		// "Standing swipes are kept": everyone swiped the whole pool in `scenario`,
+		// so nobody has a stack, and abandoning takes nothing off the table.
+		expect(before).toEqual({ poolSize: 3, unswipedCount: 0 });
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual(before);
 	});
 });
 

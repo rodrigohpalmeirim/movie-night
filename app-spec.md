@@ -235,8 +235,17 @@ tap. One attendee is enough; nothing here scales the requirement with group size
 
 ### Phase-by-phase behavior
 
+- **No round** (before the first night, and after a cancelled one) — the round screen is a
+  lobby, not a dead end. Because suggestions and swipes are standing, it leads with what a
+  member can do this minute: the size of the pool ("14 films on the table"), a link to the
+  suggest sheet, and their own swipe stack when they have one. "Start a movie night" sits
+  below those, framed as the move you make when the group is together. A cancelled round
+  keeps its own notice (vetoes and pair votes discarded, standing swipes kept) and gets the
+  same lobby underneath it.
 - **OPEN** — round exists; RSVP, suggesting, and swiping all happen here. Attendees with
-  unswiped movies see their top-up stack. The transition button shows readiness ("2 of 5
+  unswiped movies see their top-up stack, and the screen also links to the suggest sheet —
+  a film added now enters this round via top-up, and suggesting is the useful act precisely
+  for the member whose stack is empty. The transition button shows readiness ("2 of 5
   attendees have unswiped movies"). Any member may close the round to runoff regardless —
   the coverage floor already protects under-seen movies, which simply wait for next
   round.
@@ -271,7 +280,7 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 |---|---|
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
-| **Round** (home tab) | State-dependent: RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. |
+| **Round** (home tab) | State-dependent: the pool lobby when no round is live, else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. |
 | Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. Absent where the round was frozen with vetoes off — the route redirects to the pairs rather than dead-ending. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |

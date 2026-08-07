@@ -17,7 +17,7 @@ import {
 	markWatched,
 	setRsvp
 } from '$lib/server/services/rounds.js';
-import { buildRoundView, unsubmittedAttendees } from '$lib/server/services/views.js';
+import { buildLobbyView, buildRoundView, unsubmittedAttendees } from '$lib/server/services/views.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function reject(failure: Failure) {
@@ -37,6 +37,16 @@ export const load: PageServerLoad = (event) => {
 	return {
 		token: event.params.token,
 		round: view,
+		/**
+		 * The lobby's two numbers, and only for the screens that print them: no
+		 * round at all, or a cancelled one — which leaves a member with the same
+		 * "what now". Every other state has its own work to show and pays nothing
+		 * for this.
+		 */
+		lobby:
+			!view || view.state === 'abandoned'
+				? buildLobbyView({ db: actor.db, group: actor.group, me: actor.member })
+				: null,
 		// Powers "2 attendees haven't voted — reveal anyway?" — a participation
 		// warning, never a tally, and it never blocks the transition.
 		unsubmittedAttendeeIds: round && round.state === 'runoff' ? unsubmittedAttendees(actor.db, round) : []

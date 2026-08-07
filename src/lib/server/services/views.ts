@@ -508,6 +508,50 @@ export function buildRevealView(input: {
 }
 
 /* ------------------------------------------------------------------ */
+/* Lobby view                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What the round screen has left to say when there is no round to describe.
+ *
+ * Suggestions and swipes are STANDING — the pool outlives every night and
+ * neither act waits on one — so the screen that admits there is no round is
+ * exactly the screen that has to prove the table is already dealt. Two numbers
+ * do that: how much is on it, and how much of it is still waiting for me.
+ *
+ * Deliberately not folded into `RoundView`: that shape describes a round, and
+ * this is the payload for having none. Nothing here is an aggregate — a pool
+ * size is public inventory, and the stack is the viewer's own.
+ */
+export interface LobbyView {
+	/** Films in the pool right now — "14 films on the table". */
+	poolSize: number;
+	/** How many of those I have never swiped: my own stack, same as the Pool tab's. */
+	unswipedCount: number;
+}
+
+/**
+ * One pass over the pool answers both: the same left join `unswipedMovieIds`
+ * makes, counted instead of collected, so the lobby costs a single query at any
+ * pool size.
+ */
+export function buildLobbyView(input: { db: Db; group: Group; me: Member }): LobbyView {
+	const rows = input.db
+		.select({ myVote: standingVotes.value })
+		.from(movies)
+		.leftJoin(
+			standingVotes,
+			and(eq(standingVotes.movieId, movies.id), eq(standingVotes.memberId, input.me.id))
+		)
+		.where(and(eq(movies.groupId, input.group.id), eq(movies.status, 'pool')))
+		.all();
+	return {
+		poolSize: rows.length,
+		unswipedCount: rows.filter((row) => row.myVote === null).length
+	};
+}
+
+/* ------------------------------------------------------------------ */
 /* Pool view                                                           */
 /* ------------------------------------------------------------------ */
 

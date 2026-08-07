@@ -33,6 +33,19 @@
 	const revealed = $derived(round?.reveal ?? null);
 
 	/**
+	 * The standing pool, counted — served only to the screens with no round to
+	 * describe (see the load), which is where it is the whole point.
+	 */
+	const lobby = $derived(data.lobby);
+	/**
+	 * THE LOBBY'S ONE LOUD MOVE. Whichever the table leaves you: a hand of cards
+	 * gets swiped, an empty hand gets filled. Only one of the two pool doors wears
+	 * brass, so a screen with no round still has exactly one obvious next tap
+	 * instead of two shouting over each other.
+	 */
+	const lobbyPrimary = $derived(lobby && lobby.unswipedCount > 0 ? 'swipe' : 'suggest');
+
+	/**
 	 * My own RSVP, latched optimistically: the ticket's two tokens are one
 	 * control group, so pressing either one latches it and raises the other
 	 * immediately instead of after the round trip.
@@ -97,11 +110,17 @@
 {/if}
 
 {#if !round || round.state === 'abandoned'}
-	<!-- ── No active round: an empty slot on the board ──────────────── -->
+	<!-- ── No active round: the lobby, not a dead end ────────────────
+	     Nothing on this screen is waiting for a night to be started. The pool is
+	     standing — films can be suggested and swiped at any hour of any day —
+	     so the empty slot is followed by the two doors that are always open, and
+	     the night comes after them: it is what you start when the group is in
+	     the room, not the thing that unlocks the rest of the app. -->
 	<div class="space-y-5">
 		<!-- An empty slot on the board. A cancelled night gets the seal, because
 		     something did happen to it; a first night gets the dice, because
-		     nothing has. -->
+		     nothing has. The last line counts the table either way, so the slot
+		     says what is missing AND what is already dealt. -->
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
 			{#if round?.state === 'abandoned'}
 				<Stamp word="Cancelled" tone="cherry" size="1.1rem" rotate={-6} />
@@ -116,17 +135,60 @@
 					Tonight's vetoes and pair votes are gone. Standing swipes are kept, so starting again picks
 					up where the pool left off.
 				{:else}
-					Start one when you know you're watching something. Suggestions and swipes carry over —
-					nothing is lost between nights.
+					The pool doesn't wait for a night. Suggest films and swipe them whenever you like — a round
+					plays whatever is on the table when it starts.
 				{/if}
 			</p>
+			{#if lobby}
+				<p class="stencil text-xs text-chalk-dim uppercase">
+					{lobby.poolSize > 0
+						? `${lobby.poolSize} ${lobby.poolSize === 1 ? 'film' : 'films'} on the table`
+						: 'Nothing on the table yet'}
+				</p>
+			{/if}
 		</div>
-		<form method="POST" action="?/createRound" use:enhance>
-			<button class="token token-lg token-brass w-full">
-				Start a movie night
-				<ArrowRight size={18} />
-			</button>
-		</form>
+
+		<!-- Your own stack, the same numbered ticket the open round deals: the
+		     swipe screen reads the standing pool and nothing else, so between
+		     nights it works exactly as it does during one. -->
+		{#if lobby && lobby.unswipedCount > 0}
+			<a href="/g/{token}/swipe" class="deal-in token token-lg token-brass w-full justify-between">
+				<span class="flex items-center gap-2.5">
+					<span
+						class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
+						aria-hidden="true">{lobby.unswipedCount}</span
+					>
+					{lobby.unswipedCount === 1 ? 'card to swipe' : 'cards to swipe'}
+				</span>
+				<ArrowRight size={20} />
+			</a>
+		{/if}
+
+		<!-- The other door, straight to the suggest pad rather than to the top of
+		     the Pool tab. Brass only when there is nothing to swipe — see
+		     `lobbyPrimary` — which is the state an empty table is always in. -->
+		<a
+			href="/g/{token}/pool?suggest"
+			class="token w-full justify-between {lobbyPrimary === 'suggest' ? 'token-lg token-brass' : ''}"
+		>
+			Add a film to the pool
+			<ArrowRight size={lobbyPrimary === 'suggest' ? 20 : 18} />
+		</a>
+
+		<!-- The night itself, second, in the same ruled-off footer the open state
+		     gives "Pick finalists": a transition is not a door, so it gets a line
+		     of print saying what it is for and one token under it. Board stock,
+		     like "Start the next night" on the reveal — the brass above belongs
+		     to whatever you can do this minute. -->
+		<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
+			<p class="text-sm leading-relaxed text-chalk-dim">
+				Start a night when you're together and ready to pick. Suggestions and swipes carry over —
+				nothing is lost between nights.
+			</p>
+			<form method="POST" action="?/createRound" use:enhance>
+				<button class="token token-lg token-slot w-full">Start a movie night</button>
+			</form>
+		</section>
 	</div>
 {:else if round.state === 'open'}
 	<!-- ── OPEN: RSVP, suggest, swipe ───────────────────────────────── -->
@@ -212,6 +274,17 @@
 				<ArrowRight size={20} />
 			</a>
 		{/if}
+
+		<!-- The pool is open all through a round, and a film added now enters this
+		     one via top-up — so the screen that funnels to RSVP and swiping says
+		     so. Board stock at the standard size, deliberately quieter than the
+		     brass ticket above it: swiping is still tonight's move. Outside that
+		     ticket's `{#if}` on purpose — a member with an empty stack is exactly
+		     the member for whom suggesting is the useful act. -->
+		<a href="/g/{token}/pool?suggest" class="token w-full justify-between">
+			Add a film to the pool
+			<ArrowRight size={18} />
+		</a>
 
 		<AttendeeStrip
 			participants={round.participants}
@@ -407,7 +480,8 @@
 					Nothing in the pool cleared the approval bar tonight. That's a real answer, not a failure —
 					the pool needs fresh blood.
 				</p>
-				<a href="/g/{token}/pool" class="token token-brass mx-auto mt-1 w-auto px-5">
+				<!-- Straight to the pad, like every other "add a film" in the app. -->
+				<a href="/g/{token}/pool?suggest" class="token token-brass mx-auto mt-1 w-auto px-5">
 					Add some suggestions
 					<ArrowRight size={17} />
 				</a>

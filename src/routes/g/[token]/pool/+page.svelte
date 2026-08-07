@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import Poster from '$lib/components/Poster.svelte';
 	import VoteBadge from '$lib/components/VoteBadge.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
@@ -24,7 +25,15 @@
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
 
-	let sheetOpen = $state(false);
+	/**
+	 * The pad is opened by the header's button, or by arriving with it asked for:
+	 * `?suggest` is how the rest of the app links to "add a film" — the round
+	 * screen does, from both its lobby and its open state — so a member who came
+	 * here to suggest lands with the sheet already down instead of on a list they
+	 * did not ask for. Read from the URL at setup, so the server renders it open
+	 * too and the link works with scripting off; from there the toggle owns it.
+	 */
+	let sheetOpen = $state(page.url.searchParams.has('suggest'));
 	let query = $state('');
 	let results = $state<
 		Array<{ tmdbId: number; title: string; year: number | null; posterPath: string | null }>
