@@ -17,7 +17,6 @@
 	import RevealTally from '$lib/components/RevealTally.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
-	import Check from '$lib/icons/Check.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import Dice5 from '$lib/icons/Dice5.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
@@ -33,8 +32,8 @@
 	const revealed = $derived(round?.reveal ?? null);
 
 	/**
-	 * The standing pool, counted — served only to the screens with no round to
-	 * describe (see the load), which is where it is the whole point.
+	 * The standing pool, counted — served only to the screens that stand between
+	 * nights (see the load), which is where it is the whole point.
 	 */
 	const lobby = $derived(data.lobby);
 	/**
@@ -109,8 +108,9 @@
 	</p>
 {/if}
 
-{#if !round || round.state === 'abandoned'}
-	<!-- ── No active round: the lobby, not a dead end ────────────────
+{#if !round || round.state === 'abandoned' || round.state === 'watched'}
+	<!-- ── No night in play — none yet, cancelled, or watched: the lobby, not a
+	     dead end ─────────────────────────────────────────────────────
 	     Nothing on this screen is waiting for a night to be started. The pool is
 	     standing — films can be suggested and swiped at any hour of any day —
 	     so the empty slot is followed by the two doors that are always open, and
@@ -118,11 +118,14 @@
 	     the room, not the thing that unlocks the rest of the app. -->
 	<div class="space-y-5">
 		<!-- An empty slot on the board, and ONE face for it: an abandoned round
-		     lands here too, deliberately unmarked. The cancellation was group-chat
-		     news the evening it happened; a seal that keeps announcing it weeks
-		     later reads as a scolding, and the confirm step already told whoever
-		     cancelled what was discarded. The last line counts the table, so the
-		     slot says what is missing AND what is already dealt. -->
+		     lands here too, deliberately unmarked, and so does a watched one. The
+		     cancellation was group-chat news the evening it happened; a seal that
+		     keeps announcing it weeks later reads as a scolding, and the confirm
+		     step already told whoever cancelled what was discarded. A night that
+		     happened needs no seal here either: its stub and its tally are filed in
+		     History the moment it is marked watched, and the board is wiped for the
+		     next one. The last line counts the table, so the slot says what is
+		     missing AND what is already dealt. -->
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
 			<Dice5 size={40} class="mx-auto text-brass" />
 			<h2 class="display text-[1.6rem] text-board">No movie night yet</h2>
@@ -461,7 +464,10 @@
 		</div>
 	</div>
 {:else if revealed}
-	<!-- ── DECIDED / WATCHED: the reveal ────────────────────────────── -->
+	<!-- ── DECIDED: the reveal ──────────────────────────────────────
+	     Only DECIDED reaches here. Once the night is marked watched the screen
+	     above takes over: the receipt is filed in History, tally and all, and the
+	     home tab goes back to being the lobby. -->
 	<div class="space-y-5">
 		{#if revealed.outcome === 'no_clear_favourite'}
 			<div class="tile-slot space-y-3 px-4 py-7 text-center">
@@ -478,6 +484,29 @@
 				</a>
 			</div>
 		{:else if revealed.winner}
+			<!-- THE NIGHT THAT FELL THROUGH. "We watched it" is the way out of this
+			     screen, and it is the only close the server will accept: a decided
+			     round cannot be abandoned — that would erase a night from history and
+			     leave its winner permanently unwatchable — so the door for a night that
+			     never happened is simply the next one, and this round stays filed as
+			     decided-and-unwatched with nobody's turn spent. It sits in the same
+			     top-right overflow menu the open and runoff screens keep their abandon
+			     in: out of thumb range, and out of the celebration below it, because the
+			     one thing at the bottom of a reveal is the bookkeeping. -->
+			<div class="-mb-2 flex justify-end">
+				<Menu label="Round options">
+					<form method="POST" action="?/createRound" use:enhance>
+						<Confirm
+							label="Start the next night"
+							confirmLabel="Yes, deal a new round"
+							question="For a night that fell through. This one is filed unwatched — the film stays in the pool and nobody's turn is spent."
+							size="md"
+							variant="quiet"
+						/>
+					</form>
+				</Menu>
+			</div>
+
 			<!--
 				The winner moment. The night is announced on the felt, and the film
 				arrives under it as a ticket stub with the round's seal slammed across
@@ -553,23 +582,20 @@
 			</div>
 		{/if}
 
-		{#if round.state === 'decided' && round.transitions.canMarkWatched}
+		{#if round.transitions.canMarkWatched}
 			<form method="POST" action="?/watched" use:enhance>
 				<input type="hidden" name="round_id" value={round.id} />
 				<!-- Bookkeeping after the fact, not part of the celebration: board stock,
-				     so the marquee and the seal keep the brass to themselves. -->
+				     so the marquee and the seal keep the brass to themselves. It is also
+				     the way out — filing the night hands the home tab back to the lobby —
+				     so it stands alone down here with nothing to compete with. -->
 				<Confirm
 					label="We watched it"
 					confirmLabel="Yes, we watched it"
-					question="This retires the film and gives its suggester their turn. Do it after the night, not before."
+					question="This retires the film, gives its suggester their turn, and files the night in your history. Do it after the night, not before."
 					variant="quiet"
 				/>
 			</form>
-		{:else if round.state === 'watched'}
-			<p class="tile flex items-center gap-2 px-3 py-2.5 text-sm font-medium">
-				<Check size={17} class="shrink-0 text-jade-deep" />
-				Watched {formatDate(revealed.watchedAt)}. It's in your history now.
-			</p>
 		{/if}
 
 		<details class="tile group/tally expand overflow-hidden" open>
@@ -587,9 +613,17 @@
 			</div>
 		</details>
 
-		<form method="POST" action="?/createRound" use:enhance>
-			<button class="token token-slot w-full">Start the next night</button>
-		</form>
+		{#if revealed.outcome === 'no_clear_favourite'}
+			<!-- The night with nothing to watch is the one night with nothing to file:
+			     no film was picked, so there is no "we watched it" to press and no
+			     receipt waiting for History. The next round is therefore the whole
+			     move, and it keeps the bottom of the screen. A reveal WITH a winner
+			     has its own bottom action — see above — and hides this one in the
+			     overflow menu, where it belongs to the night that fell through. -->
+			<form method="POST" action="?/createRound" use:enhance>
+				<button class="token token-slot w-full">Start the next night</button>
+			</form>
+		{/if}
 	</div>
 {/if}
 

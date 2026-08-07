@@ -33,6 +33,7 @@ import {
 	unsubmittedAttendees
 } from './services/views.js';
 import { AGGREGATE_KEYS, BASE_NOW, collectKeys, createTestWorld, type TestWorld } from './testing.js';
+import { load as loadRoundPage } from '../../routes/g/[token]/+page.server.js';
 
 let world: TestWorld | undefined;
 afterEach(() => {
@@ -95,6 +96,30 @@ function view(w: TestWorld, name: string, round?: ReturnType<typeof getRound>) {
 		me: w.member(name),
 		round: round ?? getRound(w.db, w.group.id, w.db.select().from(rounds).get()!.id)
 	})!;
+}
+
+/** The round load's own event type, so the fake below is checked against it. */
+type RoundPageEvent = Parameters<typeof loadRoundPage>[0];
+
+/**
+ * The home tab as the screen actually receives it. The real load is called
+ * against a real database with the slice of `RequestEvent` it touches — what
+ * `hooks.server.ts` puts in locals, plus the token in the path — so which screen
+ * a state lands on (reveal or lobby) is answered by the code that decides it.
+ */
+function roundPage(w: TestWorld, name: string) {
+	const url = new URL(`http://localhost/g/${w.group.inviteToken}`);
+	const event = {
+		locals: { db: w.db, group: w.group, config: w.config, member: w.member(name) },
+		route: { id: '/g/[token]' },
+		params: { token: w.group.inviteToken },
+		request: new Request(url),
+		url
+	} as unknown as RoundPageEvent;
+	return loadRoundPage(event) as {
+		round: ReturnType<typeof buildRoundView>;
+		lobby: ReturnType<typeof buildLobbyView> | null;
+	};
 }
 
 /** Strips the viewer's own block, which is allowed to contain their own answers. */
@@ -400,13 +425,22 @@ describe('the reveal', () => {
 		expect(reveal.tiebreakRuleUsed).toEqual(decided.tiebreakRuleUsed);
 	});
 
-	test('stays open after the movie is marked watched', () => {
+	test('survives the watched stamp — the receipt outlives the screen that showed it', () => {
+		// The home tab hands itself back to the lobby once a night is filed (see
+		// "a watched night hands the home tab back to the lobby"), so this payload
+		// is no longer what the round screen prints. It stays whole regardless: the
+		// same reveal is what History serves for that night, tally and all.
 		const { w, decided } = decidedScenario();
 		world = w;
 		unwrap(markWatched({ db: w.db, groupId: w.group.id, roundId: decided.id }));
 		const payload = view(w, 'Ana', getRound(w.db, w.group.id, decided.id));
 		expect(payload.state).toBe('watched');
 		expect(payload.reveal?.watchedAt).not.toBeNull();
+
+		const entry = buildHistoryView({ db: w.db, group: w.group })[0];
+		expect(entry.state).toBe('watched');
+		expect(entry.winner?.id).toBe(payload.reveal?.winner?.id);
+		expect(entry.reveal.tallies).toEqual(payload.reveal!.tallies);
 	});
 
 	test('a no-clear-favourite round reveals the outcome and no winner', () => {
@@ -570,6 +604,27 @@ describe('participation warnings', () => {
 		expect(payload.transitions.canAdvance).toBe(true);
 		expect(payload.transitions.advanceBlockedReason).toBeNull();
 	});
+
+	test('no flag offers a move the service would refuse', () => {
+		// The flags name the buttons the round screen draws, so each one has to
+		// agree with the guard behind it — a promised transition that fails on tap
+		// is worse than no button.
+		const { w, round } = scenario();
+		world = w;
+		const runoff = toRunoff(w, round.id);
+		expect(view(w, 'Ana', runoff).transitions.canAbandon).toBe(true);
+
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: runoff.id })
+		).round;
+		const flags = view(w, 'Ana', decided).transitions;
+		// A decided round cannot be cancelled out of history, so nothing offers it.
+		expect(flags.canAbandon).toBe(false);
+		expect(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }).ok).toBe(false);
+		// What it does offer: the bookkeeping, and the next night for one that fell through.
+		expect(flags.canMarkWatched).toBe(true);
+		expect(flags.canCreateRound).toBe(true);
+	});
 });
 
 describe('lobby view', () => {
@@ -638,6 +693,43 @@ describe('lobby view', () => {
 		// so nobody has a stack, and abandoning takes nothing off the table.
 		expect(before).toEqual({ poolSize: 3, unswipedCount: 0 });
 		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual(before);
+	});
+
+	/**
+	 * Which screen the home tab is, decided by the real load rather than by
+	 * reading the markup: a watched night is filed in History, so the round screen
+	 * goes back to being the lobby exactly as a cancelled one does.
+	 */
+	test('a watched night hands the home tab back to the lobby', () => {
+		const { w, round } = scenario();
+		world = w;
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: toRunoff(w, round.id).id })
+		).round;
+		// Until it is filed, the reveal owns the screen and there is no lobby to serve.
+		expect(roundPage(w, 'Ana').lobby).toBeNull();
+
+		unwrap(markWatched({ db: w.db, groupId: w.group.id, roundId: decided.id }));
+		const page = roundPage(w, 'Ana');
+		expect(page.round?.state).toBe('watched');
+		// The winner is retired, so the table is one film shorter than it was.
+		expect(page.lobby).toEqual({ poolSize: 2, unswipedCount: 0 });
+	});
+
+	test("the lobby's own button deals the next night straight off a watched one", () => {
+		const { w, round } = scenario();
+		world = w;
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: toRunoff(w, round.id).id })
+		).round;
+		unwrap(markWatched({ db: w.db, groupId: w.group.id, roundId: decided.id }));
+		// Same situation as a cancelled night: nothing is active, so the form posts
+		// through and the new round is the current one.
+		const next = unwrap(
+			createRound({ db: w.db, groupId: w.group.id, actorId: w.member('Ben').id })
+		);
+		expect(next.state).toBe('open');
+		expect(roundPage(w, 'Ana').round?.id).toBe(next.id);
 	});
 });
 

@@ -39,12 +39,14 @@ export const load: PageServerLoad = (event) => {
 		round: view,
 		/**
 		 * The lobby's two numbers, and only for the screens that print them: no
-		 * round at all, or a cancelled one — both land on the same empty slot and
-		 * leave a member with the same "what now". Every other state has its own
-		 * work to show and pays nothing for this.
+		 * round at all, a cancelled one, or a watched one — all three land on the
+		 * same empty slot and leave a member with the same "what now". A finished
+		 * night is filed in History the moment it is marked watched, so the home tab
+		 * is between nights again. Every other state has its own work to show and
+		 * pays nothing for this.
 		 */
 		lobby:
-			!view || view.state === 'abandoned'
+			!view || view.state === 'abandoned' || view.state === 'watched'
 				? buildLobbyView({ db: actor.db, group: actor.group, me: actor.member })
 				: null,
 		// Powers "2 attendees haven't voted — reveal anyway?" — a participation

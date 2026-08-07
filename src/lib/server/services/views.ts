@@ -164,12 +164,25 @@ export interface MyRoundView {
 	unswipedMovieIds: string[];
 }
 
+/**
+ * One flag per button the round screen can draw, and each one mirrors the guard
+ * in the service behind it — so a flag never claims a move the service would
+ * refuse, and never claims a button no screen renders.
+ */
 export interface TransitionView {
+	/**
+	 * "Start a movie night" on the lobby; "Start the next night" under a no-winner
+	 * reveal, and in the decided screen's overflow menu for a night that fell
+	 * through. True from `decided` on, which is where `createRound` stops seeing an
+	 * active round.
+	 */
 	canCreateRound: boolean;
 	canAdvance: boolean;
 	advanceLabel: string | null;
 	advanceBlockedReason: string | null;
+	/** "Abandon this round", in the open and runoff headers' overflow menu. */
 	canAbandon: boolean;
+	/** "We watched it" — the decided screen's one bottom action. */
 	canMarkWatched: boolean;
 }
 
@@ -391,7 +404,11 @@ export function buildRoundView(input: {
 				: round.state === 'runoff' && !haveElectorate
 					? NO_ELECTORATE_MESSAGE.runoff
 					: null,
-		canAbandon: round.state !== 'watched' && round.state !== 'abandoned',
+		// Mirrors `abandonRound`'s guard exactly. A round that has produced a result
+		// is NOT cancellable — that would erase a night from history and leave its
+		// winner permanently unwatchable — so the flag stops offering it from
+		// `decided` onward, rather than promising a button the service refuses.
+		canAbandon: round.state === 'open' || round.state === 'runoff',
 		canMarkWatched: round.state === 'decided' && round.winnerId !== null
 	};
 
