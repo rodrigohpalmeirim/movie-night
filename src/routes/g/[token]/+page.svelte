@@ -117,27 +117,18 @@
 	     the night comes after them: it is what you start when the group is in
 	     the room, not the thing that unlocks the rest of the app. -->
 	<div class="space-y-5">
-		<!-- An empty slot on the board. A cancelled night gets the seal, because
-		     something did happen to it; a first night gets the dice, because
-		     nothing has. The last line counts the table either way, so the slot
-		     says what is missing AND what is already dealt. -->
+		<!-- An empty slot on the board, and ONE face for it: an abandoned round
+		     lands here too, deliberately unmarked. The cancellation was group-chat
+		     news the evening it happened; a seal that keeps announcing it weeks
+		     later reads as a scolding, and the confirm step already told whoever
+		     cancelled what was discarded. The last line counts the table, so the
+		     slot says what is missing AND what is already dealt. -->
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
-			{#if round?.state === 'abandoned'}
-				<Stamp word="Cancelled" tone="cherry" size="1.1rem" rotate={-6} />
-			{:else}
-				<Dice5 size={40} class="mx-auto text-brass" />
-			{/if}
-			<h2 class="display text-[1.6rem] text-board">
-				{round?.state === 'abandoned' ? 'That night got cancelled' : 'No movie night yet'}
-			</h2>
+			<Dice5 size={40} class="mx-auto text-brass" />
+			<h2 class="display text-[1.6rem] text-board">No movie night yet</h2>
 			<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
-				{#if round?.state === 'abandoned'}
-					Tonight's vetoes and pair votes are gone. Standing swipes are kept, so starting again picks
-					up where the pool left off.
-				{:else}
-					The pool doesn't wait for a night. Suggest films and swipe them whenever you like — a round
-					plays whatever is on the table when it starts.
-				{/if}
+				The pool doesn't wait for a night. Suggest films and swipe them whenever you like — a round
+				plays whatever is on the table when it starts.
 			</p>
 			{#if lobby}
 				<p class="stencil text-xs text-chalk-dim uppercase">
@@ -595,6 +586,31 @@
 				<RevealTally reveal={revealed} />
 			</div>
 		</details>
+
+		{#if round.state === 'watched' && lobby}
+			<!-- The film is bookkept, so this screen is the between-nights surface
+			     now and the lobby's two doors open here too: the same numbered
+			     stack, and the suggest pad. The suggest door stays board stock —
+			     on this screen the winner's seal keeps the brass of celebration,
+			     and the stack's brass is the standing "you have cards" call it is
+			     everywhere else. -->
+			{#if lobby.unswipedCount > 0}
+				<a href="/g/{token}/swipe" class="deal-in token token-lg token-brass w-full justify-between">
+					<span class="flex items-center gap-2.5">
+						<span
+							class="display flex h-7 min-w-7 items-center justify-center rounded-sm border-2 border-ink bg-board px-1 text-base leading-none"
+							aria-hidden="true">{lobby.unswipedCount}</span
+						>
+						{lobby.unswipedCount === 1 ? 'card to swipe' : 'cards to swipe'}
+					</span>
+					<ArrowRight size={20} />
+				</a>
+			{/if}
+			<a href="/g/{token}/pool?suggest" class="token w-full justify-between">
+				Add a film to the pool
+				<ArrowRight size={18} />
+			</a>
+		{/if}
 
 		<form method="POST" action="?/createRound" use:enhance>
 			<button class="token token-slot w-full">Start the next night</button>
