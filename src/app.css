@@ -755,6 +755,14 @@
 		width: 100%;
 		height: var(--rail-height);
 		appearance: none;
+		/* That 44px is also 44px of the page a finger lands on by accident. A native
+		   range jumps its thumb to wherever the touch starts, so on a settings screen
+		   that scrolls, beginning or stopping a scroll on a rail was enough to change
+		   the setting. `pan-y` hands vertical drags back to the scroller — the browser
+		   then cancels the slider's own gesture, and the page puts the number back (see
+		   the pointer handlers on the settings screen). Sideways is still ours, which
+		   is the only direction a rail moves in. */
+		touch-action: pan-y;
 		/* ── The ruler under the groove ─────────────────────────────────
 		   The scale is painted on the INPUT's own background, not on the track and
 		   not in a wrapper element: the input box is 44px tall around a 10px

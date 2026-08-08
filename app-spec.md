@@ -79,7 +79,10 @@ swipe stack afterwards — never a forced twenty-movie gauntlet before they can 
   `VETOES_ENABLED` is the one boolean, so it is the one knob drawn as a latched On/Off
   pair rather than a number; the numeric knobs are sliders, printing their current value
   beside the label, except `REWATCH_COOLDOWN`, which stays a written-in field because
-  blank means "never" and a range input has no way to say that.
+  blank means "never" and a range input has no way to say that. A slider's touch target
+  is tall enough to be what a thumb lands on by accident, so a vertical swipe that starts
+  on one scrolls the screen and leaves the setting where it was; only a tap or a sideways
+  drag moves it.
 - Member list (rename self; remove and restore members — but never delete them, because
   history references them).
 

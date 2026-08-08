@@ -123,6 +123,33 @@
 	);
 
 	/**
+	 * What each rail read when the finger landed on it, so a touch that turns out to be
+	 * a scroll can be given its number back.
+	 *
+	 * `.rail` is `touch-action: pan-y` (see app.css), so a vertical drag that starts on
+	 * a rail scrolls the page — but a native range has already jumped its thumb to the
+	 * touch point by then, and the browser ends the gesture with `pointercancel` rather
+	 * than undoing it. So the value is recorded on the way down and put back on cancel,
+	 * on the INPUT and on `knobValues` both: the printed `<output>` reads from the
+	 * latter, and restoring only one of them leaves the label lying about the thumb.
+	 *
+	 * A deliberate tap or a sideways drag ends in `pointerup`, which is untouched. With
+	 * scripting off the rail is simply a rail again — this is enhancement, like the rest
+	 * of the app. Keyed per knob because all five rails share the two handlers.
+	 */
+	const preTouch: Record<string, number> = {};
+
+	function recordKnob(knob: string, input: HTMLInputElement) {
+		preTouch[knob] = input.valueAsNumber;
+	}
+
+	function restoreKnob(knob: string, input: HTMLInputElement) {
+		if (!(knob in preTouch)) return;
+		input.valueAsNumber = preTouch[knob];
+		knobValues[knob] = preTouch[knob];
+	}
+
+	/**
 	 * What a knob prints beside its label. A share prints as the percentage everybody
 	 * says out loud — "40%", not "0.40" — while the field still posts the 0–1 the
 	 * server has always stored; the step is 0.05, so every stop is a whole 5%. The
@@ -367,6 +394,8 @@
 						step={isLadder || range.integer ? 1 : SHARE_STEP}
 						value={knobValues[knob]}
 						oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
+						onpointerdown={(event) => recordKnob(knob, event.currentTarget)}
+						onpointercancel={(event) => restoreKnob(knob, event.currentTarget)}
 						aria-describedby="help-{knob}"
 						aria-valuetext={isLadder || SHARE_KNOBS.includes(knob)
 							? printed(knob, knobValues[knob])
