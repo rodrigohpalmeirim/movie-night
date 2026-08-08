@@ -469,10 +469,11 @@
 {:else if revealed}
 	<!-- ── DECIDED: the reveal ──────────────────────────────────────
 	     Only DECIDED reaches here, and it holds the home tab until the night is
-	     closed — which is the point of the two actions at the bottom. Watched: the
-	     receipt is filed in History, tally and all. Didn't watch: nothing is filed
-	     at all. Either way the screen above takes over and the home tab goes back
-	     to being the lobby. -->
+	     closed — which is the point of the actions at the bottom. A night that
+	     picked a film gets two: watched, and the receipt is filed in History, tally
+	     and all; didn't watch, and nothing is filed at all — either way the lobby
+	     above takes the home tab back. A night that picked nothing gets one instead,
+	     and it goes round again rather than to the lobby (see the bottom). -->
 	<div class="space-y-5">
 		{#if revealed.outcome === 'no_clear_favourite'}
 			<div class="tile-slot space-y-3 px-4 py-7 text-center">
@@ -619,24 +620,31 @@
 			</div>
 		</details>
 
-		{#if revealed.outcome === 'no_clear_favourite' && round.transitions.canAbandon}
-			<!-- The night with nothing to watch is the one night with nothing to file:
-			     no film was picked, so there is no "we watched it" to press and no
-			     receipt waiting for History. Clearing it away is therefore the whole
-			     move, and it keeps the bottom of the screen — the same exit the winning
-			     reveal offers under "We didn't watch it", in the words of a night that
-			     picked nothing. The way on is not here: the table is what needs filling,
-			     the slot above says so, and the next night is started from the lobby
-			     this leaves behind. -->
-			<form method="POST" action="?/abandon" use:enhance>
-				<input type="hidden" name="round_id" value={round.id} />
-				<Confirm
-					label="Clear the night away"
-					confirmLabel="Yes, clear it"
-					question="Nothing was picked, so there is nothing to file: this leaves no entry in your history, and the table keeps every film, swipe and star it has."
-					variant="quiet"
-				/>
-			</form>
+		{#if round.transitions.canRestart}
+			<!-- THE NIGHT THAT PICKED NOTHING GETS ONE BUTTON, AND IT GOES AGAIN.
+			     The likely truth on this screen is that everyone is still in the room:
+			     nothing cleared the bar, films have just been added or are about to be,
+			     and what the group wants is another go — not to be walked back to the
+			     lobby to start a night they never left. So this files tonight away exactly
+			     as abandoning does (no entry in History, the table untouched) and deals a
+			     fresh open round in the same tap, landing straight back on "Tonight's the
+			     night" with every IN and OUT still standing.
+
+			     NO CONFIRM STEP — the app's one transition button without one. A round
+			     that picked nothing came here straight from OPEN, so there is not a single
+			     veto or pair vote in existence to throw away and nothing at all is lost:
+			     the guard every other transition carries would be guarding nothing. A
+			     plain form button, so it works with JS off like every other move here. -->
+			<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
+				<p class="text-sm leading-relaxed text-chalk-dim">
+					Nothing is filed: this night leaves no entry in your history, and the table keeps every film,
+					swipe and star it has. Everyone's IN and OUT carries straight over to the new round.
+				</p>
+				<form method="POST" action="?/restart" use:enhance>
+					<input type="hidden" name="round_id" value={round.id} />
+					<button class="token token-lg w-full">Deal the night again</button>
+				</form>
+			</section>
 		{/if}
 	</div>
 {/if}

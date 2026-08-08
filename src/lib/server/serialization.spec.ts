@@ -22,6 +22,7 @@ import {
 	getRound,
 	markWatched,
 	memberRunoffProgress,
+	restartRound,
 	setRsvp
 } from './services/rounds.js';
 import {
@@ -630,6 +631,17 @@ describe('participation warnings', () => {
 		// The two ways a picked night ends, both offered and both taken.
 		expect(flags.canMarkWatched).toBe(true);
 		expect(flags.canAbandon).toBe(true);
+		// And the third way, which this night does not get: a re-deal is for the reveal
+		// that picked nothing, so the flag is false and `restartRound` refuses it too.
+		expect(flags.canRestart).toBe(false);
+		expect(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			}).ok
+		).toBe(false);
 		// The one flag deliberately quieter than the service behind it: `createRound`
 		// would accept a decided round, but the only button that deals a night lives
 		// on the lobby and a picked night does not show it. A flag may refuse what the
@@ -638,6 +650,44 @@ describe('participation warnings', () => {
 		const jumped = unwrap(createRound({ db: w.db, groupId: w.group.id, actorId: w.member('Ana').id }));
 		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: jumped.id }));
 		expect(abandonRound({ db: w.db, groupId: w.group.id, roundId: decided.id }).ok).toBe(true);
+	});
+
+	test('the no-pick reveal offers its one move, and the service takes it', () => {
+		const { w, round } = scenario();
+		world = w;
+		// Nobody wants anything, so nothing clears the approval floor: OPEN → DECIDED
+		// with no winner, the one state a re-deal is legal in.
+		for (const movie of POOL) {
+			for (const name of MEMBERS) {
+				unwrap(
+					setStandingVote({
+						db: w.db,
+						groupId: w.group.id,
+						memberId: w.member(name).id,
+						movieId: w.movie(movie.title).id,
+						value: 'no'
+					})
+				);
+			}
+		}
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+		).round;
+		expect(decided.winnerId).toBeNull();
+
+		const flags = view(w, 'Ana', decided).transitions;
+		// The only button this screen draws — and no lobby underneath it yet.
+		expect(flags.canRestart).toBe(true);
+		expect(flags.canMarkWatched).toBe(false);
+		expect(flags.canCreateRound).toBe(false);
+		expect(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			}).ok
+		).toBe(true);
 	});
 });
 

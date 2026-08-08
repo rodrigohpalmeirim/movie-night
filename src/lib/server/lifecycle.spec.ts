@@ -5,7 +5,17 @@
 
 import { afterEach, describe, expect, test } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
-import { attendance, fairness, groups, movies, pairVotes, rounds, standingVotes, withConfigDefaults } from './db/index.js';
+import {
+	attendance,
+	fairness,
+	groups,
+	movies,
+	pairVotes,
+	rounds,
+	standingVotes,
+	vetoes,
+	withConfigDefaults
+} from './db/index.js';
 import { notifyGroup, subscribeGroup } from './events.js';
 import { unwrap, type Result } from './result.js';
 
@@ -25,12 +35,13 @@ import {
 	maybeMarkSubmitted,
 	memberRunoffProgress,
 	planAdvance,
+	restartRound,
 	setRsvp,
 	vetoPrefillFor
 } from './services/rounds.js';
 import { removeMovie, setStandingVote } from './services/movies.js';
-import { claimMember, updateSettings } from './services/groups.js';
-import { buildRoundView, unswipedMovieIds } from './services/views.js';
+import { claimMember, removeMember, updateSettings } from './services/groups.js';
+import { buildHistoryView, buildRoundView, unswipedMovieIds } from './services/views.js';
 import { createTestWorld, BASE_NOW, type TestWorld } from './testing.js';
 
 let world: TestWorld | undefined;
@@ -1475,6 +1486,326 @@ describe('ABANDONED', () => {
 		world = w;
 		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: round.id }));
 		expect(abandonRound({ db: w.db, groupId: w.group.id, roundId: round.id }).ok).toBe(true);
+	});
+});
+
+describe('restarting a night that picked nothing', () => {
+	/**
+	 * Everyone says no to everything, so nothing clears the approval floor and the
+	 * round goes OPEN → DECIDED with no winner — the one state `restartRound` accepts.
+	 * Dee's "out" is set by Ana, so the carry-over has a proxy row to keep.
+	 */
+	function noPickWorld() {
+		const { w, round } = openWorld();
+		for (const movie of POOL) {
+			for (const name of MEMBERS) {
+				unwrap(
+					setStandingVote({
+						db: w.db,
+						groupId: w.group.id,
+						memberId: w.member(name).id,
+						movieId: w.movie(movie.title).id,
+						value: 'no',
+						now: BASE_NOW
+					})
+				);
+			}
+		}
+		unwrap(
+			setRsvp({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: round.id,
+				memberId: w.member('Dee').id,
+				attending: false,
+				actorId: w.member('Ana').id,
+				now: BASE_NOW
+			})
+		);
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+		).round;
+		expect(decided.state).toBe('decided');
+		expect(decided.winnerId).toBeNull();
+		// The premise of the missing confirm step: nothing to discard, because a
+		// no-pick round never had a runoff to cast anything in.
+		expect(decided.runoffAt).not.toBeNull();
+		expect(w.db.select().from(vetoes).where(eq(vetoes.roundId, decided.id)).all()).toEqual([]);
+		expect(w.db.select().from(pairVotes).where(eq(pairVotes.roundId, decided.id)).all()).toEqual([]);
+		return { w, decided };
+	}
+
+	const rsvpRows = (w: TestWorld, roundId: string) =>
+		w.db
+			.select()
+			.from(attendance)
+			.where(eq(attendance.roundId, roundId))
+			.all()
+			.map((row) => ({
+				name: w.members.find((m) => m.id === row.memberId)!.displayName,
+				attending: row.attending,
+				updatedAt: row.updatedAt.getTime(),
+				markedBy: w.members.find((m) => m.id === row.updatedBy)!.displayName,
+				submitted: row.runoffSubmittedAt
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name));
+
+	test('files the night away and deals a fresh OPEN round in the same call', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		const later = new Date(BASE_NOW.getTime() + 600_000);
+		const { filed, next } = unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ben').id,
+				now: later
+			})
+		);
+
+		// Filed away exactly as abandoning does...
+		expect(filed.state).toBe('abandoned');
+		expect(getRound(w.db, w.group.id, decided.id)?.state).toBe('abandoned');
+		// ...so History has nothing to show: it records the nights that happened.
+		expect(buildHistoryView({ db: w.db, group: w.group })).toEqual([]);
+
+		// ...and the group is back on "Tonight's the night" rather than at the lobby.
+		expect(next.state).toBe('open');
+		expect(next.createdBy).toBe(w.member('Ben').id);
+		expect(next.createdAt.getTime()).toBe(later.getTime());
+		expect(next.winnerId).toBeNull();
+		expect(next.finalistIds).toBeNull();
+		expect(next.standingSnapshot).toBeNull();
+		expect(next.configSnapshot).toBeNull();
+		expect(getActiveRound(w.db, w.group.id)?.id).toBe(next.id);
+		expect(getCurrentRound(w.db, w.group.id)?.id).toBe(next.id);
+		expect(w.db.select().from(rounds).all().length).toBe(2);
+		// A new night deals its own shuffles, so it gets its own seed.
+		expect(next.randomSeed).not.toBe(decided.randomSeed);
+	});
+
+	test('every RSVP carries over, proxy attribution and all', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		const before = rsvpRows(w, decided.id);
+		// The row worth naming: Dee is out, and Ana is who marked her so.
+		expect(before.find((row) => row.name === 'Dee')).toEqual({
+			name: 'Dee',
+			attending: false,
+			updatedAt: BASE_NOW.getTime(),
+			markedBy: 'Ana',
+			submitted: null
+		});
+
+		const { next } = unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id,
+				now: new Date(BASE_NOW.getTime() + 600_000)
+			})
+		);
+
+		// Same evening, same people, no re-tapping — and the old round keeps its own
+		// rows, because they are the record of what happened.
+		expect(rsvpRows(w, next.id)).toEqual(before);
+		expect(rsvpRows(w, decided.id)).toEqual(before);
+		expect(loadAttendeeIds(w.db, next.id).sort()).toEqual(
+			MEMBERS.slice(0, 3)
+				.map((name) => w.member(name).id)
+				.sort()
+		);
+	});
+
+	test('a member who has left is not carried in', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		unwrap(removeMember({ db: w.db, groupId: w.group.id, memberId: w.member('Cal').id }));
+		const { next } = unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			})
+		);
+		// `setRsvp` refuses to mark a removed member, and no tally counts one, so the
+		// re-deal does not write a row it would refuse.
+		expect(rsvpRows(w, next.id).map((row) => row.name)).toEqual(['Ana', 'Ben', 'Dee']);
+	});
+
+	test('the table is untouched: films, swipes, stars and turns all stand', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		unwrap(
+			setStandingVote({
+				db: w.db,
+				groupId: w.group.id,
+				memberId: w.member('Ana').id,
+				movieId: w.movie('Alien').id,
+				value: 'yes',
+				starred: true,
+				now: BASE_NOW
+			})
+		);
+		const standingBefore = w.db.select().from(standingVotes).all();
+		const fairnessBefore = w.db.select().from(fairness).all();
+
+		unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			})
+		);
+
+		expect(w.db.select().from(standingVotes).all()).toEqual(standingBefore);
+		expect(w.db.select().from(fairness).all()).toEqual(fairnessBefore);
+		expect(
+			w.db
+				.select()
+				.from(movies)
+				.all()
+				.map((movie) => movie.status)
+		).toEqual(POOL.map(() => 'pool'));
+	});
+
+	test('only a night that picked nothing can be restarted', () => {
+		const { w, round } = runoffWorld();
+		world = w;
+		const restart = (roundId: string) =>
+			code(
+				restartRound({
+					db: w.db,
+					groupId: w.group.id,
+					roundId,
+					actorId: w.member('Ana').id
+				})
+			);
+		// A live round has its own work to do.
+		expect(restart(round.id)).toBe('illegal_transition');
+		// A stale or foreign id is not a round of this group's.
+		expect(restart('nope')).toBe('unknown_round');
+
+		const decided = unwrap(
+			advanceRound({ db: w.db, groupId: w.group.id, config: w.config, roundId: round.id })
+		).round;
+		expect(decided.winnerId).not.toBeNull();
+		// A picked night has its own two endings, and neither of them is this.
+		expect(restart(decided.id)).toBe('illegal_transition');
+		expect(getRound(w.db, w.group.id, decided.id)?.state).toBe('decided');
+		expect(w.db.select().from(rounds).all().length).toBe(1);
+
+		unwrap(markWatched({ db: w.db, groupId: w.group.id, roundId: decided.id }));
+		expect(restart(decided.id)).toBe('illegal_transition');
+		unwrap(createRound({ db: w.db, groupId: w.group.id, actorId: w.member('Ana').id }));
+		expect(restart(decided.id)).toBe('illegal_transition');
+	});
+
+	test('two members tapping together deal one round, not two', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		const tap = (name: string, db = w.db) =>
+			restartRound({
+				db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member(name).id
+			});
+		const first = tap('Ana');
+		expect(first.ok).toBe(true);
+		// The second tap arrives after the first has landed and reads the filed-away
+		// night, so it is refused like any other transition asked of the wrong state.
+		expect(code(tap('Ben'))).toBe('illegal_transition');
+		expect(w.db.select().from(rounds).all().length).toBe(2);
+		expect(getActiveRound(w.db, w.group.id)?.id).toBe(unwrap(first).next.id);
+	});
+
+	test('the tap that loses the race writes nothing at all', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		/**
+		 * The genuine race, which the sequential taps above cannot reach: Ben's request
+		 * read a DECIDED night, and Ana's whole re-deal commits before Ben's write runs.
+		 * The conditional UPDATE — `WHERE state = 'decided' AND winner_id IS NULL` — is
+		 * what has to catch that, so it is asked directly, by committing Ana's tap in the
+		 * instant between Ben's read and his transaction.
+		 */
+		const racing = new Proxy(w.db, {
+			get(target, property) {
+				if (property === 'transaction') {
+					return (run: Parameters<typeof w.db.transaction>[0]) => {
+						unwrap(
+							restartRound({
+								db: w.db,
+								groupId: w.group.id,
+								roundId: decided.id,
+								actorId: w.member('Ana').id
+							})
+						);
+						return target.transaction(run);
+					};
+				}
+				const value = Reflect.get(target, property);
+				return typeof value === 'function' ? value.bind(target) : value;
+			}
+		}) as typeof w.db;
+
+		expect(
+			code(
+				restartRound({
+					db: racing,
+					groupId: w.group.id,
+					roundId: decided.id,
+					actorId: w.member('Ben').id
+				})
+			)
+		).toBe('state_changed');
+		// One night filed, one night dealt, and Ben's tap left no trace of its own.
+		expect(w.db.select().from(rounds).all().length).toBe(2);
+		expect(w.db.select().from(rounds).where(eq(rounds.state, 'open')).all().length).toBe(1);
+	});
+
+	test('the whole re-deal is one ping', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		let pings = 0;
+		const unsubscribe = subscribeGroup(w.group.id, () => pings++);
+		unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			})
+		);
+		// Abandon plus create plus the carried RSVPs are one transition to the group.
+		expect(pings).toBe(1);
+		unsubscribe();
+	});
+
+	test('the round view offers the button exactly where the service accepts it', () => {
+		const { w, decided } = noPickWorld();
+		world = w;
+		const flags = (round: typeof decided) =>
+			buildRoundView({ db: w.db, group: w.group, config: w.config, me: w.member('Ana'), round })!
+				.transitions;
+		expect(flags(decided).canRestart).toBe(true);
+
+		const { next } = unwrap(
+			restartRound({
+				db: w.db,
+				groupId: w.group.id,
+				roundId: decided.id,
+				actorId: w.member('Ana').id
+			})
+		);
+		// Neither the night just filed away nor the one just dealt offers it again.
+		expect(flags(getRound(w.db, w.group.id, decided.id)!).canRestart).toBe(false);
+		expect(flags(next).canRestart).toBe(false);
 	});
 });
 

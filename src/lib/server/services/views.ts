@@ -181,13 +181,25 @@ export interface TransitionView {
 	 * lobby, and this button with it, come back once one of them is taken.
 	 */
 	canCreateRound: boolean;
+	/**
+	 * "Deal the night again" — the no-winner reveal's one move, and the app's one
+	 * round-creating button outside the lobby, which app-spec names as the deliberate
+	 * carve-out it is. It closes this night *and* opens the next, so the rule it bends
+	 * ("a night is closed before the next is dealt") still holds inside it.
+	 *
+	 * Mirrors `restartRound`'s guard exactly, both halves: DECIDED, and nothing
+	 * picked. A night with a winner has its own two endings and is never restartable.
+	 */
+	canRestart: boolean;
 	canAdvance: boolean;
 	advanceLabel: string | null;
 	advanceBlockedReason: string | null;
 	/**
 	 * "Abandon this round" in the open and runoff headers' overflow menu, and "We
-	 * didn't watch it" at the bottom of the decided screen — the same transition,
-	 * asked twice in the two places a night can fall through.
+	 * didn't watch it" at the bottom of the reveal that picked a film — the same
+	 * transition, asked in the two places a night can fall through. The no-winner
+	 * reveal does not ask it: filing that night away is the first half of
+	 * `canRestart`, which is the only button it shows.
 	 */
 	canAbandon: boolean;
 	/** "We watched it" — the decided screen's other bottom action. */
@@ -399,6 +411,8 @@ export function buildRoundView(input: {
 
 	const transitions: TransitionView = {
 		canCreateRound: round.state === 'watched' || round.state === 'abandoned',
+		// Both halves of `restartRound`'s guard, in the same order it asks them.
+		canRestart: round.state === 'decided' && round.winnerId === null,
 		canAdvance: (round.state === 'open' || round.state === 'runoff') && haveElectorate,
 		advanceLabel:
 			round.state === 'open'

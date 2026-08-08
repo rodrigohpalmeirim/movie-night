@@ -4,6 +4,10 @@
  * app-spec: "Every transition is a single labeled button on the round screen
  * ('Pick finalists', 'Reveal the winner', …) with a confirm step,
  * since transitions are one-way." Form actions, so they work without JS.
+ *
+ * `restart` is the one transition with no confirm step in front of it, for the one
+ * reason app-spec allows: a night that picked nothing has nothing to discard. See
+ * `restartRound`.
  */
 
 import { fail as formFail } from '@sveltejs/kit';
@@ -15,6 +19,7 @@ import {
 	createRound,
 	getCurrentRound,
 	markWatched,
+	restartRound,
 	setRsvp
 } from '$lib/server/services/rounds.js';
 import { buildLobbyView, buildRoundView, unsubmittedAttendees } from '$lib/server/services/views.js';
@@ -96,9 +101,10 @@ export const actions: Actions = {
 	},
 
 	/**
-	 * "Abandon this round" in the open and runoff menus, and "We didn't watch it" (or,
-	 * with nothing picked, "Clear the night away") at the bottom of the reveal: one
-	 * transition, asked wherever a night can fall through.
+	 * "Abandon this round" in the open and runoff menus, and "We didn't watch it" at
+	 * the bottom of a reveal that picked a film: one transition, asked wherever a night
+	 * can fall through. The no-winner reveal files its night away through `restart`
+	 * instead, which is this same move plus the next round.
 	 */
 	abandon: async (event) => {
 		const actor = requireActor(event);
@@ -107,6 +113,30 @@ export const actions: Actions = {
 		if (!roundId) return formFail(400, { code: 'invalid_input', message: 'round_id is required' });
 		const result = abandonRound({ db: actor.db, groupId: actor.group.id, roundId });
 		return result.ok ? { state: result.value.state } : reject(result);
+	},
+
+	/**
+	 * "Deal the night again" — the no-winner reveal's single button, and the one
+	 * round-creating action outside the lobby. Abandons the no-pick round and opens a
+	 * fresh one with the RSVPs carried over, in one transaction.
+	 *
+	 * **No confirm step**, deliberately: `restartRound` documents why a round that
+	 * decided nothing has nothing to lose. A losing concurrent tap comes back as
+	 * `state_changed`, so two members tapping together deal one round, not two.
+	 */
+	restart: async (event) => {
+		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const roundId = formValue(data, 'round_id');
+		if (!roundId) return formFail(400, { code: 'invalid_input', message: 'round_id is required' });
+		const result = restartRound({
+			db: actor.db,
+			groupId: actor.group.id,
+			roundId,
+			actorId: actor.member.id,
+			now: actor.now
+		});
+		return result.ok ? { roundId: result.value.next.id, state: result.value.next.state } : reject(result);
 	},
 
 	/** "We watched it 🎬" — the only place fairness counters move. */

@@ -203,18 +203,25 @@ OPEN → RUNOFF → DECIDED → WATCHED
 
 **Any member** can create a round and advance it. Every transition is a single labeled
 button on the round screen ("Pick finalists", "Reveal the winner", …) with
-a confirm step, since transitions are one-way.
+a confirm step, since transitions are one-way. There is exactly **one** transition button
+without one — "Deal the night again" on the no-winner reveal — for exactly one reason:
+that round decided nothing, so the tap discards nothing. See `DECIDED` below.
 
 Creating one is the exception that is *not* on the round screen: the app has exactly one
-round-creating button, "Start a movie night" on the lobby. Since the lobby is the home tab
-only when no night is in play, that single button is also the rule that a night is closed
-before the next is dealt.
+round-creating button, "Start a movie night" on the lobby, plus the one named carve-out
+under `DECIDED` — "Deal the night again", which closes a night that picked nothing and
+deals the next in the same tap. Since the lobby is the home tab only when no night is in
+play, that single button is also the rule that a night is closed before the next is dealt
+— and the carve-out obeys the rule rather than breaking it: it closes this night first, in
+the same transaction.
 
 `ABANDONED` (addition to the voting spec's machine): any member can abandon a round at any
 point before `WATCHED` — movie night got cancelled. Abandoning frees the group to start a
 new round, discards the round's vetoes/pair votes (standing votes are permanent and
 unaffected), and — consistent with the voting spec — does **not** update fairness
-counters, which only move on `WATCHED`.
+counters, which only move on `WATCHED`. One button abandons and re-enters `OPEN` in the
+same transaction rather than stopping at the lobby: "Deal the night again" on the
+no-winner reveal (see `DECIDED`), which is the second and last way a round is born.
 
 `DECIDED` is included in "any point before `WATCHED`", deliberately: a film picked for a
 night that then fell through is a night that did not happen, and it should leave no more
@@ -289,14 +296,27 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   nobody's turn spent. Each has its own confirm step saying which of those two things it
   does. They are stacked rather than set side by side because each opens a question card
   that has to be read, and half a phone column is no place to read one. The no-winner
-  presentation has nothing to mark watched, so it carries the second action alone
-  ("Clear the night away"), in the same bottom position, with the copy of a night that
-  picked nothing; the slot above it keeps its "Add some suggestions".
+  presentation has nothing to mark watched, so instead of those two it carries a single
+  full-width button in the same bottom position: **"Deal the night again"**, which files
+  this night away exactly as abandoning does (no History entry, the table untouched,
+  nobody's turn spent) *and* opens a fresh `OPEN` round — one tap, one transaction —
+  landing straight back on "Tonight's the night". The slot above it keeps its "Add some
+  suggestions", because the table is what needs filling. Two things about it are
+  deliberate, and both are exceptions to rules stated above:
+  - **No confirm step** — the only transition button in the app without one. A no-winner
+    round reached `DECIDED` *straight from `OPEN`*: nothing cleared the approval floor, so
+    there was never a runoff, so not one veto or pair vote exists on it to discard. Nothing
+    is lost and nothing is one-way, so a guard here would be guarding nothing — and the
+    reality it serves is a group still in the room, wanting another go.
+  - **RSVPs carry over.** Every IN and OUT on the no-pick round, proxy attribution
+    included ("in — marked by Ana"), is copied onto the restarted round: same evening, same
+    people, no re-tapping. Nothing else is carried, and nothing else exists to carry.
   **No round-creating button appears anywhere on this screen, or on any other but the
-  lobby.** A picked night is not over until one of its two endings is tapped, and dealing
-  the next one over the top of it is exactly what used to leave films spoken for forever.
-  Closing it — either way — hands the home tab back to the lobby, where the next night is
-  started.
+  lobby — with that one named exception, "Deal the night again", which closes its own
+  night before it deals.** A picked night is not over until one of its two endings is
+  tapped, and dealing the next one over the top of it is exactly what used to leave films
+  spoken for forever. Closing a picked night — either way — hands the home tab back to the
+  lobby, where the next night is started.
 - **WATCHED** — one button on the decided screen ("We watched it 🎬"), typically tapped
   night-of or after. Retires the movie, stamps `watched_at`, updates the fairness
   counter per the voting spec. It also retires the night: the home tab becomes the lobby

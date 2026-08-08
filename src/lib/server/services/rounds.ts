@@ -625,6 +625,131 @@ export function abandonRound(input: { db: Db; groupId: string; roundId: string }
 }
 
 /**
+ * The no-pick screen's one move: file tonight away and deal a fresh OPEN round in
+ * the very same tap, with everyone's RSVP carried over.
+ *
+ * **Legal for exactly one state: DECIDED with nothing picked.** A night that chose
+ * a film is not restartable — its two endings are "we watched it" and "we didn't",
+ * both of which say something true about the evening — and every earlier state
+ * still has its own work to do. The conditional update below carries the whole
+ * guard, `winner_id IS NULL` included, so two members tapping together produce one
+ * new round and one `state_changed`.
+ *
+ * **There is no confirm step in front of this button**, which is the single
+ * exception to app-spec's "every transition is a single labeled button ... with a
+ * confirm step, since transitions are one-way". A no-pick round reached DECIDED
+ * *straight from OPEN* — `planAdvance` emits `open_to_decided` the moment Phase 1
+ * promotes no finalist, and a RUNOFF can never decide without a winner, because
+ * `computeVeto`'s fewer-than-two exception always hands back at least one survivor
+ * of a non-empty finalist set. So no veto and no pair vote can exist on this
+ * round: there is nothing to discard, nothing is one-way, and a guard in front of
+ * it would only stand between the group and the thing they obviously want.
+ *
+ * What it deliberately does NOT carry across is anything else. There is nothing
+ * else: the vetoes and pair votes that abandoning discards were never cast.
+ */
+export function restartRound(input: {
+	db: Db;
+	groupId: string;
+	roundId: string;
+	actorId: string;
+	now?: Date;
+	seed?: number;
+}): Result<{ filed: Round; next: Round }> {
+	const now = input.now ?? new Date();
+	const round = getRound(input.db, input.groupId, input.roundId);
+	if (!round) return fail('unknown_round', 'Round not found');
+	if (round.state !== 'decided') {
+		return fail('illegal_transition', `A ${round.state} round cannot be restarted`);
+	}
+	if (round.winnerId !== null) {
+		return fail(
+			'illegal_transition',
+			'This night picked a film — mark it watched, or say it fell through'
+		);
+	}
+	// The partial unique index would refuse the insert below anyway; asked here so a
+	// group that somehow holds a decided round *and* an active one gets the same
+	// message as anywhere else instead of a rolled-back exception.
+	if (getActiveRound(input.db, input.groupId)) {
+		return fail('active_round_exists', 'This group already has a round in progress');
+	}
+
+	// Read before the transaction, safely: RSVPs are closed from DECIDED onward
+	// (`setRsvp` refuses anything past RUNOFF), so nothing can change these rows
+	// under us. Removed members are left behind — `setRsvp` refuses to mark them,
+	// and no tally counts them — so the new round starts with the answers of people
+	// who are actually in the group.
+	const carried = input.db
+		.select({
+			memberId: attendance.memberId,
+			attending: attendance.attending,
+			updatedAt: attendance.updatedAt,
+			updatedBy: attendance.updatedBy
+		})
+		.from(attendance)
+		.innerJoin(members, eq(members.id, attendance.memberId))
+		.where(and(eq(attendance.roundId, round.id), isNull(members.removedAt)))
+		.all();
+
+	// One transaction: a crash between the two writes must not leave the group with
+	// no round and its RSVPs on a filed-away one. The conditional update is first, so
+	// the one failure that returns a Result from in here has written nothing yet;
+	// anything later can only throw, which rolls the abandon back with it.
+	const result = input.db.transaction((tx) => {
+		const db = tx as unknown as Db;
+		const filed = db
+			.update(rounds)
+			.set({ state: 'abandoned' })
+			.where(and(eq(rounds.id, round.id), eq(rounds.state, 'decided'), isNull(rounds.winnerId)))
+			.returning()
+			.get();
+		if (!filed) return fail('state_changed', 'That night was closed while you were looking at it');
+
+		const next = db
+			.insert(rounds)
+			.values({
+				id: newId(),
+				groupId: input.groupId,
+				state: 'open',
+				createdAt: now,
+				createdBy: input.actorId,
+				closesAt: null,
+				// A new night gets a new seed: it is what shuffles each member's pairs and
+				// breaks the deepest ties, and re-dealing with the old one would repeat
+				// this evening's coin flips.
+				randomSeed: input.seed ?? newRandomSeed()
+			})
+			.returning()
+			.get();
+
+		// Same evening, same people, no re-tapping: every IN and OUT moves over as it
+		// stands, proxy attribution included, so "in — marked by Ana" survives the
+		// re-deal. `runoff_submitted_at` is the one field that cannot: the new round has
+		// no runoff yet, so nobody has finished one.
+		if (carried.length > 0) {
+			db.insert(attendance)
+				.values(
+					carried.map((row) => ({
+						roundId: next.id,
+						memberId: row.memberId,
+						attending: row.attending,
+						updatedAt: row.updatedAt,
+						updatedBy: row.updatedBy
+					}))
+				)
+				.run();
+		}
+
+		return ok({ filed, next });
+	});
+	// After the commit, and once: the abandon and the create are one transition here,
+	// so the group hears one ping about it.
+	if (result.ok) notifyGroup(input.groupId);
+	return result;
+}
+
+/**
  * "WATCHED — Retires the movie, stamps `watched_at`, updates the fairness counter
  * per the voting spec."
  *
