@@ -24,6 +24,7 @@
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate } from '$lib/images.js';
 	import { createLatch } from '$lib/latch.svelte.js';
+	import { settingsDraft, type SettingsValues } from '$lib/settings-draft.svelte.js';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -89,38 +90,95 @@
 	type ConfigKey = keyof PageServerData['settings']['config'];
 
 	/**
-	 * What each slider currently reads, so the number beside its label can move with
-	 * the thumb. Seeded ONCE from the loaded settings and then owned by the thumb.
+	 * The save form as the SERVER currently has it, in the units the controls speak.
 	 *
-	 * Deliberately not `$derived`: `load` re-runs on every save and on every SSE ping
-	 * the group emits, and a value recomputed from `data` would yank the thumb back
-	 * to the stored number mid-drag because somebody else swiped a card. Seeding once
-	 * is also what `keepValues` below asks for — after a successful save this state
-	 * and the server agree, and after a refused one it still shows what the member
-	 * typed, exactly like the text fields that keep their value.
-	 *
-	 * Two knobs are seeded through a translation, and both translations are the same
+	 * Two knobs are read through a translation, and both translations are the same
 	 * promise: A RAIL SHOWS WHAT IT CAN REACH. The cooldown's stored days become the
 	 * nearest rung of its ladder, and every other knob is clamped into its own range,
 	 * because a stored number outside it (a `veto_threshold` of 12, saved when the
 	 * ceiling was 50) would otherwise print beside a thumb parked somewhere else —
 	 * the browser clamps the input, not the label. Saving then writes what the rail
 	 * shows, which is the one place such a value is ever rounded.
+	 *
+	 * A function rather than a `$derived`, because it is wanted at two quite
+	 * different moments: once to seed the controls, and again on every load after
+	 * that to tell the draft store what it is being compared against.
+	 */
+	function serverValues(): SettingsValues {
+		return {
+			name: data.settings.name,
+			knobs: Object.fromEntries(
+				Object.entries(data.knobRanges).map(([knob, range]) => [
+					knob,
+					knob === LADDER_KNOB
+						? cooldownIndex(data.settings.config.rewatch_cooldown)
+						: Math.min(
+								Math.max(Number(data.settings.config[knob as ConfigKey]), range.min),
+								range.max
+							)
+				])
+			),
+			vetoesEnabled: data.settings.config.vetoes_enabled
+		};
+	}
+
+	/**
+	 * Where this form starts: the edits left behind last time this screen was open,
+	 * if the member never saved them, and otherwise what the server says.
+	 *
+	 * Unsaved edits surviving a tab hop is the whole point of `$lib/settings-draft` —
+	 * the page's own runes die on a client-side navigation, the module's do not. See
+	 * that file for the lifetime and for why it is not a SvelteKit snapshot.
 	 */
 	// svelte-ignore state_referenced_locally
-	let knobValues = $state<Record<string, number>>(
-		Object.fromEntries(
-			Object.entries(data.knobRanges).map(([knob, range]) => [
-				knob,
-				knob === LADDER_KNOB
-					? cooldownIndex(data.settings.config.rewatch_cooldown)
-					: Math.min(
-							Math.max(Number(data.settings.config[knob as ConfigKey]), range.min),
-							range.max
-						)
-			])
-		)
-	);
+	const seed = settingsDraft.read(data.settings.inviteToken) ?? serverValues();
+
+	/**
+	 * What each control currently reads: the name in its field, the number beside
+	 * each label as the thumb moves it, and which side of the veto switch is down.
+	 * Seeded ONCE, and then owned by the controls.
+	 *
+	 * Deliberately not `$derived`: `load` re-runs on every save and on every SSE ping
+	 * the group emits, and a value recomputed from `data` would yank the thumb back
+	 * to the stored number mid-drag because somebody else swiped a card. Seeding once
+	 * is also what `keepValues` above asks for — after a successful save this state
+	 * and the server agree, and after a refused one it still shows what the member
+	 * typed, exactly like the text fields that keep their value.
+	 */
+	let name = $state(seed.name);
+	let knobValues = $state<Record<string, number>>({ ...seed.knobs });
+	let vetoesEnabled = $state(seed.vetoesEnabled);
+
+	/**
+	 * Every load, including the one after our own save, tells the draft store what
+	 * the stored settings now are. That is what keeps the tab bar's dot honest: it
+	 * lights only while these controls differ from what is actually saved, so a
+	 * change somebody else makes to match yours puts it out again.
+	 */
+	$effect(() => settingsDraft.observe(data.settings.inviteToken, serverValues()));
+
+	/**
+	 * One line at the end of every control's own handler, rather than an effect
+	 * mirroring the state: a draft is a record of somebody EDITING, and an effect
+	 * would also file the untouched form the moment this page mounts.
+	 */
+	function noteEdit() {
+		settingsDraft.write(data.settings.inviteToken, {
+			name,
+			knobs: { ...knobValues },
+			vetoesEnabled
+		});
+	}
+
+	/**
+	 * `keepValues`, plus the one thing only this form knows: a save that the server
+	 * accepted means there is nothing unsaved left to remember. A refused one keeps
+	 * the draft, because the edits are still only on this screen.
+	 */
+	const saveSettings: SubmitFunction = () => async ({ result, update }) => {
+		if (result.type === 'success') settingsDraft.clear();
+		await update({ reset: false });
+	};
 
 	/**
 	 * What each rail read when the finger landed on it, so a touch that turns out to be
@@ -147,6 +205,7 @@
 		if (!(knob in preTouch)) return;
 		input.valueAsNumber = preTouch[knob];
 		knobValues[knob] = preTouch[knob];
+		noteEdit();
 	}
 
 	/**
@@ -279,15 +338,24 @@
 	</section>
 
 	<!-- ── Group name + knobs ────────────────────────────────────────── -->
-	<form method="POST" action="?/save" use:enhance={keepValues} class="space-y-5">
+	<form method="POST" action="?/save" use:enhance={saveSettings} class="space-y-5">
 		<section class="tile space-y-3 px-3 py-3">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">The group</h3>
 			<div>
 				<label for="group-name" class="field-label text-ink">Group name</label>
+				<!-- Held by the page rather than left to the DOM, like every other control
+				     in this form: it is what lets an unsaved name survive a tab hop. The
+				     handler sets the value and then files it, in that order, which is why
+				     this is not a `bind:` — the draft has to be written from the new text,
+				     not from whatever the binding has got round to yet. -->
 				<input
 					id="group-name"
 					name="name"
-					value={data.settings.name}
+					value={name}
+					oninput={(event) => {
+						name = event.currentTarget.value;
+						noteEdit();
+					}}
 					maxlength="80"
 					class="field"
 				/>
@@ -354,7 +422,11 @@
 											type="radio"
 											name="vetoes_enabled"
 											value={option.value}
-											checked={String(data.settings.config.vetoes_enabled) === option.value}
+											checked={String(vetoesEnabled) === option.value}
+											onchange={() => {
+												vetoesEnabled = option.value === 'true';
+												noteEdit();
+											}}
 											class="sr-only"
 										/>
 										{option.label}
@@ -393,7 +465,10 @@
 						max={isLadder ? COOLDOWN_LADDER.length - 1 : range.max}
 						step={isLadder || range.integer ? 1 : SHARE_STEP}
 						value={knobValues[knob]}
-						oninput={(event) => (knobValues[knob] = event.currentTarget.valueAsNumber)}
+						oninput={(event) => {
+							knobValues[knob] = event.currentTarget.valueAsNumber;
+							noteEdit();
+						}}
 						onpointerdown={(event) => recordKnob(knob, event.currentTarget)}
 						onpointercancel={(event) => restoreKnob(knob, event.currentTarget)}
 						aria-describedby="help-{knob}"

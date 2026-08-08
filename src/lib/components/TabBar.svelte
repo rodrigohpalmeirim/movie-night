@@ -23,6 +23,7 @@
 	import Popcorn from '$lib/icons/Popcorn.svelte';
 	import ScrollText from '$lib/icons/ScrollText.svelte';
 	import Settings from '$lib/icons/Settings.svelte';
+	import { settingsDraft } from '$lib/settings-draft.svelte.js';
 
 	let { token, swipeCount = 0 }: { token: string; swipeCount?: number } = $props();
 
@@ -50,6 +51,11 @@
 			href: `/g/${token}/settings`,
 			label: 'Settings',
 			icon: Settings,
+			// Read straight off the draft store rather than handed down from the group
+			// layout, because it is not the layout's to know: the swipe count is server
+			// data that arrives with `load`, while an unsaved edit only ever exists on
+			// this device, in a module that outlives the screen it was typed on.
+			dot: settingsDraft.isDirty(token),
 			match: (p: string) => p.startsWith(`/g/${token}/settings`)
 		}
 	]);
@@ -171,6 +177,17 @@
 								{tab.badge}
 							</span>
 							<span class="sr-only">{tab.badge} to swipe</span>
+						{/if}
+						{#if tab.dot}
+							<!-- The same corner as the Pool tab's count, in the same cherry
+							     and the same ink border, but with nothing printed in it:
+							     unsaved edits are not a quantity, they are a fact. It pops in
+							     on the first keystroke and goes out when Save lands. -->
+							<span
+								class="badge-pop absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full border-2 border-ink bg-cherry"
+								aria-hidden="true"
+							></span>
+							<span class="sr-only">unsaved settings</span>
 						{/if}
 					</span>
 				</a>
