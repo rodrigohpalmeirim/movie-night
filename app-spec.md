@@ -78,11 +78,13 @@ swipe stack afterwards — never a forced twenty-movie gauntlet before they can 
   ever locked small groups out — see the voting spec's Eligibility section).
   `VETOES_ENABLED` is the one boolean, so it is the one knob drawn as a latched On/Off
   pair rather than a number; the numeric knobs are sliders, printing their current value
-  beside the label, except `REWATCH_COOLDOWN`, which stays a written-in field because
-  blank means "never" and a range input has no way to say that. A slider's touch target
-  is tall enough to be what a thumb lands on by accident, so a vertical swipe that starts
-  on one scrolls the screen and leaves the setting where it was; only a tap or a sideways
-  drag moves it.
+  beside the label. `REWATCH_COOLDOWN` is a slider too, but not along its own units — a
+  day per pixel is a wait nobody could set on purpose, and "never" has no position on a
+  scale of days at all. Its rail walks a ladder of waits a group would actually agree to
+  instead, climbing from "No cooldown" to a top rung that prints "Forever", and posts the
+  rung it stopped on rather than a number of days. A slider's touch target is tall enough
+  to be what a thumb lands on by accident, so a vertical swipe that starts on one scrolls
+  the screen and leaves the setting where it was; only a tap or a sideways drag moves it.
 - Member list (rename self; remove and restore members — but never delete them, because
   history references them).
 
