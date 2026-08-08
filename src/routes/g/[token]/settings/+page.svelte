@@ -534,8 +534,11 @@
 			{/each}
 			<!-- Save keeps the pad's full width and its brass, because it is the move
 			     this whole screen is for; discard is the way back out of an edit, so it
-			     is a small kraft token at the end of the line beneath it — the weight
-			     and the placement Confirm gives its `sm` face.
+			     is board stock at the standard size directly under it — full width too,
+			     with the pairing carried by ink and weight rather than by placement.
+			     The reveal screen stacks its two endings the same way ("We watched it"
+			     over "We didn't watch it"), and it is the face Confirm gives its `md`
+			     size: housekeeping that must not out-shout the move above it.
 
 			     A Save with nothing to save goes inert and says so with opacity, the
 			     one exception `.token` makes for something unpressable (see app.css);
@@ -543,15 +546,15 @@
 			     LATCHED token holds and an inert button is not a held press.
 
 			     Discard leaves entirely when there is nothing to discard: a disabled
-			     token beside a disabled token is two dimmed shapes saying one thing.
+			     token under a disabled token is two dimmed shapes saying one thing.
 			     Both are gated on `hydrated` — see above, it is what keeps this form
 			     saveable with scripting off. -->
-			<div class="space-y-2">
+			<div class="space-y-2.5">
 				<button disabled={hydrated && !dirty} class="token token-lg token-brass w-full">
 					Save settings
 				</button>
 				{#if hydrated && dirty}
-					<button type="button" onclick={discardChanges} class="token token-sm ml-auto w-fit">
+					<button type="button" onclick={discardChanges} class="token w-full">
 						Discard changes
 					</button>
 				{/if}
