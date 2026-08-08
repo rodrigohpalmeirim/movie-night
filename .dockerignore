@@ -1,0 +1,29 @@
+# bun.lock is NOT ignored: the image installs with --frozen-lockfile.
+node_modules
+.git
+.github
+.claude
+
+# Build artefacts — regenerated inside the image.
+.svelte-kit
+build
+coverage
+.vitest
+tmp
+
+# Local data and secrets.
+data
+.env
+.env.*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+
+# Not needed to build or run.
+docs
+spec-tests
+design-gallery
+design-shots
+Dockerfile
+.dockerignore
