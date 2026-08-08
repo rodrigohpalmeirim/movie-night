@@ -181,6 +181,51 @@
 	};
 
 	/**
+	 * Is there anything to save? Asked of the same store the tab bar's dot is drawn
+	 * from, so the two readings cannot disagree: while the gear wears a dot the Save
+	 * button is live, and the moment the dot goes out — a save landing, another
+	 * member saving the same change, or a knob nudged back to where it started, since
+	 * the store compares values rather than counting edits — the button goes with it.
+	 */
+	const dirty = $derived(settingsDraft.isDirty(data.settings.inviteToken));
+
+	/**
+	 * False on the server, false through hydration, true from the first effect on —
+	 * `Poster`'s gate, put to a different job. NOTHING BELOW MAY DISABLE OR HIDE A
+	 * CONTROL WITHOUT IT.
+	 *
+	 * The draft store is script, and an untouched form is never dirty, so the server
+	 * renders this page with `dirty` false every single time. Bake that into the
+	 * markup and the HTML shipped to a member with no JavaScript carries a Save
+	 * button that is disabled on arrival and has nothing to un-disable it — the one
+	 * button this whole screen saves through, dead in the only browser that cannot
+	 * work around it. So the disabled state and the discard button both wait for the
+	 * client to prove it is running: the served HTML always has a live Save and no
+	 * discard, which is exactly right for a page where every edit posts natively.
+	 */
+	let hydrated = $state(false);
+	$effect(() => {
+		hydrated = true;
+	});
+
+	/**
+	 * Every control back to what the server says, and the draft dropped with it, so
+	 * the dot goes out. Nothing is posted: this is the same seeding the form does on
+	 * load, asked for again — the stored settings never moved, only this screen did.
+	 *
+	 * No confirm step, unlike the one-way moves above. What it throws away is a
+	 * minute of nudging that costs a minute to do again, and a guard on an undo is a
+	 * guard on nothing.
+	 */
+	function discardChanges() {
+		const server = serverValues();
+		name = server.name;
+		knobValues = { ...server.knobs };
+		vetoesEnabled = server.vetoesEnabled;
+		settingsDraft.clear();
+	}
+
+	/**
 	 * What each rail read when the finger landed on it, so a touch that turns out to be
 	 * a scroll can be given its number back.
 	 *
@@ -487,7 +532,30 @@
 					</p>
 				</div>
 			{/each}
-			<button class="token token-lg token-brass w-full">Save settings</button>
+			<!-- Save keeps the pad's full width and its brass, because it is the move
+			     this whole screen is for; discard is the way back out of an edit, so it
+			     is a small kraft token at the end of the line beneath it — the weight
+			     and the placement Confirm gives its `sm` face.
+
+			     A Save with nothing to save goes inert and says so with opacity, the
+			     one exception `.token` makes for something unpressable (see app.css);
+			     it keeps its lift rather than sitting flush, since flush is the pose a
+			     LATCHED token holds and an inert button is not a held press.
+
+			     Discard leaves entirely when there is nothing to discard: a disabled
+			     token beside a disabled token is two dimmed shapes saying one thing.
+			     Both are gated on `hydrated` — see above, it is what keeps this form
+			     saveable with scripting off. -->
+			<div class="space-y-2">
+				<button disabled={hydrated && !dirty} class="token token-lg token-brass w-full">
+					Save settings
+				</button>
+				{#if hydrated && dirty}
+					<button type="button" onclick={discardChanges} class="token token-sm ml-auto w-fit">
+						Discard changes
+					</button>
+				{/if}
+			</div>
 		</section>
 	</form>
 
