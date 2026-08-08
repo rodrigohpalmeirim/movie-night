@@ -52,9 +52,13 @@
 			<ul class="space-y-2.5">
 				{#each data.members as member, i (member.id)}
 					<li class="deal-in" style="--deal:{i}">
+						<!-- `formnovalidate` because the empty seat shares this one form: once
+						     the slot is open its required name field would hold back a claim
+						     that never had a name to give. -->
 						<button
 							name="member_id"
 							value={member.id}
+							formnovalidate
 							class="tile tile-press flex w-full items-center gap-2 px-3.5 py-3.5 text-left"
 						>
 							<span class="min-w-0 flex-1">
