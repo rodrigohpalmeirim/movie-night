@@ -1,5 +1,5 @@
 /**
- * Pure tally module — the voting mechanism from voting-spec.md.
+ * Pure tally module — the voting mechanism from docs/voting-spec.md.
  *
  * Public surface. Nothing in here touches the database, SvelteKit, or the
  * clock: every function is a deterministic transform of plain data, seeded from

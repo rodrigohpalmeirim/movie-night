@@ -1,6 +1,6 @@
 # Spec test vectors — Movie Night voting mechanism
 
-Implementation-agnostic test vectors derived **only** from `voting-spec.md`. Every
+Implementation-agnostic test vectors derived **only** from `docs/voting-spec.md`. Every
 expected value in `vectors/*.json` was computed by hand from the spec text; the
 arithmetic is shown in each vector's `rationale` field.
 
@@ -20,7 +20,7 @@ the output shape below is all that is needed to run them.
 ## 0. Spec changes since derivation
 
 The vectors are an audit trail and are not edited to match an implementation.
-They *are* re-derived when `voting-spec.md` itself changes. Every such change is
+They *are* re-derived when `docs/voting-spec.md` itself changes. Every such change is
 logged here.
 
 **2026-08-01 — the `attendee_votes >= 3` eligibility floor was removed.**

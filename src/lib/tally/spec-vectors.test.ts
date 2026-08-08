@@ -1,14 +1,14 @@
 /**
  * Adapter runner for the independent spec vectors in `/spec-tests/`.
  *
- * Those vectors were hand-derived from voting-spec.md by an agent that never saw
+ * Those vectors were hand-derived from docs/voting-spec.md by an agent that never saw
  * this implementation. `spec-tests/` is READ-ONLY here: it is the audit trail.
- * When a vector and this code disagree, voting-spec.md's text is the sole
+ * When a vector and this code disagree, docs/voting-spec.md's text is the sole
  * authority, and the disagreement is recorded in one of the three tables at the
  * bottom of this file — never resolved by editing the vector.
  *
  * The one exception is a change to the spec itself. On 2026-08-01 the
- * `attendee_votes >= 3` eligibility floor was removed from voting-spec.md
+ * `attendee_votes >= 3` eligibility floor was removed from docs/voting-spec.md
  * (coverage is now the whole vote-count test), so V004's expected outcome, and
  * the redundant `attendee_votes_below_minimum` reasons in V005/V008/V039, were
  * re-derived from the amended text. On 2026-08-04 stars and soft member removal
@@ -178,7 +178,7 @@ const FIELD_NOT_ASSERTED: Record<string, { fields: string[]; why: string }> = {
 	// V001/V002/V005/V006/V008/V011/V013/V036/V037 all expect
 	// `surviving_finalist_ids: []` for an outright win, but V040 — whose entire
 	// point is that Phase 2 is skipped — expects `["m1"]` for the same
-	// situation. The two cannot both hold. voting-spec.md says RUNOFF is
+	// situation. The two cannot both hold. docs/voting-spec.md says RUNOFF is
 	// "skipped entirely", so "surviving finalists" is undefined for these
 	// rounds; this runner asserts the field only when Phase 2 actually ran.
 	SURVIVING_WHEN_PHASE2_SKIPPED: {
@@ -190,7 +190,7 @@ const FIELD_NOT_ASSERTED: Record<string, { fields: string[]; why: string }> = {
 	// its own asserted tally for m2 (3 attendee_votes, 2 yes) is only reachable
 	// if u2 held "no". The (user, movie, value) triple is asserted; the `was`
 	// snapshot for this one vector is not, because it contradicts the vector's
-	// own input. voting-spec.md says only "Vetoing sets the voter's standing vote
+	// own input. docs/voting-spec.md says only "Vetoing sets the voter's standing vote
 	// on that movie to 'no'" and says nothing about the prior value.
 	SIDE_EFFECT_WAS_SUBFIELD: {
 		fields: ['standing_vote_side_effects[].was (V022 only)'],
@@ -205,7 +205,7 @@ const FIELD_NOT_ASSERTED: Record<string, { fields: string[]; why: string }> = {
 const PENDING_HUMAN_DECISION: Record<string, string> = {};
 
 /**
- * Points on which voting-spec.md has moved since the vectors were derived: two
+ * Points on which docs/voting-spec.md has moved since the vectors were derived: two
  * readings the vectors could not distinguish (both settled in favour of the
  * behaviour already implemented here) and one rule the spec dropped outright.
  * Kept as a record of the reconciliation.
@@ -502,7 +502,7 @@ const sorted = (ids: readonly string[]) => [...ids].sort();
 /* The suite                                                          */
 /* ------------------------------------------------------------------ */
 
-describe('spec vectors (independently derived from voting-spec.md)', () => {
+describe('spec vectors (independently derived from docs/voting-spec.md)', () => {
 	it('found all 47 vector files', () => {
 		expect(vectors.length).toBe(47);
 		expect(vectors.map((v) => v.id)).toEqual(
@@ -725,7 +725,7 @@ describe('spec vectors (independently derived from voting-spec.md)', () => {
 		]);
 		// (c) vectors skipped pending a human decision: none.
 		expect(Object.keys(PENDING_HUMAN_DECISION)).toEqual([]);
-		// (c) ambiguities no vector distinguished, now settled in voting-spec.md
+		// (c) ambiguities no vector distinguished, now settled in docs/voting-spec.md
 		// in favour of the behaviour already implemented.
 		expect(Object.keys(SETTLED_BY_SPEC_AMENDMENT)).toEqual([
 			'ROTATION_FAIRNESS_NARROWING',
