@@ -1,0 +1,233 @@
+<!doctype html>
+<!--
+  Source for docs/pick-flow.png (the README diagram): the picking pipeline drawn
+  in the app's own design system — dealt cards on the felt, a chalk track, a
+  brass winner token. Not served by the app; captured headless from the repo
+  root (fonts load from node_modules, so `bun install` first):
+
+    chrome --headless --screenshot=docs/pick-flow.png \
+      --window-size=880,540 --force-device-scale-factor=2 \
+      --hide-scrollbars docs/pick-flow.html
+
+  Every colour, font and shadow is copied from src/app.css; if the design
+  system moves, re-copy and re-capture.
+-->
+<html lang="en">
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: 'Alfa Slab One';
+    src: url('../node_modules/@fontsource/alfa-slab-one/files/alfa-slab-one-latin-400-normal.woff2') format('woff2');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'Oswald Variable';
+    src: url('../node_modules/@fontsource-variable/oswald/files/oswald-latin-wght-normal.woff2') format('woff2-variations');
+    font-weight: 200 700;
+  }
+  @font-face {
+    font-family: 'Rubik Variable';
+    src: url('../node_modules/@fontsource-variable/rubik/files/rubik-latin-wght-normal.woff2') format('woff2-variations');
+    font-weight: 300 900;
+  }
+
+  :root {
+    --felt: #4c141c;
+    --felt-deep: #2c0b10;
+    --board: #efe0bf;
+    --board-shade: #cdb283;
+    --ink: #1a1512;
+    --ink-soft: #6b5b48;
+    --brass: #efae43;
+    --brass-deep: #a5711a;
+    --jade: #2e9c7e;
+    --cherry: #f05336;
+    --chalk: #efe6dd;
+    --chalk-dim: #bca8a0;
+  }
+
+  * { margin: 0; box-sizing: border-box; }
+
+  body {
+    width: 880px;
+    height: 500px;
+    font-family: 'Rubik Variable', system-ui, sans-serif;
+    /* The app's felt weave, verbatim: two crossing 2px threads on a 7px
+       pitch (app.css calls the pale one at 45° and the shadow one at -45°),
+       laid over the same oxblood vignette. */
+    background:
+      repeating-linear-gradient(45deg, rgb(255 226 210 / 3.5%) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgb(0 0 0 / 11%) 0 2px, transparent 2px 7px),
+      radial-gradient(1100px 720px at 50% 26%, var(--felt), var(--felt-deep));
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* The chalk track sits under everything: the cards are dealt on top of it. */
+  svg.track { position: absolute; inset: 0; }
+  .track path, .track circle { fill: none; stroke: var(--chalk); opacity: .38; }
+  .track .lane { stroke-width: 3; stroke-dasharray: 1 11; stroke-linecap: round; }
+  .track .head { fill: var(--chalk); opacity: .55; stroke: none; }
+
+  /* A dealt card: flat tile + the two-ply offset edge from .tile-press. */
+  .card {
+    position: absolute;
+    width: 178px;
+    min-height: 128px;
+    padding: 14px 14px 13px;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    background: var(--board);
+    color: var(--ink);
+    box-shadow:
+      1px 2px 0 0 var(--board-shade),
+      2px 4px 0 0 var(--board-shade),
+      3px 6px 0 0 var(--ink);
+  }
+
+  .card h2 {
+    font-family: 'Alfa Slab One', serif;
+    font-weight: 400;
+    font-size: 17px;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+    margin-bottom: 6px;
+  }
+
+  .card p {
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--ink-soft);
+  }
+
+  /* The ink seal, copied from app.css: one stamp grammar for every mark a
+     person makes. Double-ruled box, rotated, set in the slab; everything is
+     in em so --seal-size scales the whole stamp. */
+  .seal {
+    display: inline-block;
+    font-size: var(--seal-size, 16px);
+    padding: .12em;
+    border: .12em solid var(--ink);
+    border-radius: .18em;
+    background: var(--seal-plate, var(--brass));
+    color: var(--seal-on, var(--ink));
+    box-shadow: 0 .1em 0 0 rgb(26 21 18 / 40%);
+    transform: rotate(var(--seal-rot, -8deg));
+  }
+  .seal-face {
+    display: block;
+    border: .09em solid currentColor;
+    border-radius: .1em;
+    padding: .2em .5em .26em;
+    font-family: 'Alfa Slab One', serif;
+    font-size: 1em;
+    letter-spacing: .04em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .seal-note {
+    display: block;
+    margin-top: .22em;
+    border-top: .09em solid currentColor;
+    padding-top: .18em;
+    font-family: 'Oswald Variable', sans-serif;
+    font-size: .44em;
+    font-weight: 600;
+    letter-spacing: .16em;
+  }
+  .seal-jade   { --seal-plate: #17614e;      --seal-on: var(--board); }
+  .seal-cherry { --seal-plate: var(--cherry); --seal-on: var(--ink); }
+  .seal-brass  { --seal-plate: var(--brass);  --seal-on: var(--ink); }
+  .seal-board  { --seal-plate: var(--board);  --seal-on: var(--ink); }
+
+  /* The step number: a small seal pressed over the card corner. */
+  .num {
+    position: absolute;
+    top: -13px;
+    left: -13px;
+    --seal-size: 11px;
+  }
+
+  /* The three answers, stamped as the swipe screen stamps them. */
+  .chips { display: flex; gap: 9px; margin: 10px 2px 9px; }
+
+  /* Chalk margin notes on the felt. */
+  .note {
+    position: absolute;
+    font-family: 'Oswald Variable', sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--chalk-dim);
+  }
+
+  .r1 { transform: rotate(-.7deg); }
+  .r2 { transform: rotate(.6deg); }
+  .r3 { transform: rotate(-.4deg); }
+</style>
+<body>
+  <svg class="track" width="880" height="500" viewBox="0 0 880 500" aria-hidden="true">
+    <!-- one lap of the table: across the top row, down the right rail, back
+         along the bottom row, arrowhead landing on the winner token -->
+    <path class="lane" d="M 50 128
+                          H 798
+                          Q 838 128 732 168
+                          V 300
+                          Q 838 340 798 340
+                          H 368" />
+    <polygon class="head" points="365,331 347,340 365,349" />
+  </svg>
+
+  <div class="card r1" style="left: 36px;  top: 58px;">
+    <span class="seal seal-board num" style="--seal-rot:-8deg"><span class="seal-face">1</span></span>
+    <h2>The pool</h2>
+    <p>Anyone suggests films, any time. The pool carries over between nights.</p>
+  </div>
+
+  <div class="card r2" style="left: 238px; top: 62px;">
+    <span class="seal seal-board num" style="--seal-rot:7deg"><span class="seal-face">2</span></span>
+    <h2>Swipe once</h2>
+    <div class="chips">
+      <span class="seal seal-cherry" style="--seal-size:12px;--seal-rot:8deg;"><span class="seal-face">Nope</span></span>
+      <span class="seal seal-jade" style="--seal-size:12px;--seal-rot:-7deg;margin-left:-16px;"><span class="seal-face">Yes</span></span>
+      <span class="seal seal-brass" style="--seal-size:12px;--seal-rot:-4deg;margin-left:-16px;"><span class="seal-face">Star</span></span>
+    </div>
+    <p>Everyone swipes each film.</p>
+  </div>
+
+  <div class="card r3" style="left: 440px; top: 58px;">
+    <span class="seal seal-board num" style="--seal-rot:-6deg"><span class="seal-face">3</span></span>
+    <h2>Movie night</h2>
+    <p>Members say whether they will be joining. Only attendees' swipes count.</p>
+  </div>
+
+  <div class="card r2" style="left: 642px; top: 61px;">
+    <span class="seal seal-board num" style="--seal-rot:8deg"><span class="seal-face">4</span></span>
+    <h2>The finalists</h2>
+    <p>A shortlist of films gets automatically selected for the night's vote.</p>
+  </div>
+
+  <div class="card r1" style="left: 642px; top: 272px;">
+    <span class="seal seal-board num" style="--seal-rot:-7deg"><span class="seal-face">5</span></span>
+    <h2>One veto each</h2>
+    <p>Optionally, attendees can choose to veto one film they truly can't watch.</p>
+  </div>
+
+  <div class="card r3" style="left: 420px; top: 274px;">
+    <span class="seal seal-board num" style="--seal-rot:6deg"><span class="seal-face">6</span></span>
+    <h2>Head-to-head</h2>
+    <p>Each pair of finalists faces off in a side-by-side vote. One tap per pair.</p>
+  </div>
+
+  <!-- The prize: PICKED, slammed across the bay like the winner's stub. -->
+  <span class="seal seal-brass" style="position:absolute; left:118px; top:296px; --seal-size:36px; --seal-rot:-9deg">
+    <span class="seal-face">Picked</span>
+  </span>
+
+  <div class="note" style="left: 424px; top: 425px; width: 180px;">
+    Still tied? A six-rung tiebreaker ladder decides.
+  </div>
+</body>
+</html>
