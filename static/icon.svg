@@ -1,28 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Movie Night">
+<svg xmlns="http://www.w3.org/2000/svg" width="464" height="324" viewBox="0 0 464 324" role="img" aria-label="Movie Night">
 	<title>Movie Night</title>
-	<!-- Source of truth for the favicon and for the "any"-purpose PWA icons.
+	<!-- The favicon: the ink seal alone, no felt behind it. The viewBox hugs the
+	     rotated seal's bounding box so the stamp uses every pixel a browser tab
+	     gives it; the transparent background lets it sit on any tab bar.
 
-	     The app's own grammar at icon scale: a kraft board token die-cut on the
-	     oxblood felt table, with the ink seal — a rotated double-ruled box — struck
-	     across it. Nothing else survives 32 physical pixels, and the seal is the
-	     mark that means "a vote was cast" everywhere else in the app.
-
-	     Colours are the shipped tokens: felt #4C141C, board #EFE0BF, ink #1A1512,
-	     brass #EFAE43, board-shade #CDB283. Rounded corners because "any" icons are
-	     shown unmasked; see icon-maskable.svg for the full-bleed variant. -->
-	<rect width="512" height="512" rx="112" ry="112" fill="#4c141c" />
-	<!-- Felt nap: one diagonal hatch, heavy enough to survive downscaling. -->
-	<g stroke="#000000" stroke-width="10" stroke-opacity="0.14">
-		<path d="M-64 128 L128 -64 M-64 256 L256 -64 M-64 384 L384 -64 M-64 512 L512 -64 M64 576 L576 64 M192 576 L576 192 M320 576 L576 320 M448 576 L576 448" />
-	</g>
-	<!-- The board token, die-cut with an ink outline. -->
-	<rect x="76" y="112" width="360" height="288" rx="26" ry="26" fill="#efe0bf" stroke="#1a1512" stroke-width="18" />
-	<!-- Perforation: the tear line that runs across every ticket in the app. -->
-	<path d="M85 356 H427" stroke="#cdb283" stroke-width="12" stroke-dasharray="22 18" stroke-linecap="round" />
-	<!-- The seal, struck at the app's own -8 degrees: brass plate, ink rules, ink mark. -->
-	<g transform="rotate(-8 256 244)">
-		<rect x="112" y="164" width="288" height="160" rx="22" ry="22" fill="#efae43" stroke="#1a1512" stroke-width="18" />
-		<rect x="142" y="194" width="228" height="100" rx="10" ry="10" fill="none" stroke="#1a1512" stroke-width="14" />
-		<path d="M192 248 L226 278 L306 214" fill="none" stroke="#1a1512" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" />
+	     Colours are the shipped tokens: brass #EFAE43, ink #1A1512. The launcher
+	     icons (icon-rounded.svg, icon-maskable.svg) strike the same seal on the
+	     felt table. -->
+	<g transform="rotate(-7 232 162)">
+		<rect x="27" y="37" width="410" height="250" rx="32" ry="32" fill="#efae43" stroke="#1a1512" stroke-width="22" />
+		<rect x="71" y="81" width="322" height="162" rx="15" ry="15" fill="none" stroke="#1a1512" stroke-width="17" />
+		<path d="M156 162 L200 204 L292 126" fill="none" stroke="#1a1512" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" />
 	</g>
 </svg>

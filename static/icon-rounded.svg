@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Movie Night">
+	<title>Movie Night</title>
+	<!-- Source of truth for the "any"-purpose PWA icons (icon-192.png,
+	     icon-512.png): the ink seal struck straight on the felt table, at the
+	     app's own tilt. Rounded corners because "any" icons are shown unmasked;
+	     see icon-maskable.svg for the full-bleed variant and icon.svg for the
+	     bare-seal favicon.
+
+	     Colours are the shipped tokens: felt #4C141C, brass #EFAE43, ink #1A1512. -->
+	<defs>
+		<clipPath id="tile"><rect width="512" height="512" rx="112" ry="112" /></clipPath>
+	</defs>
+	<g clip-path="url(#tile)">
+		<rect width="512" height="512" fill="#4c141c" />
+		<!-- Felt nap: one diagonal hatch, heavy enough to survive downscaling. -->
+		<g stroke="#000000" stroke-width="10" stroke-opacity="0.14">
+			<path d="M-64 128 L128 -64 M-64 256 L256 -64 M-64 384 L384 -64 M-64 512 L512 -64 M64 576 L576 64 M192 576 L576 192 M320 576 L576 320 M448 576 L576 448" />
+		</g>
+	</g>
+	<!-- The seal: brass plate, ink rules, ink mark. -->
+	<g transform="rotate(-7 256 256)">
+		<rect x="66" y="136" width="380" height="240" rx="30" ry="30" fill="#efae43" stroke="#1a1512" stroke-width="22" />
+		<rect x="106" y="176" width="300" height="160" rx="14" ry="14" fill="none" stroke="#1a1512" stroke-width="16" />
+		<path d="M192 256 L232 294 L320 222" fill="none" stroke="#1a1512" stroke-width="38" stroke-linecap="round" stroke-linejoin="round" />
+	</g>
+</svg>
