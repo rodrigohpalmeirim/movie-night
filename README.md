@@ -174,3 +174,10 @@ Some notes for the curious:
   leak through a `Referer`.
 - **Per-night effort is constant in pool size**: one optional veto tap plus at most ten pairwise
   taps, no matter how many films have piled up. There's a test for that.
+
+---
+
+## License
+
+[AGPL-3.0](LICENSE) — run it, fork it, host it for your friends; if you host a modified
+version for others, offer them the source too.
