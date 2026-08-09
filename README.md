@@ -1,4 +1,6 @@
-# Movie Night
+<p align="center">
+  <img src="docs/title-banner.png" alt="Movie Night — pick what to watch, together" width="880">
+</p>
 
 A **definitely not** overengineered app for choosing what to watch on movie nights with friends.
 
