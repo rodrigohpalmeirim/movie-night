@@ -35,3 +35,6 @@ vite.config.ts.timestamp-*
 /coverage
 /.vitest
 /tmp
+
+# Design iteration artifacts, kept local
+/design-shots/
