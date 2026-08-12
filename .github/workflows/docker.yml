@@ -1,14 +1,24 @@
 name: docker
 
+# Cutting a release is two commands, run on a clean main:
+#
+#   bun run release minor    # or patch / major — bumps package.json, commits, tags vX.Y.Z
+#   git push --follow-tags
+#
+# The tag build publishes X.Y.Z / X.Y / X, moves :latest, and creates the
+# GitHub Release with auto-generated notes. Plain pushes to main publish
+# :main (and a sha tag) only — so :latest always means "latest release".
+
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # to create the GitHub Release on tag builds
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -21,12 +31,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # semver tags only materialize on v* tag builds; branch builds get
+      # `main` + sha. `latest` rides the semver tags (metadata-action's
+      # `latest=auto` default), never the branch.
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/rodrigohpalmeirim/movie-night
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha
 
       - uses: docker/build-push-action@v6
@@ -37,3 +53,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The image is pushed before the release exists, so a release note
+      # never points at a tag nobody can pull yet.
+      - name: create github release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes

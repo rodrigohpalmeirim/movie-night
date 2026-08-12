@@ -58,7 +58,9 @@ rounds, screens, data model) is in [docs/app-spec.md](docs/app-spec.md).
 
 ### With Docker
 
-Images are published to GHCR on every push to `main`:
+Images are published to GHCR. Releases carry semver tags — `1`, `1.2`, `1.2.3` — and `latest`
+always points at the newest release; `main` tracks every push to trunk, migrations and all,
+for the brave. Pin as much stability as you want:
 
 ```sh
 docker run -d \

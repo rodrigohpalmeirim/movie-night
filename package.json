@@ -1,7 +1,7 @@
 {
 	"name": "movie-voting",
 	"private": true,
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"license": "AGPL-3.0-only",
 	"type": "module",
 	"scripts": {
@@ -17,6 +17,7 @@
 		"test:server": "bun test src/lib/server",
 		"test:all": "vitest run && bun test src/lib/server",
 		"seed": "bun run scripts/seed.ts",
+		"release": "npm version -m 'release v%s'",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "bun run scripts/migrate.ts",
 		"db:verify": "bun run scripts/verify-db.ts",
