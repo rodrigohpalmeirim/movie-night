@@ -190,6 +190,30 @@
 		overflow: hidden;
 	}
 
+	/* ── Desktop scale ────────────────────────────────────────────────
+	   The design is a phone-first centred column, and everything in it —
+	   type, spacing, tokens, seals, even the column's own `max-w-lg`
+	   (32rem) — is rem-built. So a bigger table is one dial: raise the
+	   root em and the whole layout zooms in proportion, column included.
+	   16px is the phone at arm's length; one step at tablet width and one
+	   more on big desktops keeps the print readable at desk distance
+	   without redrawing anything. It stops at 18px on purpose — past that
+	   the club reads as a toy blown up, not a bigger table. The queries
+	   are in rem, which media queries resolve against the INITIAL 16px,
+	   never the value set here, so there is no feedback loop. The 2px
+	   inks and ply shadows stay 2px at every size: card edges are
+	   supposed to stay crisp. */
+	@media (min-width: 48rem) {
+		html {
+			font-size: 17px;
+		}
+	}
+	@media (min-width: 90rem) {
+		html {
+			font-size: 18px;
+		}
+	}
+
 	body {
 		background-color: var(--color-felt);
 		/* Felt weave: two crossed hatches at low opacity, so the table reads as

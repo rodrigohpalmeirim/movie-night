@@ -718,7 +718,7 @@
 
 	<!-- The credit's permanent home: printed on the felt below the pads, in the
 	     dim chalk the app uses for small print on the table. -->
-	<p class="px-1 text-[11px] leading-relaxed text-chalk-dim">
+	<p class="px-1 text-[0.6875rem] leading-relaxed text-chalk-dim">
 		This app uses the TMDB API but is not endorsed or certified by TMDB. Film data and posters
 		courtesy of
 		<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline">The Movie Database</a>.
@@ -726,7 +726,7 @@
 
 	<!-- The maker's line, same small print. `noreferrer` on every outbound link
 	     down here, as always: the page URL carries the invite token. -->
-	<p class="px-1 text-[11px] leading-relaxed text-chalk-dim">
+	<p class="px-1 text-[0.6875rem] leading-relaxed text-chalk-dim">
 		Made with ❤️ by
 		<a href="https://github.com/rodrigohpalmeirim" rel="noreferrer" class="underline"
 			>Rodrigo Palmeirim</a
