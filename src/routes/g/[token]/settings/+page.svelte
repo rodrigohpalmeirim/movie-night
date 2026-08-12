@@ -723,4 +723,22 @@
 		courtesy of
 		<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline">The Movie Database</a>.
 	</p>
+
+	<!-- The maker's line, same small print. `noreferrer` on every outbound link
+	     down here, as always: the page URL carries the invite token. -->
+	<p class="px-1 text-[11px] leading-relaxed text-chalk-dim">
+		Made with ❤️ by
+		<a href="https://github.com/rodrigohpalmeirim" rel="noreferrer" class="underline"
+			>Rodrigo Palmeirim</a
+		>. Free and open source under
+		<a
+			href="https://github.com/rodrigohpalmeirim/movie-night/blob/main/LICENSE"
+			rel="noreferrer"
+			class="underline">AGPL-3.0</a
+		>
+		—
+		<a href="https://github.com/rodrigohpalmeirim/movie-night" rel="noreferrer" class="underline"
+			>source on GitHub</a
+		>.
+	</p>
 </div>
