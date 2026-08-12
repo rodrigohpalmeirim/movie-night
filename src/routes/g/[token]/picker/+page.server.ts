@@ -41,10 +41,16 @@ export const actions: Actions = {
 		redirect(303, `/g/${group.inviteToken}`);
 	},
 
-	/** Settings' "Not you?" — clears the cookie and returns to the picker. */
+	/**
+	 * Settings' "Not you?", posted from this side. Blanks the cookie rather than
+	 * deleting it, exactly as the settings action does and for the same reason: an
+	 * empty value keeps the group on this device's landing switchboard — pointing at
+	 * this picker — so walking away before claiming a name does not cost the device
+	 * its way back. See the settings `forget` action for the whole argument.
+	 */
 	forget: async (event) => {
 		const { group } = requireGroup(event);
-		event.cookies.delete(memberCookieName(group.id), { path: '/' });
+		event.cookies.set(memberCookieName(group.id), '', MEMBER_COOKIE_OPTIONS);
 		redirect(303, `/g/${group.inviteToken}/picker`);
 	}
 };

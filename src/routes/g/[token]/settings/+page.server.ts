@@ -84,10 +84,20 @@ export const actions: Actions = {
 	/**
 	 * app-spec: "'Not you?' in the settings screen clears the cookie and returns to
 	 * the picker." The member row itself is untouched — members are never deleted.
+	 *
+	 * Cleared means BLANKED, not deleted: the cookie is rewritten empty, same name,
+	 * same path, same Max-Age. Deleting it would take the group off this device's
+	 * landing switchboard altogether, and since the member cookies are the only
+	 * record `/` has of where a device belongs, a hand-off that wandered off the
+	 * picker without claiming a name would leave the invite link as the sole way
+	 * back. This button promises to switch person, not to forget the group. The empty
+	 * value is the marker `resolveDeviceGroups` prints as a memberless row into the
+	 * picker, and it resolves as unclaimed everywhere else because `findMember` reads
+	 * no id from it.
 	 */
 	forget: async (event) => {
 		const actor = requireActor(event);
-		event.cookies.delete(memberCookieName(actor.group.id), { path: MEMBER_COOKIE_OPTIONS.path });
+		event.cookies.set(memberCookieName(actor.group.id), '', MEMBER_COOKIE_OPTIONS);
 		redirect(303, `/g/${actor.group.inviteToken}/picker`);
 	},
 
@@ -112,8 +122,11 @@ export const actions: Actions = {
 	 * Removing yourself also clears this device's cookie and returns to the picker:
 	 * `resolveContext` would already resolve a removed member as unclaimed, so
 	 * leaving the cookie would mean every later request quietly redirected there
-	 * anyway. Doing it here makes it deliberate rather than a side effect, and it is
-	 * exactly what the `forget` action above does.
+	 * anyway. Doing it here makes it deliberate rather than a side effect. Deleted
+	 * outright, unlike the blank marker `forget` above leaves: that one says "somebody
+	 * else is about to pick a name here", while this one is a member walking out of
+	 * the group, and a cookie pointing at a removed member is stale to the landing
+	 * page in any case.
 	 */
 	removeMember: async (event) => {
 		const actor = requireActor(event);

@@ -62,6 +62,11 @@ export function findGroupByToken(db: Db, token: string): Group | undefined {
  * so their cookie resolves to nothing and the guard falls through to the picker
  * (see `resolveContext`). This is a filter on a SELECT rather than a check that can
  * throw, which is what guarantees it degrades to "unclaimed" and never to a 500.
+ *
+ * An EMPTY id is the blank marker "Not you?" leaves behind (see `resolveDeviceGroups`
+ * and the settings `forget` action). It is falsy, so it leaves through the guard
+ * below and means exactly what it should everywhere identity is resolved: nobody has
+ * claimed a name on this device yet.
  */
 export function findMember(db: Db, groupId: string, memberId: string | undefined): Member | undefined {
 	if (!memberId) return undefined;
@@ -122,23 +127,36 @@ export function resolveFromCookies(input: {
 	});
 }
 
-/** One group this device is signed into, as the landing page prints it. */
+/** One group this device knows, as the landing page prints it. */
 export interface DeviceGroup {
 	groupName: string;
 	inviteToken: string;
-	memberName: string;
+	/**
+	 * The name claimed on this device, or `null` when the cookie is blank: the group
+	 * is known but nobody has claimed a name in it, so the row leads to the picker
+	 * rather than to the group itself.
+	 */
+	memberName: string | null;
 }
 
 /**
- * Every group this device holds a usable member cookie for — the landing page's
+ * Every group this device holds a member cookie for — the landing page's
  * switchboard, and the thing that decides whether `/` redirects.
  *
  * Pure in the cookie jar it is handed, so the route stays a reader: it reports the
- * cookie names that resolved to nothing and lets the caller do the deleting.
- * Unusable here means gone for good from this device's point of view — no group
- * row, or no live member — because unlike `resolveContext` there is no group in
- * the URL to fall back to a picker for, so a cookie that names nothing is only
- * noise in a list of the groups you can walk into.
+ * cookie names that resolved to nothing and lets the caller do the deleting. Three
+ * outcomes per cookie:
+ *
+ * - a live group and a live member → a row you can walk straight into;
+ * - a live group and an EMPTY value → a **memberless** row, the marker "Not you?"
+ *   writes (see the settings `forget` action). The device knows this group; nobody
+ *   has claimed a name on it. That is not noise, it is the only breadcrumb back to
+ *   a group whose invite link the reader may not have kept, so it prints and points
+ *   at the picker;
+ * - anything else — no group row, or a value naming no live member → stale, and
+ *   reported for deletion. Unlike `resolveContext` there is no group in the URL to
+ *   fall back to a picker for, so a cookie that names nothing is only noise in a
+ *   list of the groups you can walk into.
  *
  * Sorted by group name so the switchboard's order is the app's and not the
  * browser's; the token breaks ties, since two groups may share a name.
@@ -155,8 +173,23 @@ export function resolveDeviceGroups(input: {
 		if (groupId === undefined) continue;
 
 		const group = input.db.select().from(groups).where(eq(groups.id, groupId)).get();
-		const member = group ? findMember(input.db, group.id, cookie.value) : undefined;
-		if (!group || !member) {
+		// No group row is the one thing no picker can mend, whatever the cookie holds:
+		// a deleted or never-existing group is a row nobody can walk into, so even the
+		// blank marker goes.
+		if (!group) {
+			staleCookieNames.push(cookie.name);
+			continue;
+		}
+
+		// The blank marker, kept rather than pruned: this is a group the device belongs
+		// to with nobody signed in on it.
+		if (cookie.value === '') {
+			live.push({ groupName: group.name, inviteToken: group.inviteToken, memberName: null });
+			continue;
+		}
+
+		const member = findMember(input.db, group.id, cookie.value);
+		if (!member) {
 			staleCookieNames.push(cookie.name);
 			continue;
 		}

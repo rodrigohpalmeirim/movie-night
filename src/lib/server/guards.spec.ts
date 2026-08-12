@@ -123,6 +123,23 @@ describe('member cookie flow', () => {
 		).toBe('need_member');
 	});
 
+	test('the blank “Not you?” marker resolves as unclaimed, exactly like no cookie', () => {
+		// "Not you?" rewrites the cookie EMPTY instead of deleting it, so that the group
+		// stays on the device's landing switchboard. Every identity-resolving path must
+		// read that as "nobody has claimed a name here" — the picker — and never as an
+		// error or a member.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const cookies = new Map([[memberCookieName(world.group.id), '']]);
+		const resolution = resolveFromCookies({
+			db: world.db,
+			token: world.group.inviteToken,
+			getCookie: (name) => cookies.get(name)
+		});
+		expect(resolution.kind).toBe('need_member');
+		if (resolution.kind === 'unknown_group') throw new Error('unreachable');
+		expect(resolution.group.id).toBe(world.group.id);
+	});
+
 	test('regenerating the invite link kills the old URL but keeps the session', () => {
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const oldToken = world.group.inviteToken;

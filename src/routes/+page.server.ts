@@ -33,7 +33,9 @@ export const load: PageServerLoad = (event) => {
 		db: event.locals.db,
 		cookies: event.cookies.getAll()
 	});
-	// Prune as we read. Same path the cookie was written with, or the delete names a
+	// Prune as we read — only the cookies that resolved to nothing at all, never the
+	// blank "Not you?" marker, which is a group this device knows with nobody signed
+	// in on it. Same path the cookie was written with, or the delete names a
 	// different cookie than the one being served and nothing is cleared.
 	for (const name of staleCookieNames) {
 		event.cookies.delete(name, { path: MEMBER_COOKIE_OPTIONS.path });
@@ -50,7 +52,14 @@ export const load: PageServerLoad = (event) => {
 
 	if (isPageLoad && !wantsAll) {
 		// Cookies are the truth. One group is not a choice, so it is not a screen.
-		if (groups.length === 1) redirect(303, `/g/${groups[0].inviteToken}`);
+		// If nobody is signed in on that one group — the state "Not you?" leaves — the
+		// door is its picker. The group home would bounce there anyway (`requiresMember`),
+		// so this only saves the hop and keeps the sent-to URL one the device can use.
+		if (groups.length === 1) {
+			const only = groups[0];
+			const home = `/g/${only.inviteToken}`;
+			redirect(303, only.memberName === null ? `${home}/picker` : home);
+		}
 
 		// No cookies at all, and a group named in `?g`: this is a freshly installed
 		// iOS PWA, which starts with an EMPTY cookie jar — it does not inherit

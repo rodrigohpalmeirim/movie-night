@@ -163,6 +163,17 @@ describe('cookies that no longer resolve are pruned as they are read', () => {
 		expect(landed.jar.deleted).toEqual([{ name: cookieName, path: '/' }]);
 	});
 
+	test('a live group with a member id that names nobody is deleted', async () => {
+		// A hand-edited or cross-group value: the group is real, the identity is not,
+		// and there is no group in the URL here to fall back to a picker for.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const cookieName = memberCookieName(world.group.id);
+		const landed = await land({ world, cookies: { [cookieName]: 'nobody-by-that-id' } });
+		expect(landed.redirectedTo).toBeNull();
+		expect(landed.groups).toEqual([]);
+		expect(landed.jar.deleted).toEqual([{ name: cookieName, path: '/' }]);
+	});
+
 	test('a cookie for a group that is gone is deleted', async () => {
 		world = createTestWorld({ memberNames: ['Ana'] });
 		const landed = await land({ world, cookies: { member_no_such_group: 'whoever' } });
@@ -181,6 +192,61 @@ describe('cookies that no longer resolve are pruned as they are read', () => {
 		});
 		expect(landed.redirectedTo).toBe(`/g/${world.group.inviteToken}`);
 		expect(landed.jar.deleted.map((entry) => entry.name)).toEqual(['member_no_such_group']);
+	});
+});
+
+describe('“Not you?” blanks the cookie and keeps the group on the switchboard', () => {
+	test('a blank cookie for a live group is a memberless row, not a stale one', async () => {
+		// The marker the settings `forget` action writes: this device knows the group,
+		// nobody has claimed a name on it. Deleting the cookie instead would have taken
+		// the group off this list, leaving the invite link as the only way back.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const other = otherGroup(world, 'Thursday Cinema', 'Zed');
+		const landed = await land({
+			world,
+			cookies: {
+				[memberCookieName(world.group.id)]: world.member('Ana').id,
+				[memberCookieName(other.group.id)]: ''
+			}
+		});
+
+		expect(landed.redirectedTo).toBeNull();
+		expect(landed.groups).toEqual([
+			{ groupName: 'Movie Night', inviteToken: world.group.inviteToken, memberName: 'Ana' },
+			{ groupName: 'Thursday Cinema', inviteToken: other.group.inviteToken, memberName: null }
+		]);
+		expect(landed.jar.deleted).toEqual([]);
+	});
+
+	test('a device whose only group has nobody signed in lands on that group’s picker', async () => {
+		// Still one group, so still not a screen — but the door is the picker, since
+		// the group home would only bounce there.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const landed = await land({ world, cookies: { [memberCookieName(world.group.id)]: '' } });
+		expect(landed.redirectedTo).toBe(`/g/${world.group.inviteToken}/picker`);
+		expect(landed.jar.deleted).toEqual([]);
+	});
+
+	test('a blank cookie for a group that is gone is pruned like any other', async () => {
+		// No group row is the one thing the picker cannot mend.
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const landed = await land({ world, cookies: { member_no_such_group: '' } });
+		expect(landed.redirectedTo).toBeNull();
+		expect(landed.groups).toEqual([]);
+		expect(landed.jar.deleted).toEqual([{ name: 'member_no_such_group', path: '/' }]);
+	});
+
+	test('?all prints the memberless row rather than redirecting', async () => {
+		world = createTestWorld({ memberNames: ['Ana'] });
+		const landed = await land({
+			world,
+			cookies: { [memberCookieName(world.group.id)]: '' },
+			query: '?all'
+		});
+		expect(landed.redirectedTo).toBeNull();
+		expect(landed.groups).toEqual([
+			{ groupName: 'Movie Night', inviteToken: world.group.inviteToken, memberName: null }
+		]);
 	});
 });
 

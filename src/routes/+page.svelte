@@ -97,6 +97,12 @@
 			     anchors — the whole screen works with JavaScript off. Seated between
 			     the lid and the create form: what the box is, where you already sit,
 			     then how to start another table.
+
+			     A row with no name under it is a group this device knows where nobody
+			     has claimed one — what "Not you?" leaves behind when the phone is
+			     handed on. It still belongs on the switchboard, since it may be the
+			     only way back to a group whose link nobody kept; it just leads to the
+			     picker rather than to the table.
 			-->
 			<section class="tile px-4 pt-4 pb-3">
 				<h2 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Your groups</h2>
@@ -104,13 +110,17 @@
 					{#each data.groups as group, i (group.inviteToken)}
 						<li class="deal-in" style="--deal:{i}">
 							<a
-								href="/g/{group.inviteToken}"
+								href="/g/{group.inviteToken}{group.memberName === null ? '/picker' : ''}"
 								class="row-press -mx-1 flex items-center gap-2 rounded px-1 py-2.5 focus-visible:outline-offset-[-3px]"
 							>
 								<span class="min-w-0 flex-1">
 									<span class="display block truncate text-[1.05rem] text-ink">{group.groupName}</span>
 									<span class="stencil block text-[0.7rem] tracking-[0.06em] text-ink-soft uppercase">
-										You're {group.memberName}
+										{#if group.memberName === null}
+											Nobody signed in — pick a name
+										{:else}
+											You're {group.memberName}
+										{/if}
 									</span>
 								</span>
 								<ArrowRight size={18} class="shrink-0 text-ink-soft" />
