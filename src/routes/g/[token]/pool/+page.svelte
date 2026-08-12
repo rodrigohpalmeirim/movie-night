@@ -201,7 +201,7 @@
 				Search results, film data and posters come from
 				<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline"
 					>The Movie Database</a
-				>. This product uses the TMDB API but is not endorsed or certified by TMDB.
+				>. This app uses the TMDB API but is not endorsed or certified by TMDB.
 			</p>
 		</section>
 	{/if}

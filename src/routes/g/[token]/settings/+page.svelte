@@ -719,7 +719,7 @@
 	<!-- The credit's permanent home: printed on the felt below the pads, in the
 	     dim chalk the app uses for small print on the table. -->
 	<p class="px-1 text-[11px] leading-relaxed text-chalk-dim">
-		This product uses the TMDB API but is not endorsed or certified by TMDB. Film data and posters
+		This app uses the TMDB API but is not endorsed or certified by TMDB. Film data and posters
 		courtesy of
 		<a href="https://www.themoviedb.org/" rel="noreferrer" class="underline">The Movie Database</a>.
 	</p>

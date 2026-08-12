@@ -179,8 +179,7 @@
 		     other, and closing it is what brings this screen back. -->
 		<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
 			<p class="text-sm leading-relaxed text-chalk-dim">
-				Start a night when you're together and ready to pick. Suggestions and swipes carry over —
-				nothing is lost between nights.
+				Start a night when you're together and ready to pick. Suggestions and swipes carry over between nights.
 			</p>
 			<form method="POST" action="?/createRound" use:enhance>
 				<button class="token token-lg token-slot w-full">Start a movie night</button>
@@ -582,7 +581,7 @@
 					<Confirm
 						label="We watched it"
 						confirmLabel="Yes, we watched it"
-						question="This retires the film, gives its suggester their turn, and files the night in your history. Do it after the night, not before."
+						question="This retires the film and files the night in your history. Do it after the night, not before."
 						variant="quiet"
 					/>
 				</form>
@@ -596,7 +595,7 @@
 						<Confirm
 							label="We didn't watch it"
 							confirmLabel="Yes, the night fell through"
-							question="Nothing is filed: the night leaves no entry in your history, the film goes back on the table with every swipe and star it had, and nobody's turn is spent."
+							question="Nothing is filed: the night leaves no entry in your history and the film goes back on the table."
 							size="md"
 							variant="quiet"
 						/>
@@ -637,8 +636,7 @@
 			     plain form button, so it works with JS off like every other move here. -->
 			<section class="space-y-3 border-t-2 border-dashed border-felt-line pt-4">
 				<p class="text-sm leading-relaxed text-chalk-dim">
-					Nothing is filed: this night leaves no entry in your history, and the table keeps every film,
-					swipe and star it has. Everyone's IN and OUT carries straight over to the new round.
+					Nothing is filed: this night leaves no entry in your history, and the table keeps every film it has. Everyone's IN and OUT carries straight over to the new round.
 				</p>
 				<form method="POST" action="?/restart" use:enhance>
 					<input type="hidden" name="round_id" value={round.id} />
