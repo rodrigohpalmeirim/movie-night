@@ -21,7 +21,11 @@ jobs:
       contents: write # to create the GitHub Release on tag builds
       packages: write
     steps:
+      # Full history: the release step walks back to the previous tag for its
+      # notes, and a shallow checkout can see neither the tags nor the commits.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: docker/setup-buildx-action@v3
 
@@ -55,9 +59,20 @@ jobs:
           cache-to: type=gha,mode=max
 
       # The image is pushed before the release exists, so a release note
-      # never points at a tag nobody can pull yet.
+      # never points at a tag nobody can pull yet. Notes are the commit
+      # subjects since the previous tag — GitHub's --generate-notes only
+      # itemizes pull requests, and this repo commits straight to main.
       - name: create github release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          {
+            git log --reverse --format='- %s' ${prev:+$prev..}"$GITHUB_REF_NAME" | grep -v '^- release v' || true
+            if [ -n "$prev" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_REF_NAME"
+            fi
+          } > /tmp/notes.md
+          gh release create "$GITHUB_REF_NAME" --notes-file /tmp/notes.md
