@@ -19,7 +19,7 @@
 	there is a member to be.
 -->
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import TabBar from '$lib/components/TabBar.svelte';
 	import { startLiveUpdates } from '$lib/live.js';
@@ -58,14 +58,24 @@
 	 * starting each screen at the top is ours to do — otherwise the new page
 	 * arrives already halfway down, at wherever the last one had been left.
 	 *
-	 * Landing at the top is all this does. Back and forward do NOT restore where
-	 * you were: the screens here are short, a bounded list or one round, and
-	 * arriving at the top of them is what a tab bar app does — every tab shows
-	 * you its head.
+	 * Landing at the top is the rule: arriving at the head of a screen is what a
+	 * tab bar app does. The one exception is the pool, the only list long enough
+	 * to lose your place in — opening a film and coming back (browser back, or the
+	 * film's "Back to the pool" link) puts it back where it was left.
 	 */
 	let scroller = $state<HTMLElement | null>(null);
-	afterNavigate(() => {
-		if (scroller) scroller.scrollTop = 0;
+	const POOL = '/g/[token]/pool';
+	const poolScroll = new Map<string, number>();
+
+	beforeNavigate(({ from }) => {
+		if (scroller && from?.route.id === POOL) poolScroll.set(from.url.pathname, scroller.scrollTop);
+	});
+
+	afterNavigate(({ type, from, to }) => {
+		if (!scroller) return;
+		const restore =
+			to?.route.id === POOL && (type === 'popstate' || from?.route.id === '/g/[token]/movies/[id]');
+		scroller.scrollTop = restore ? (poolScroll.get(to.url.pathname) ?? 0) : 0;
 	});
 </script>
 
