@@ -23,7 +23,6 @@
 	import { page } from '$app/state';
 	import TabBar from '$lib/components/TabBar.svelte';
 	import { startLiveUpdates } from '$lib/live.js';
-	import { createScrollMemory, memoryKey, shouldRestore } from '$lib/scroll-memory.js';
 	import DevBar from './dev/DevBar.svelte';
 	import type { LayoutServerData } from './$types';
 
@@ -62,26 +61,21 @@
 	 * Landing at the top is the rule: arriving at the head of a screen is what a
 	 * tab bar app does. The one exception is the pool, the only list long enough
 	 * to lose your place in — opening a film and coming back (browser back, or the
-	 * film's "Back to the pool" link) puts it back where it was left. The policy
-	 * lives in `scroll-memory.ts`; this only feeds it navigations.
+	 * film's "Back to the pool" link) puts it back where it was left.
 	 */
 	let scroller = $state<HTMLElement | null>(null);
-	const memory = createScrollMemory();
+	const POOL = '/g/[token]/pool';
+	const poolScroll = new Map<string, number>();
 
 	beforeNavigate(({ from }) => {
-		const key = from && memoryKey(from.route.id, from.url.pathname);
-		if (key && scroller) memory.remember(key, scroller.scrollTop);
+		if (scroller && from?.route.id === POOL) poolScroll.set(from.url.pathname, scroller.scrollTop);
 	});
 
 	afterNavigate(({ type, from, to }) => {
 		if (!scroller) return;
-		const key = to && memoryKey(to.route.id, to.url.pathname);
-		const restore = shouldRestore({
-			type,
-			fromRouteId: from?.route.id ?? null,
-			toRouteId: to?.route.id ?? null
-		});
-		scroller.scrollTop = (restore && key && memory.recall(key)) || 0;
+		const restore =
+			to?.route.id === POOL && (type === 'popstate' || from?.route.id === '/g/[token]/movies/[id]');
+		scroller.scrollTop = restore ? (poolScroll.get(to.url.pathname) ?? 0) : 0;
 	});
 </script>
 

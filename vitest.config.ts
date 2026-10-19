@@ -18,16 +18,12 @@ import { defineConfig } from 'vitest/config';
 // maps a rung to days. It is shared by the settings page and the settings action
 // precisely BECAUSE it depends on neither, and this project is what keeps that
 // true.
-//
-// `scroll-memory.ts` likewise: the pool's remembered scroll position is a policy
-// over route ids, navigation types and a number, with the DOM left to the layout.
 export default defineConfig({
 	test: {
 		include: [
 			'src/lib/tally/**/*.test.ts',
 			'src/lib/swipe.test.ts',
-			'src/lib/cooldown.test.ts',
-			'src/lib/scroll-memory.test.ts'
+			'src/lib/cooldown.test.ts'
 		],
 		environment: 'node',
 		reporters: ['default']
