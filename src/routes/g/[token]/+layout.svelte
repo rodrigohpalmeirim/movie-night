@@ -19,10 +19,11 @@
 	there is a member to be.
 -->
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import TabBar from '$lib/components/TabBar.svelte';
 	import { startLiveUpdates } from '$lib/live.js';
+	import { createScrollMemory, memoryKey, shouldRestore } from '$lib/scroll-memory.js';
 	import DevBar from './dev/DevBar.svelte';
 	import type { LayoutServerData } from './$types';
 
@@ -58,14 +59,29 @@
 	 * starting each screen at the top is ours to do — otherwise the new page
 	 * arrives already halfway down, at wherever the last one had been left.
 	 *
-	 * Landing at the top is all this does. Back and forward do NOT restore where
-	 * you were: the screens here are short, a bounded list or one round, and
-	 * arriving at the top of them is what a tab bar app does — every tab shows
-	 * you its head.
+	 * Landing at the top is the rule: arriving at the head of a screen is what a
+	 * tab bar app does. The one exception is the pool, the only list long enough
+	 * to lose your place in — opening a film and coming back (browser back, or the
+	 * film's "Back to the pool" link) puts it back where it was left. The policy
+	 * lives in `scroll-memory.ts`; this only feeds it navigations.
 	 */
 	let scroller = $state<HTMLElement | null>(null);
-	afterNavigate(() => {
-		if (scroller) scroller.scrollTop = 0;
+	const memory = createScrollMemory();
+
+	beforeNavigate(({ from }) => {
+		const key = from && memoryKey(from.route.id, from.url.pathname);
+		if (key && scroller) memory.remember(key, scroller.scrollTop);
+	});
+
+	afterNavigate(({ type, from, to }) => {
+		if (!scroller) return;
+		const key = to && memoryKey(to.route.id, to.url.pathname);
+		const restore = shouldRestore({
+			type,
+			fromRouteId: from?.route.id ?? null,
+			toRouteId: to?.route.id ?? null
+		});
+		scroller.scrollTop = (restore && key && memory.recall(key)) || 0;
 	});
 </script>
 

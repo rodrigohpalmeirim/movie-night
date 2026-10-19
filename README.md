@@ -134,8 +134,8 @@ bun run start             # serve the build
 ## Tests and checks
 
 ```sh
-bun run check             # svelte-check: 826 files, 0 errors, 0 warnings
-bun run test              # vitest — tally, cooldown, spec vectors (246 tests)
+bun run check             # svelte-check: 833 files, 0 errors, 0 warnings
+bun run test              # vitest — tally, cooldown, scroll memory, spec vectors (257 tests)
 bun run test:server       # bun test src/lib/server — services and serialization (289 tests)
 bun run test:all          # both
 ```
