@@ -11,17 +11,21 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import AttendeeStrip from '$lib/components/AttendeeStrip.svelte';
+	import HalloweenDecor from '$lib/components/HalloweenDecor.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Menu from '$lib/components/Menu.svelte';
 	import Poster from '$lib/components/Poster.svelte';
 	import RevealTally from '$lib/components/RevealTally.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
+	import ThemeChip from '$lib/components/ThemeChip.svelte';
+	import ThemeOrnament from '$lib/components/ThemeOrnament.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import Dice5 from '$lib/icons/Dice5.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate, formatStampDate, movieMeta } from '$lib/images.js';
 	import { createLatch } from '$lib/latch.svelte.js';
+	import { themedFilmCount, themePalette } from '$lib/tags.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
@@ -43,6 +47,43 @@
 	 * instead of two shouting over each other.
 	 */
 	const lobbyPrimary = $derived(lobby && lobby.unswipedCount > 0 ? 'swipe' : 'suggest');
+
+	/**
+	 * "THEMED NIGHT?" — the lobby's theme picker, a plain radio group posted with
+	 * "Start a movie night", so it works before any script arrives. "No theme" is
+	 * the default. The last option is the one that is not a tag yet: it posts
+	 * `__new` and the text field beside it carries the words (see the action);
+	 * focusing the field picks that option, which is the only thing scripting adds.
+	 */
+	const NEW_THEME = '__new';
+	let themeChoice = $state('');
+
+	/**
+	 * The night's theme while it is in play — open, runoff, the reveal. Between
+	 * nights the home tab is the lobby, and a filed night's theme lives on in
+	 * History instead. Only the two presets have a `palette`, and only a palette
+	 * repaints the table (`data-theme`, see app.css) and lays an ornament on it;
+	 * every theme gets its chip.
+	 */
+	const theme = $derived(
+		round && round.state !== 'abandoned' && round.state !== 'watched' ? round.theme : null
+	);
+	const palette = $derived(themePalette(theme?.key));
+
+	/**
+	 * "Pick finalists" on a themed night with a short hand of themed films: said in
+	 * the confirm step, never a block. A short hand still plays, and a hand of none
+	 * already has its honest ending, "no clear favourite" — the one thing that
+	 * blocks the transition stays "nobody is in".
+	 */
+	const FREEZE_NOTE = "This freezes tonight's finalists and the swipes behind them.";
+	const pickQuestion = $derived(
+		!theme?.thin
+			? FREEZE_NOTE
+			: theme.filmsOnTable === 0
+				? `No film on the table carries the ${theme.label} tag yet, so tonight can only end with no clear favourite. Pick anyway? ${FREEZE_NOTE}`
+				: `Only ${themedFilmCount(theme.filmsOnTable ?? 0, theme.label)} ${theme.filmsOnTable === 1 ? 'is' : 'are'} on the table — fewer than a full hand of finalists. Pick anyway? ${FREEZE_NOTE}`
+	);
 
 	/**
 	 * My own RSVP, latched optimistically: the ticket's two tokens are one
@@ -101,6 +142,13 @@
 	const tiltOf = (i: number) => ((i - (finalistCount - 1) / 2) * hand.tilt).toFixed(2);
 </script>
 
+<!-- The themed table: `data-theme` repaints the felt and the brass for the two
+     presets (app.css, "Themed nights"), on this screen only and only while the
+     night is in play. A box-less wrapper, so the layout is untouched. -->
+<div class="contents" data-theme={palette ?? undefined}>
+<!-- Halloween alone also strings its webs and lowers a spider: a band of its own
+     above everything else, so none of it can sit on a word or a button. -->
+{#if palette === 'halloween'}<HalloweenDecor />{/if}
 {#if form?.message}
 	<p role="alert" class="notice notice-cherry mb-5">
 		<TriangleAlert size={18} class="mt-px shrink-0" />
@@ -181,7 +229,58 @@
 			<p class="text-sm leading-relaxed text-chalk-dim">
 				Start a night when you're together and ready to pick. Suggestions and swipes carry over between nights.
 			</p>
-			<form method="POST" action="?/createRound" use:enhance>
+			<form method="POST" action="?/createRound" use:enhance class="space-y-4">
+				<!-- "Themed night?" — one optional tag, fixed for the night. A row of
+				     latched radio tokens (the settings screen's On/Off, widened): the
+				     picked one sits pressed and inked in brass, the rest stay raised on
+				     the felt. The presets are always offered, then every tag the group
+				     uses, each with how many films in the pool carry it, so nobody
+				     picks a night with nothing on its table by accident. -->
+				{#if lobby}
+					<fieldset class="group/theme space-y-2.5">
+						<legend class="eyebrow mb-1 text-chalk">Themed night?</legend>
+						<p class="text-xs leading-relaxed text-chalk-dim">
+							A themed night only deals films with its tag. Films suggested during it get the tag
+							automatically.
+						</p>
+						<div class="flex flex-wrap gap-2 pt-0.5">
+							{#each [{ value: '', label: 'No theme', count: null }, ...lobby.themes.map( (tag) => ({ value: tag.label, label: tag.label, count: tag.poolCount }) ), { value: NEW_THEME, label: 'Something else', count: null }] as option (option.value)}
+								<label
+									class="token token-sm token-slot token-latch token-latch-brass cursor-pointer has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-brass"
+								>
+									<input
+										type="radio"
+										name="theme"
+										value={option.value}
+										bind:group={themeChoice}
+										data-new={option.value === NEW_THEME ? '' : undefined}
+										class="sr-only"
+									/>
+									{option.label}
+									{#if option.count !== null}
+										<span class="font-normal opacity-70" aria-label="{option.count} in the pool"
+											>· {option.count}</span
+										>
+									{/if}
+								</label>
+							{/each}
+						</div>
+						<!-- The words for "Something else". Shown by CSS once that option is
+						     picked, so the field turns up with scripting off too. -->
+						<div class="hidden group-has-[[data-new]:checked]/theme:block">
+							<label for="theme-new" class="sr-only">Name the theme</label>
+							<input
+								id="theme-new"
+								name="theme_new"
+								maxlength="32"
+								autocomplete="off"
+								placeholder="Name it — Sci-fi, Ana's birthday…"
+								onfocus={() => (themeChoice = NEW_THEME)}
+								class="field"
+							/>
+						</div>
+					</fieldset>
+				{/if}
 				<button class="token token-lg token-slot w-full">Start a movie night</button>
 			</form>
 		</section>
@@ -196,18 +295,33 @@
 				<p class="stencil mt-1.5 text-xs text-chalk-dim uppercase">
 					Started {formatDate(round.createdAt)} by {round.createdBy?.displayName ?? 'someone'}
 				</p>
+				{#if theme}
+					<!-- What a themed night is playing with: its chip, and how many films
+					     on the table carry the tag — the only ones tonight can pick from. -->
+					<div class="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+						<ThemeChip label={theme.label} />
+						{#if theme.filmsOnTable !== null}
+							<span class="stencil text-xs text-chalk-dim uppercase"
+								>{themedFilmCount(theme.filmsOnTable, theme.label)} on the table</span
+							>
+						{/if}
+					</div>
+				{/if}
 			</div>
-			<Menu label="Round options">
-				<form method="POST" action="?/abandon" use:enhance>
-					<input type="hidden" name="round_id" value={round.id} />
-					<Confirm
-						label="Abandon this round"
-						confirmLabel="Yes, cancel the night"
-						question="This discards tonight's vetoes and pair votes. Standing swipes are kept."
-						variant="danger"
-					/>
-				</form>
-			</Menu>
+			<div class="flex shrink-0 items-start gap-1.5">
+				{#if palette}<ThemeOrnament theme={palette} class="mt-1" />{/if}
+				<Menu label="Round options">
+					<form method="POST" action="?/abandon" use:enhance>
+						<input type="hidden" name="round_id" value={round.id} />
+						<Confirm
+							label="Abandon this round"
+							confirmLabel="Yes, cancel the night"
+							question="This discards tonight's vetoes and pair votes. Standing swipes are kept."
+							variant="danger"
+						/>
+					</form>
+				</Menu>
+			</div>
 		</div>
 
 		<!-- My own RSVP, as a ticket you tear one half off. Default is out.
@@ -278,7 +392,9 @@
 		     ticket's `{#if}` on purpose — a member with an empty stack is exactly
 		     the member for whom suggesting is the useful act. -->
 		<a href="/g/{token}/pool?suggest" class="token w-full justify-between">
-			Add a film to the pool
+			<!-- On a themed night the film you add is tagged for it on the way in, so
+			     the door says which kind of film the table is short of. -->
+			{theme ? `Add a ${theme.label} film` : 'Add a film to the pool'}
 			<ArrowRight size={18} />
 		</a>
 
@@ -306,8 +422,8 @@
 				{#if round.transitions.canAdvance}
 					<Confirm
 						label="Pick finalists"
-						confirmLabel="Pick the finalists"
-						question="This freezes tonight's finalists and the swipes behind them."
+						confirmLabel={theme?.thin ? 'Pick anyway' : 'Pick the finalists'}
+						question={pickQuestion}
 					/>
 				{:else}
 					<p class="notice notice-brass">
@@ -328,18 +444,24 @@
 				<p class="mt-1.5 text-xs leading-relaxed text-chalk-dim">
 					{round.finalists?.length ?? 0} films. Results stay hidden until someone reveals them.
 				</p>
+				{#if theme}
+					<ThemeChip label={theme.label} class="mt-2.5" />
+				{/if}
 			</div>
-			<Menu label="Round options">
-				<form method="POST" action="?/abandon" use:enhance>
-					<input type="hidden" name="round_id" value={round.id} />
-					<Confirm
-						label="Abandon this round"
-						confirmLabel="Yes, cancel the night"
-						question="This discards tonight's vetoes and pair votes. Standing swipes are kept."
-						variant="danger"
-					/>
-				</form>
-			</Menu>
+			<div class="flex shrink-0 items-start gap-1.5">
+				{#if palette}<ThemeOrnament theme={palette} class="mt-1" />{/if}
+				<Menu label="Round options">
+					<form method="POST" action="?/abandon" use:enhance>
+						<input type="hidden" name="round_id" value={round.id} />
+						<Confirm
+							label="Abandon this round"
+							confirmLabel="Yes, cancel the night"
+							question="This discards tonight's vetoes and pair votes. Standing swipes are kept."
+							variant="danger"
+						/>
+					</form>
+				</Menu>
+			</div>
 		</div>
 
 		{#if round.finalists && round.finalists.length > 0}
@@ -477,6 +599,9 @@
 		{#if revealed.outcome === 'no_clear_favourite'}
 			<div class="tile-slot space-y-3 px-4 py-7 text-center">
 				<Stamp word="No pick" tone="cherry" size="1.35rem" rotate={-6} slam class="mb-1" />
+				{#if theme}
+					<p><ThemeChip label={theme.label} /></p>
+				{/if}
 				<h2 class="display text-[1.6rem] text-board">No clear favourite</h2>
 				<p class="mx-auto max-w-[19rem] text-sm leading-relaxed text-chalk-dim">
 					Nothing in the pool cleared the approval bar tonight. That's a real answer, not a failure —
@@ -510,6 +635,10 @@
 			<!-- The reveal is a two-beat deal: the announcement lands, then the stub —
 			     and the PICKED seal's own slam lands last, on top of both. -->
 			<div class="deal-in text-center">
+				{#if theme}
+					<!-- The night it was, above what it picked. -->
+					<p class="mb-2.5"><ThemeChip label={theme.label} /></p>
+				{/if}
 				<p class="eyebrow text-brass">Tonight you're watching</p>
 				<h2 class="display mx-auto mt-1.5 max-w-[19rem] text-[1.95rem] leading-[0.98] text-balance text-board">
 					{revealed.winner.title}
@@ -534,6 +663,13 @@
 								eager
 							/>
 						</div>
+						{#if palette}
+							<!-- The night's ornament, pinned to the opposite corner from the
+							     seal, the way you would tuck a sprig into a ticket. -->
+							<div class="pointer-events-none absolute -top-5 -left-5 z-10">
+								<ThemeOrnament theme={palette} size="3.75rem" rotate={-14} />
+							</div>
+						{/if}
 						<!-- z-10: the seal straddles the tear line, and the perf row is a
 						     positioned later sibling that would otherwise paint over it. -->
 						<div class="pointer-events-none absolute -right-2 -bottom-5 z-10">
@@ -646,6 +782,7 @@
 		{/if}
 	</div>
 {/if}
+</div>
 
 <style>
 	/*

@@ -1,4 +1,7 @@
-/** Movie detail: revise the standing vote at any time, or remove the film. */
+/**
+ * Movie detail: revise the standing vote at any time, tag or untag the film, or
+ * remove it.
+ */
 
 import { error, fail as formFail, redirect } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
@@ -7,6 +10,12 @@ import { formBoolean, formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
 import { backfillDetails } from '$lib/server/services/details.js';
 import { removeMovie, setStandingVote } from '$lib/server/services/movies.js';
+import {
+	addMovieTag,
+	groupTagSummaries,
+	loadMovieTags,
+	removeMovieTag
+} from '$lib/server/services/tags.js';
 import { getTmdb } from '$lib/server/tmdb.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -51,8 +60,15 @@ export const load: PageServerLoad = async (event) => {
 			addedAt: row.movie.addedAt.toISOString(),
 			watchedAt: row.movie.watchedAt?.toISOString() ?? null,
 			suggestedBy: row.suggesterName,
-			details: filled.get(row.movie.id) ?? row.movie.details ?? null
+			details: filled.get(row.movie.id) ?? row.movie.details ?? null,
+			tags: loadMovieTags(actor.db, actor.group.id).get(row.movie.id) ?? []
 		},
+		/**
+		 * What the tag picker offers: the presets, always, and every tag the group
+		 * already uses — so the second film tagged "Sci-fi" is one tap, spelled the
+		 * way the first one was.
+		 */
+		tagSuggestions: groupTagSummaries(actor.db, actor.group.id),
 		/** Only ever the viewer's own vote — and their own star on it. */
 		myVote: mine?.value ?? null,
 		myStarred: mine?.starred === true
@@ -80,6 +96,38 @@ export const actions: Actions = {
 		return result.ok
 			? { myVote: result.value.value, myStarred: result.value.starred }
 			: reject(result);
+	},
+
+	/**
+	 * Any member may tag any film — the same trust as removing one. Normalised by
+	 * the service, so "halloween " lands as the group's "Halloween", and tagging a
+	 * film with a tag it already carries is a no-op.
+	 */
+	tag: async (event) => {
+		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const result = addMovieTag({
+			db: actor.db,
+			groupId: actor.group.id,
+			movieId: event.params.id,
+			label: formValue(data, 'label') ?? '',
+			actorId: actor.member.id,
+			now: actor.now
+		});
+		return result.ok ? { tagged: result.value.label } : reject(result);
+	},
+
+	/** And untag it. Idempotent, so two members tapping the same chip is fine. */
+	untag: async (event) => {
+		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const result = removeMovieTag({
+			db: actor.db,
+			groupId: actor.group.id,
+			movieId: event.params.id,
+			tag: formValue(data, 'tag') ?? ''
+		});
+		return result.ok ? { untagged: true } : reject(result);
 	},
 
 	/** Any member, one confirm tap. Standing votes survive for a later restore. */

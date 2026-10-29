@@ -9,6 +9,10 @@
 
 	Aggregate counts never appear here — not before a reveal and not after, because
 	standing votes outlive rounds.
+
+	Tags print on the cards, and filter the deck: a row of tag tokens under the
+	header narrows the list to one tag (`?tag=<key>`, a plain link, so it works
+	with scripting off and survives a reload).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -21,6 +25,7 @@
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { movieMeta } from '$lib/images.js';
+	import { themedFilmCount, type TagRef } from '$lib/tags.js';
 	import type { ActionData, PageServerData } from './$types';
 
 	let { data, form }: { data: PageServerData; form: ActionData } = $props();
@@ -76,7 +81,24 @@
 		}, 300);
 	}
 
-	const shown = $derived(data.pool.movies);
+	/**
+	 * THE TAG FILTER. Every tag on a film in this list, once, by label; and the one
+	 * the URL asks for, if any film still carries it — a filter whose last film was
+	 * untagged falls back to the whole deck rather than to an empty one.
+	 */
+	const poolTags = $derived.by(() => {
+		const byKey = new Map<string, TagRef>();
+		for (const movie of data.pool.movies) for (const tag of movie.tags) byKey.set(tag.key, tag);
+		return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+	});
+	const activeTag = $derived(
+		poolTags.find((tag) => tag.key === page.url.searchParams.get('tag')) ?? null
+	);
+	const shown = $derived(
+		activeTag
+			? data.pool.movies.filter((movie) => movie.tags.some((tag) => tag.key === activeTag.key))
+			: data.pool.movies
+	);
 	const serverResults = $derived(form && 'results' in form ? form.results : null);
 	/** Live fetch results win; the no-JS action results are the fallback. */
 	const suggestions = $derived(results.length > 0 ? results : (serverResults ?? []));
@@ -88,8 +110,12 @@
 			<p class="eyebrow text-brass">The deck</p>
 			<h2 class="display mt-1 text-[1.75rem] text-board">The pool</h2>
 			<p class="stencil mt-1.5 text-xs text-chalk-dim uppercase">
-				{shown.length}
-				{shown.length === 1 ? 'film on the table' : 'films on the table'}
+				{#if activeTag}
+					{themedFilmCount(shown.length, activeTag.label)}
+				{:else}
+					{shown.length}
+					{shown.length === 1 ? 'film on the table' : 'films on the table'}
+				{/if}
 			</p>
 		</div>
 		<button
@@ -112,6 +138,9 @@
 			{:else}
 				Added "{form.title}" to the pool.
 			{/if}
+			{#if form.themedAs}
+				Tagged {form.themedAs} for tonight.
+			{/if}
 		</p>
 	{/if}
 	{#if form?.message}
@@ -127,6 +156,15 @@
 	{#if sheetOpen}
 		<section class="pop-settle tile space-y-3 px-3 py-3" aria-label="Suggest a film">
 			<h3 class="eyebrow border-b-2 border-ink pb-1.5 text-ink">Add to the pool</h3>
+
+			{#if data.openTheme}
+				<!-- Said before anyone taps: a film added during a themed night is
+				     tagged for it, which is what puts it on tonight's table. -->
+				<p class="text-xs leading-relaxed text-ink-soft">
+					Tonight is a <span class="font-semibold text-ink">{data.openTheme.label}</span> night: a film
+					you add now is tagged {data.openTheme.label} on the way in.
+				</p>
+			{/if}
 
 			{#if !data.searchAvailable}
 				<p class="notice notice-cherry">
@@ -222,6 +260,30 @@
 		</a>
 	{/if}
 
+	<!-- ── The tag filter ──────────────────────────────────────────────
+	     One token per tag on the table, plus "All". Links rather than buttons,
+	     because a filter is a place in the deck you can reload or share; the one
+	     you are on sits latched (pressed flush, inked brass), the rest stay
+	     raised. Shown only once there is a tag to filter by. -->
+	{#if poolTags.length > 0}
+		<nav aria-label="Filter by tag" class="flex flex-wrap gap-2">
+			<a
+				href="/g/{data.token}/pool"
+				aria-current={activeTag === null ? 'page' : undefined}
+				class="token token-sm {activeTag === null ? 'token-brass token-latched' : 'token-slot'}"
+				>All</a
+			>
+			{#each poolTags as tag (tag.key)}
+				<a
+					href="/g/{data.token}/pool?tag={encodeURIComponent(tag.key)}"
+					aria-current={activeTag?.key === tag.key ? 'page' : undefined}
+					class="token token-sm {activeTag?.key === tag.key ? 'token-brass token-latched' : 'token-slot'}"
+					>{tag.label}</a
+				>
+			{/each}
+		</nav>
+	{/if}
+
 	<!-- ── The pool ──────────────────────────────────────────────────── -->
 	{#if shown.length === 0}
 		<div class="tile-slot space-y-3 px-4 py-8 text-center">
@@ -259,6 +321,18 @@
 								{movieMeta(movie.year, movie.runtimeMin)}
 								{#if movie.suggestedBy}· {movie.suggestedBy.displayName}{/if}
 							</span>
+							{#if movie.tags.length > 0}
+								<!-- Its tags, printed on the card like the detail screen's genre
+								     chips — read here, edited on the film's own page. -->
+								<span class="flex flex-wrap gap-1">
+									{#each movie.tags as tag (tag.key)}
+										<span
+											class="stencil rounded-full border border-ink/35 bg-board-shade/45 px-1.5 pt-px text-[0.6rem] leading-snug text-ink-soft uppercase"
+											>{tag.label}</span
+										>
+									{/each}
+								</span>
+							{/if}
 							<!-- THE STAR, as a mark rather than a control: a film you starred
 							     carries the brass STAR seal where an ordinary yes carries the jade
 							     one. The pool is a list you read; starring happens where the film

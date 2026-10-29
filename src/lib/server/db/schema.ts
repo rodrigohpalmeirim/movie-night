@@ -8,6 +8,8 @@
  *                                                       with a CHECK that (a, b) is normalised a < b
  *   - unique (group_id, tmdb_id) on movies            → no duplicate suggestions per group
  *   - unique (group_id, display_name) on members      → claim-a-name identity
+ *   - unique (movie_id, tag) on movie tags            → a film carries a tag once,
+ *                                                       with a CHECK that the key is folded
  *   - at most one round per group in a state before `decided` (partial unique index)
  *
  * `StandingVote` deliberately has no round scope while `Veto`/`PairVote` do;
@@ -229,6 +231,62 @@ export const standingVotes = sqliteTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* MovieTag — free-form, group-scoped labels on films                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One tag on one film ("Halloween", "Sci-fi"). Any member may add or remove one,
+ * from the film's own screen — the same trust as removing a film.
+ *
+ * Group-scoped through the movie: a tag is a word this group uses, and a film
+ * belongs to exactly one group, so there is no `group_id` here to drift out of
+ * step with the movie's. "Every tag in this group" is a join through `movies`.
+ *
+ * Tags are public facts about a film, like its genres: they are serialized with
+ * the movie wherever it appears, carry no phase gate, and touch no tally — except
+ * that a THEMED round only deals films carrying its theme (voting-spec,
+ * Eligibility), which is decided once, when the round's finalists are frozen.
+ *
+ * Deleting the movie takes its tags with it; removing or watching it does not,
+ * because neither deletes anything — a film that comes back comes back tagged.
+ */
+export const movieTags = sqliteTable(
+	'movie_tags',
+	{
+		movieId: text('movie_id')
+			.notNull()
+			.references(() => movies.id, { onDelete: 'cascade' }),
+		/**
+		 * The folded key — trimmed, single-spaced, ASCII-lowercased (`tagKey` in
+		 * `$lib/tags.ts`). Identity is decided on this, so "halloween" and
+		 * "Halloween " are one tag.
+		 */
+		tag: text('tag').notNull(),
+		/**
+		 * As people read it. The service writes the group's existing spelling (or
+		 * the preset's) whenever the key is already known, so one key prints one way
+		 * across the whole group.
+		 */
+		label: text('label').notNull(),
+		createdBy: text('created_by')
+			.notNull()
+			.references(() => members.id),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs)
+	},
+	(t) => [
+		// unique (movie_id, tag): a film carries a tag once, however it is spelled.
+		primaryKey({ name: 'movie_tags_pk', columns: [t.movieId, t.tag] }),
+		// "Which films carry the theme?" is asked by tag.
+		index('movie_tags_tag_idx').on(t.tag),
+		// The fold is the service's job, but the DATABASE refuses an unfolded key:
+		// `lower()` is ASCII-only in SQLite, exactly like `tagKey`, so a key that
+		// passed through the service always satisfies this — and a hand-written
+		// "Halloween" next to "halloween" cannot sneak in as a second tag.
+		check('movie_tags_tag_folded', sql`${t.tag} = lower(${t.tag}) and length(${t.tag}) > 0`)
+	]
+);
+
+/* ------------------------------------------------------------------ */
 /* Round                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -299,6 +357,18 @@ export const rounds = sqliteTable(
 		tiebreakRuleUsed: text('tiebreak_rule_used', { enum: TIEBREAK_RULES }),
 		/** Persisted at creation so any seeded tiebreak is reproducible. */
 		randomSeed: integer('random_seed').notNull().default(sql`(abs(random()) % 4294967296)`),
+		/**
+		 * The night's theme: one tag key, or null for an ordinary night. Fixed at
+		 * creation (and carried over by "Deal the night again"); a themed round
+		 * only deals films carrying this tag when its finalists are frozen.
+		 */
+		theme: text('theme'),
+		/**
+		 * The theme as it was printed when the round was created. Kept on the round
+		 * rather than looked up from `movie_tags`, because History still has to say
+		 * "Halloween" after every film that carried the tag has been untagged.
+		 */
+		themeLabel: text('theme_label'),
 		decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
 		watchedAt: integer('watched_at', { mode: 'timestamp_ms' })
 	},
@@ -308,7 +378,13 @@ export const rounds = sqliteTable(
 			.on(t.groupId)
 			.where(sql`${t.state} in ('open', 'runoff')`),
 		index('rounds_group_created_idx').on(t.groupId, t.createdAt),
-		check('rounds_state_check', sql`${t.state} in ('open', 'runoff', 'decided', 'watched', 'abandoned')`)
+		check('rounds_state_check', sql`${t.state} in ('open', 'runoff', 'decided', 'watched', 'abandoned')`),
+		// A theme is a key AND its label, or neither; and the key is folded, like
+		// every tag key.
+		check(
+			'rounds_theme_check',
+			sql`(${t.theme} is null and ${t.themeLabel} is null) or (${t.theme} is not null and ${t.theme} = lower(${t.theme}) and ${t.themeLabel} is not null)`
+		)
 	]
 );
 
@@ -466,7 +542,13 @@ export const membersRelations = relations(members, ({ one, many }) => ({
 export const moviesRelations = relations(movies, ({ one, many }) => ({
 	group: one(groups, { fields: [movies.groupId], references: [groups.id] }),
 	suggester: one(members, { fields: [movies.suggestedBy], references: [members.id] }),
-	standingVotes: many(standingVotes)
+	standingVotes: many(standingVotes),
+	tags: many(movieTags)
+}));
+
+export const movieTagsRelations = relations(movieTags, ({ one }) => ({
+	movie: one(movies, { fields: [movieTags.movieId], references: [movies.id] }),
+	creator: one(members, { fields: [movieTags.createdBy], references: [members.id] })
 }));
 
 export const standingVotesRelations = relations(standingVotes, ({ one }) => ({
@@ -515,6 +597,8 @@ export type Movie = typeof movies.$inferSelect;
 export type NewMovie = typeof movies.$inferInsert;
 export type StandingVote = typeof standingVotes.$inferSelect;
 export type NewStandingVote = typeof standingVotes.$inferInsert;
+export type MovieTag = typeof movieTags.$inferSelect;
+export type NewMovieTag = typeof movieTags.$inferInsert;
 export type Round = typeof rounds.$inferSelect;
 export type NewRound = typeof rounds.$inferInsert;
 export type Attendance = typeof attendance.$inferSelect;

@@ -1,0 +1,338 @@
+{
+  "id": "V048",
+  "description": "A themed round deals only films carrying its theme tag: the pool's favourite (untagged) and a film carrying a DIFFERENT tag are both ineligible, so the one themed film clearing the approval floor wins outright",
+  "spec_clause": "Phase 1 / Eligibility: 'A movie is eligible if status = pool, it carries the round's theme tag when the round has one ..., and: ... Require coverage >= COVERAGE_FLOOR' + Themed rounds: 'In a themed round a film must also carry that tag to be eligible ... a film carrying a different tag is as ineligible as one carrying none.' + Selecting finalists: 'Exactly one clears it -> it wins outright, skip Phase 2.'",
+  "rationale": "4 attendees; the round's theme is 'halloween'. Tag membership is checked first, on the normalised tag key, before any floor: m1 (no tags) and m4 (tagged 'christmas' only) do not carry 'halloween' and are ineligible however they were swiped — m1 has 4 rows, 4 yes, coverage 1.00, approval 1.00; m4 the same. m2 (halloween): 4 rows, 3 yes -> coverage 4/4 = 1.00 >= 0.6, approval 3/4 = 0.75 >= 0.5, clears. m3 (halloween): 4 rows, 1 yes -> coverage 1.00, eligible, approval 1/4 = 0.25 < 0.5, does not clear. Exactly one eligible movie clears the approval floor -> m2 wins outright, Phase 2 skipped, so the recorded pair votes are never tallied (interpretations 5 and 6). Two plausible wrong readings give two different documented winners: IGNORING THE THEME makes m1, m4, m2 eligible finalists (4, 4, 3 yes; m3 still fails approval) and the pair votes make m1 the Condorcet winner (4-0 over m2 and over m4); treating ANY TAG as qualifying admits m4 alongside m2 and m3, finalists {m4, m2}, and the pair votes make m4 the Condorcet winner (4-0 over m2). Everything after the eligibility filter is the unthemed rule set unchanged.",
+  "input": {
+    "config": {
+      "N_FINALISTS": 5,
+      "APPROVAL_FLOOR": 0.5,
+      "COVERAGE_FLOOR": 0.6,
+      "VETO_THRESHOLD": 1,
+      "REWATCH_COOLDOWN": null
+    },
+    "round_theme": "halloween",
+    "members": [
+      {
+        "id": "u1",
+        "join_order": 1,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u2",
+        "join_order": 2,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u3",
+        "join_order": 3,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      },
+      {
+        "id": "u4",
+        "join_order": 4,
+        "joined_at": "2026-01-01T00:00:00Z",
+        "fairness": {
+          "last_win_at": null,
+          "wins_count": 0
+        }
+      }
+    ],
+    "attendance": [
+      {
+        "user_id": "u1",
+        "attending": true,
+        "runoff_submitted_at": "2026-10-31T20:00:00Z"
+      },
+      {
+        "user_id": "u2",
+        "attending": true,
+        "runoff_submitted_at": "2026-10-31T20:00:00Z"
+      },
+      {
+        "user_id": "u3",
+        "attending": true,
+        "runoff_submitted_at": "2026-10-31T20:00:00Z"
+      },
+      {
+        "user_id": "u4",
+        "attending": true,
+        "runoff_submitted_at": "2026-10-31T20:00:00Z"
+      }
+    ],
+    "movies": [
+      {
+        "id": "m1",
+        "title": "M1",
+        "runtime_min": 100,
+        "suggested_by": "u1",
+        "added_at": "2026-10-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null,
+        "tags": []
+      },
+      {
+        "id": "m2",
+        "title": "M2",
+        "runtime_min": 100,
+        "suggested_by": "u2",
+        "added_at": "2026-10-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null,
+        "tags": [
+          "halloween"
+        ]
+      },
+      {
+        "id": "m3",
+        "title": "M3",
+        "runtime_min": 100,
+        "suggested_by": "u3",
+        "added_at": "2026-10-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null,
+        "tags": [
+          "halloween"
+        ]
+      },
+      {
+        "id": "m4",
+        "title": "M4",
+        "runtime_min": 100,
+        "suggested_by": "u4",
+        "added_at": "2026-10-01T00:00:00Z",
+        "status": "pool",
+        "watched_at": null,
+        "tags": [
+          "christmas"
+        ]
+      }
+    ],
+    "standing_votes": [
+      {
+        "user_id": "u1",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m1",
+        "value": "yes"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m2",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m2",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m3",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m3",
+        "value": "no"
+      },
+      {
+        "user_id": "u1",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u2",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u3",
+        "movie_id": "m4",
+        "value": "yes"
+      },
+      {
+        "user_id": "u4",
+        "movie_id": "m4",
+        "value": "yes"
+      }
+    ],
+    "vetoes": [],
+    "pair_votes": [
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u1",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u2",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u3",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m2",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m1",
+        "movie_b_id": "m4",
+        "winner_id": "m1"
+      },
+      {
+        "user_id": "u4",
+        "movie_a_id": "m2",
+        "movie_b_id": "m4",
+        "winner_id": "m4"
+      }
+    ],
+    "random_seed": "seed-048"
+  },
+  "expected": {
+    "eligible_movie_ids": [
+      "m2",
+      "m3"
+    ],
+    "ineligible_movies": [
+      {
+        "movie_id": "m1",
+        "reason": "missing_round_theme",
+        "coverage": 1.0,
+        "attendee_votes": 4
+      },
+      {
+        "movie_id": "m4",
+        "reason": "missing_round_theme",
+        "coverage": 1.0,
+        "attendee_votes": 4
+      }
+    ],
+    "tallies": {
+      "m2": {
+        "attendee_votes": 4,
+        "yes_votes": 3,
+        "coverage": 1.0,
+        "approval": 0.75
+      },
+      "m3": {
+        "attendee_votes": 4,
+        "yes_votes": 1,
+        "coverage": 1.0,
+        "approval": 0.25
+      }
+    },
+    "finalist_ids": [
+      "m2"
+    ],
+    "finalist_ids_ranked": [
+      "m2"
+    ],
+    "rank_order_asserted": true,
+    "finalist_boundary_tiebreak": null,
+    "veto_counts": {},
+    "veto_disqualified_ids": [],
+    "vetoes_ignored_insufficient_finalists": false,
+    "surviving_finalist_ids": [],
+    "pairwise": [],
+    "copeland_scores": {},
+    "outcome": "winner_outright",
+    "phase2_skipped": true,
+    "winner_id": "m2",
+    "permissible_winner_ids": [
+      "m2"
+    ],
+    "decided_by": "single_clear_approval_floor",
+    "standing_vote_side_effects": []
+  }
+}

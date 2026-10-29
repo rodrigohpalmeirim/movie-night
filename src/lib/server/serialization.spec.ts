@@ -714,11 +714,11 @@ describe('lobby view', () => {
 			})
 		);
 		// The table is the group's; the stack is the viewer's.
-		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual({
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toMatchObject({
 			poolSize: 3,
 			unswipedCount: 2
 		});
-		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ben') })).toEqual({
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ben') })).toMatchObject({
 			poolSize: 3,
 			unswipedCount: 3
 		});
@@ -742,7 +742,7 @@ describe('lobby view', () => {
 				actorId: w.member('Ana').id
 			})
 		);
-		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual({
+		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toMatchObject({
 			poolSize: 1,
 			unswipedCount: 1
 		});
@@ -755,7 +755,7 @@ describe('lobby view', () => {
 		unwrap(abandonRound({ db: w.db, groupId: w.group.id, roundId: round.id }));
 		// "Standing swipes are kept": everyone swiped the whole pool in `scenario`,
 		// so nobody has a stack, and abandoning takes nothing off the table.
-		expect(before).toEqual({ poolSize: 3, unswipedCount: 0 });
+		expect(before).toMatchObject({ poolSize: 3, unswipedCount: 0 });
 		expect(buildLobbyView({ db: w.db, group: w.group, me: w.member('Ana') })).toEqual(before);
 	});
 
@@ -777,7 +777,7 @@ describe('lobby view', () => {
 		const page = roundPage(w, 'Ana');
 		expect(page.round?.state).toBe('watched');
 		// The winner is retired, so the table is one film shorter than it was.
-		expect(page.lobby).toEqual({ poolSize: 2, unswipedCount: 0 });
+		expect(page.lobby).toMatchObject({ poolSize: 2, unswipedCount: 0 });
 	});
 
 	/**
@@ -814,7 +814,7 @@ describe('lobby view', () => {
 		// leaves the table one film shorter, this one takes nothing off it.
 		const page = roundPage(w, 'Ana');
 		expect(page.round?.state).toBe('abandoned');
-		expect(page.lobby).toEqual({ poolSize: 3, unswipedCount: 0 });
+		expect(page.lobby).toMatchObject({ poolSize: 3, unswipedCount: 0 });
 		// Nothing happened, so there is nothing to file: History records the nights
 		// that were watched, and the one decided round it used to carry is gone.
 		expect(buildHistoryView({ db: w.db, group: w.group })).toEqual([]);

@@ -10,7 +10,9 @@ import { requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
 import { backfillDetails, mergeDetails } from '$lib/server/services/details.js';
 import { setStandingVote } from '$lib/server/services/movies.js';
+import { openRoundTheme } from '$lib/server/services/tags.js';
 import { buildPoolView } from '$lib/server/services/views.js';
+import { themedFirst } from '$lib/tags.js';
 import { getTmdb } from '$lib/server/tmdb.js';
 import { fail as formFail } from '@sveltejs/kit';
 import { formBoolean, formValue } from '$lib/server/http.js';
@@ -47,8 +49,15 @@ export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
 	const pool = buildPoolView({ db: actor.db, group: actor.group, me: actor.member });
 	const stack = pool.movies.filter((movie) => movie.status === 'pool' && movie.myVote === null);
-	/** Oldest first: the backlog drains in the order it arrived. */
-	const ordered = stack.slice().reverse();
+	/**
+	 * Oldest first: the backlog drains in the order it arrived — except that during
+	 * a themed OPEN round the theme's films come up first (still oldest first among
+	 * themselves). Those are the only cards tonight's finalists can come from, so a
+	 * member who swipes five cards before the night starts has swiped the five that
+	 * count. Nothing is hidden: the rest of the deck follows, as standing as ever.
+	 */
+	const theme = openRoundTheme(actor.db, actor.group.id);
+	const ordered = themedFirst(stack.slice().reverse(), theme?.key);
 
 	// The card back prints the extras, so a deck read is one of the reads that
 	// backfills them — in deck order, so the card in the hand is filled before
@@ -74,6 +83,8 @@ export const load: PageServerLoad = async (event) => {
 		token: event.params.token,
 		stack: mergeDetails(ordered, filled),
 		poolSize: pool.movies.filter((movie) => movie.status === 'pool').length,
+		/** Tonight's theme while the round is OPEN, so the deck can say why it is ordered so. */
+		theme,
 		/** Is this the session's first swipe screen? See `INTRO_COOKIE`. */
 		intro
 	};

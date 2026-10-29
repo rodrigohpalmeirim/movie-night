@@ -9,6 +9,7 @@
 	import Poster from '$lib/components/Poster.svelte';
 	import RevealTally from '$lib/components/RevealTally.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
+	import ThemeChip from '$lib/components/ThemeChip.svelte';
 	import ChevronRight from '$lib/icons/ChevronRight.svelte';
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import { formatDate, movieMeta } from '$lib/images.js';
@@ -53,6 +54,11 @@
 							<p class="mt-0.5 text-[0.95rem] leading-snug font-semibold text-ink">
 								{entry.winner?.title ?? 'No clear favourite'}
 							</p>
+							{#if entry.theme}
+								<!-- A themed night says so on its stub. Label only, on every theme:
+								     the palette belonged to the night, and this is its record. -->
+								<p class="mt-1"><ThemeChip label={entry.theme.label} on="board" /></p>
+							{/if}
 							{#if entry.winner}
 								<p class="mt-1 text-xs text-ink-soft">
 									{movieMeta(entry.winner.year, entry.winner.runtimeMin)}

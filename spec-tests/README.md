@@ -167,6 +167,38 @@ re-derived from the amended text:
   both, and a Phase-2-only runner that ignored `star_votes` before now needs the
   star counts to reach the right winner.
 
+**2026-10-29 — themed rounds.** A round may name one tag as its theme, and in a
+themed round a film must also carry that tag to be eligible. An addition, and —
+like the removal of members — defined as an effect on an *input* rather than as a
+new tally rule: the theme narrows which movies are dealt, and every rule after it
+(coverage, approval, finalists, veto, runoff, both tiebreak chains, fairness) runs
+unchanged on the narrowed set. Consequences, all derived from the amended text:
+
+* **No existing vector's expected values changed.** None of V001–V047 names a
+  theme, and an unthemed round deals every film exactly as before.
+* **New: V048.** Four films, theme `halloween`: the pool's favourite carries no
+  tag, a second favourite carries a *different* tag (`christmas`), and of the two
+  `halloween` films only one clears the approval floor — so it wins outright. Two
+  plausible wrong readings each give a different documented winner: ignoring the
+  theme (the untagged favourite wins the runoff) and treating any tag as
+  qualifying (the `christmas` film wins it).
+* `input` gains an optional `round_theme` (a normalised tag key; absent or `null`
+  = an ordinary night) and `movies[]` an optional `tags` (normalised keys; absent
+  = none). Absent means unthemed and untagged, which is why no existing vector
+  needed touching.
+* The `ineligible_movies[].reason` enum gains `missing_round_theme`. A movie
+  filtered by the theme is never tallied, so the `coverage` / `attendee_votes`
+  printed beside that reason are diagnostics only (what the tally *would* have
+  seen) and no runner asserts them.
+* Tag normalisation (trim, collapse whitespace, case fold) and *when* membership
+  is read (once, at the finalist computation — the existing freeze) are caller
+  concerns; `decide_round` is handed keys that already match or do not.
+* **Provenance, stated plainly:** unlike V001–V047, V048 was derived by the same
+  hand that implemented the feature, from the amended spec text, with the
+  arithmetic written out in its `rationale` as usual. It is not an independent
+  derivation; anyone re-deriving the suite from the spec alone should treat it as
+  a candidate to check rather than as part of the audit trail's independent core.
+
 ---
 
 ## 1. Input shape
@@ -207,7 +239,9 @@ re-derived from the amended text:
 
   "movies": [
     { "id": "m1", "title": "M1", "runtime_min": 100, "suggested_by": "u1",
-      "added_at": "2026-07-01T00:00:00Z", "status": "pool", "watched_at": null }
+      "added_at": "2026-07-01T00:00:00Z", "status": "pool", "watched_at": null,
+      "tags": ["halloween"] }        // OPTIONAL (see section 0): normalised tag keys.
+                                     // Absent = no tags.
   ],
 
   "standing_votes": [
@@ -219,7 +253,10 @@ re-derived from the amended text:
 
   "vetoes":     [ { "user_id": "u4", "movie_id": "m1" } ],
   "pair_votes": [ { "user_id": "u1", "movie_a_id": "m1", "movie_b_id": "m2", "winner_id": "m1" } ],
-  "random_seed": "seed-001"
+  "random_seed": "seed-001",
+  "round_theme": "halloween"         // OPTIONAL (see section 0): the round's theme as a
+                                     // normalised tag key. Absent or null = an ordinary
+                                     // night. Only V048 uses this.
 }
 ```
 
@@ -256,6 +293,10 @@ re-derived from the amended text:
   comparable without a round table.
 * **`random_seed`** is provided so seeded tiebreaks are reproducible. Its
   *interpretation* is implementation-defined — see §3.
+* **`round_theme`**, when set, removes every movie whose `tags` do not include it
+  before anything else is evaluated: such a movie is not eligible, is never
+  tallied, and can be neither a finalist nor a winner. Matching is exact on the
+  key; a movie carrying a *different* tag is excluded like one carrying none.
 
 ---
 
@@ -302,7 +343,8 @@ re-derived from the amended text:
   values plus `copeland`: the two chains are built from the same tie-breakers and
   differ only in where the star sits (above approval here, below it there).
 * **`reason`** enum for `ineligible_movies`:
-  `status_not_pool`, `coverage_below_floor`. (`attendee_votes_below_minimum` was
+  `status_not_pool`, `coverage_below_floor`, `missing_round_theme` (section 0:
+  its `coverage` / `attendee_votes` are diagnostics of a tally that never runs). (`attendee_votes_below_minimum` was
   the third value and is retired — see section 0. Vectors list every failing
   reason they intend to assert, so a movie can still carry more than one.)
 * **`decided_by`** enum:
@@ -351,7 +393,7 @@ re-derived from the amended text:
 
 ## 3. The rules these vectors encode (restated verbatim-equivalent)
 
-**Eligibility** — `status == "pool"` and
+**Eligibility** — `status == "pool"`, the round's theme tag when it has one, and
 `coverage = attendee_votes / attendees >= COVERAGE_FLOOR`, where
 `attendee_votes` counts attendees holding a standing vote row (yes *or* no) on
 that movie. There is no separate floor on the raw count (section 0).
@@ -450,7 +492,7 @@ vectors and named in the affected vector's `rationale`.
 
 ## 5. Index
 
-`vectors/NNN-slug.json`, 47 vectors. Each file's `description` names the exact
+`vectors/NNN-slug.json`, 48 vectors. Each file's `description` names the exact
 spec clause it exercises, `spec_clause` quotes it, and `rationale` shows the
 arithmetic.
 
@@ -503,10 +545,11 @@ arithmetic.
 | V045 | runoff-copeland-and-approval-tie-resolved-by-stars | Copeland 1/1/1 and approval 0.80 all round -> the star rung decides, and `decided_by` is `stars` |
 | V046 | runoff-approval-outranks-stars | approval eliminates the most-starred film of the night, and the rung then picks between the two survivors |
 | V047 | runoff-stars-are-attendee-scoped | two starred yeses from members who are not coming decide nothing; one attendee's star does |
+| V048 | themed-round-deals-only-tagged-films | theme `halloween`: the untagged favourite and a `christmas` film are both ineligible; the one themed film clearing the floor wins outright |
 
 ### Coverage of the interesting discriminators
 
-Twenty-one vectors are built so that a plausible *wrong* implementation produces a
+Twenty-two vectors are built so that a plausible *wrong* implementation produces a
 different documented outcome rather than merely a different number:
 V003/V036 (which divisor), V006 (approval divisor), V007 (absence as "no"),
 V008/V009/V024/V031 (attendee-only), V013 (`>` vs `>=`), V018 (insertion order),
@@ -518,4 +561,5 @@ V044 (a removed member left in the electorate, or their vote rows left in the
 tally), V045 (a runoff chain with no star rung, which falls to rotation fairness
 and a different winner), V046 (a star rung seated above approval instead of below
 it — three readings, three winners), V047 (an absent member's star counted in the
-runoff).
+runoff), V048 (a theme ignored, or any tag accepted for it — three readings, three
+winners).

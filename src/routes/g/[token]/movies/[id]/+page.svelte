@@ -1,6 +1,6 @@
 <!--
-	Movie detail: revise the standing vote at any time, or remove the film.
-	The only vote shown is the viewer's own.
+	Movie detail: revise the standing vote at any time, tag or untag the film, or
+	remove it. The only vote shown is the viewer's own.
 
 	The card pulled out of the deck and turned over: a flat stub, artwork inset in
 	its own ink frame, and your standing answer stamped across the corner in the
@@ -55,6 +55,21 @@
 	const hasNotes = $derived(
 		!!details && (!!details.overview || details.directors.length > 0 || details.cast.length > 0)
 	);
+
+	/**
+	 * THE TAG ROW: every tag this film carries, then every other tag the picker
+	 * offers (the two presets always, then the group's own), as one row of
+	 * toggles. A tag the film carries is latched — pressed flush, inked brass —
+	 * and tapping it takes the tag off; one it does not carry stays raised, and
+	 * tapping it puts the tag on. The latch is the state, exactly as the answer
+	 * pair above.
+	 */
+	const tagRow = $derived([
+		...data.movie.tags.map((tag) => ({ ...tag, on: true })),
+		...data.tagSuggestions
+			.filter((tag) => !data.movie.tags.some((mine) => mine.key === tag.key))
+			.map((tag) => ({ key: tag.key, label: tag.label, on: false }))
+	]);
 </script>
 
 <div class="space-y-5">
@@ -255,6 +270,48 @@
 			{/if}
 		</section>
 	{/if}
+
+	<!-- Tags: public facts like the genres, editable by anyone, at any time — and
+	     the thing a themed night deals by. Each tag is its own little form, so
+	     every tap works with scripting off; the free-text form below covers a tag
+	     nobody has used yet. -->
+	<section class="space-y-2.5">
+		<div>
+			<h3 class="eyebrow text-chalk">Tags</h3>
+			<p class="mt-1 text-xs leading-relaxed text-chalk-dim">
+				Anyone can tag a film. A themed night only deals films that carry its tag.
+			</p>
+		</div>
+		<ul class="flex flex-wrap gap-2">
+			{#each tagRow as tag (tag.key)}
+				<li>
+					<form method="POST" action={tag.on ? '?/untag' : '?/tag'} use:enhance>
+						<input type="hidden" name={tag.on ? 'tag' : 'label'} value={tag.on ? tag.key : tag.label} />
+						<button
+							aria-pressed={tag.on}
+							class="token token-sm {tag.on ? 'token-brass token-latched' : 'token-slot'}"
+						>
+							{#if tag.on}<Check size={12} />{:else}<span aria-hidden="true">+</span>{/if}
+							{tag.label}
+							<span class="sr-only">{tag.on ? ' — tagged, tap to remove' : ' — tap to tag'}</span>
+						</button>
+					</form>
+				</li>
+			{/each}
+		</ul>
+		<form method="POST" action="?/tag" use:enhance class="flex gap-2">
+			<label for="new-tag" class="sr-only">A new tag for this film</label>
+			<input
+				id="new-tag"
+				name="label"
+				maxlength="32"
+				autocomplete="off"
+				placeholder="A new tag — Sci-fi, Comfort watch…"
+				class="field min-w-0 flex-1"
+			/>
+			<button class="token shrink-0">Tag it</button>
+		</form>
+	</section>
 
 	{#if data.movie.status === 'pool'}
 		<form method="POST" action="?/remove" use:enhance>

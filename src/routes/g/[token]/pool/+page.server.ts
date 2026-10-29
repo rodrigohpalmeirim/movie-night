@@ -11,6 +11,7 @@ import { formValue, requireActor } from '$lib/server/http.js';
 import { statusOf, type Failure } from '$lib/server/result.js';
 import { backfillDetails, mergeDetails } from '$lib/server/services/details.js';
 import { suggestMovie } from '$lib/server/services/movies.js';
+import { openRoundTheme } from '$lib/server/services/tags.js';
 import { buildPoolView } from '$lib/server/services/views.js';
 import { suggestLimiter, tmdbSearchLimiter } from '$lib/server/ratelimit.js';
 import { getTmdb, TmdbUnavailableError } from '$lib/server/tmdb.js';
@@ -38,7 +39,12 @@ export const load: PageServerLoad = async (event) => {
 		token: event.params.token,
 		pool: { ...pool, movies: mergeDetails(pool.movies, filled) },
 		/** So the UI can explain a 503 before the member types anything. */
-		searchAvailable: getTmdb().configured
+		searchAvailable: getTmdb().configured,
+		/**
+		 * Tonight's theme while the round is OPEN: a film suggested now is tagged
+		 * with it on the way in, and the suggest pad says so before anyone taps.
+		 */
+		openTheme: openRoundTheme(actor.db, actor.group.id)
 	};
 };
 
@@ -86,6 +92,10 @@ export const actions: Actions = {
 		if (result.value.kind === 'exists') {
 			redirect(303, `/g/${event.params.token}/movies/${result.value.movie.id}`);
 		}
-		return { added: result.value.kind, title: result.value.movie.title };
+		return {
+			added: result.value.kind,
+			title: result.value.movie.title,
+			themedAs: result.value.themedAs?.label ?? null
+		};
 	}
 };

@@ -24,6 +24,7 @@ import {
 	fairness,
 	groups,
 	members,
+	movieTags,
 	movies,
 	newId,
 	newInviteToken,
@@ -79,12 +80,13 @@ const tables = db.$client
 	.all()
 	.map((row) => row.name)
 	.filter((name) => !name.startsWith('__') && !name.startsWith('sqlite_'));
-ok('all nine tables exist', () =>
+ok('all ten tables exist', () =>
 	assert.deepEqual(tables, [
 		'attendance',
 		'fairness',
 		'groups',
 		'members',
+		'movie_tags',
 		'movies',
 		'pair_votes',
 		'rounds',
@@ -339,6 +341,46 @@ ok('rounds: finalist_ids round-trips as JSON', () => {
 	db.insert(rounds).values({ id, groupId, createdBy: ana, finalistIds: movieIds, state: 'decided' }).run();
 	assert.deepEqual(db.select().from(rounds).where(eq(rounds.id, id)).get()?.finalistIds, movieIds);
 });
+
+/* --- tags and themes --------------------------------------------- */
+
+db.insert(movieTags).values({ movieId: movieIds[0], tag: 'halloween', label: 'Halloween', createdBy: ana }).run();
+rejects('movie_tags: unique (movie_id, tag)', () =>
+	db.insert(movieTags).values({ movieId: movieIds[0], tag: 'halloween', label: 'HALLOWEEN', createdBy: ben }).run());
+// The fold is the service's, but the database refuses a key that skipped it —
+// otherwise "Halloween" could sit beside "halloween" as a second tag on one film.
+rejects('movie_tags: CHECK rejects an unfolded key', () =>
+	db.insert(movieTags).values({ movieId: movieIds[0], tag: 'Halloween', label: 'Halloween', createdBy: ana }).run());
+rejects('movie_tags: CHECK rejects an empty key', () =>
+	db.insert(movieTags).values({ movieId: movieIds[1], tag: '', label: '', createdBy: ana }).run());
+ok('movie_tags: the same tag may sit on many films', () =>
+	db.insert(movieTags).values({ movieId: movieIds[1], tag: 'halloween', label: 'Halloween', createdBy: ben }).run());
+ok('movie_tags: deleting a movie takes its tags with it', () => {
+	const doomed = newId();
+	db.insert(movies).values({ id: doomed, groupId, tmdbId: 77, title: 'Doomed', suggestedBy: ana }).run();
+	db.insert(movieTags).values({ movieId: doomed, tag: 'sci-fi', label: 'Sci-fi', createdBy: ana }).run();
+	db.delete(movies).where(eq(movies.id, doomed)).run();
+	assert.equal(db.select().from(movieTags).where(eq(movieTags.movieId, doomed)).all().length, 0);
+});
+
+ok('rounds: a theme is a folded key and a label, or neither', () => {
+	const themed = newId();
+	db.insert(rounds)
+		.values({ id: themed, groupId, createdBy: ana, state: 'abandoned', theme: 'halloween', themeLabel: 'Halloween' })
+		.run();
+	const row = db.select().from(rounds).where(eq(rounds.id, themed)).get();
+	assert.equal(row?.theme, 'halloween');
+	assert.equal(row?.themeLabel, 'Halloween');
+});
+rejects('rounds: CHECK rejects a theme without its label', () =>
+	db.insert(rounds).values({ id: newId(), groupId, createdBy: ana, state: 'abandoned', theme: 'halloween' }).run());
+rejects('rounds: CHECK rejects a label without its theme', () =>
+	db.insert(rounds).values({ id: newId(), groupId, createdBy: ana, state: 'abandoned', themeLabel: 'Halloween' }).run());
+rejects('rounds: CHECK rejects an unfolded theme key', () =>
+	db
+		.insert(rounds)
+		.values({ id: newId(), groupId, createdBy: ana, state: 'abandoned', theme: 'Halloween', themeLabel: 'Halloween' })
+		.run());
 
 ok('fairness: one row per member, never-won is null', () => {
 	db.insert(fairness).values({ memberId: ana, lastWinRoundId: null, lastWinAt: null, winsCount: 0 }).run();

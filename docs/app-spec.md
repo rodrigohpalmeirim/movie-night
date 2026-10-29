@@ -174,6 +174,30 @@ fetched, details are never refreshed: they are facts about a finished film.
 These are public facts and touch no tally, so they are serialized with the movie
 wherever it appears and carry no phase gate.
 
+### Tags
+
+Films carry **free-form, group-scoped tags** — "Halloween", "Sci-fi", "Ana's birthday".
+Like everything else here they are trust-based: any member can put a tag on any film, or
+take one off, from the film's detail screen, at any time, one tap each. There is no tag
+administration — a tag exists while some film carries it.
+
+- **One tag, many spellings.** Input is trimmed and its whitespace collapsed, then
+  compared **case-folded**, so "halloween", " Halloween " and "HALLOWEEN" are one tag and
+  a film can never carry it twice. The fold is the display-name convention, down to the
+  detail: ASCII-only, like SQLite's `lower()`, which the database uses to check that a
+  stored key is folded. Each tag keeps a **display label** — the group's first spelling,
+  reused whenever the key is typed again, so one tag prints one way across the group.
+  1–32 characters.
+- **Two presets: Halloween and Christmas.** They are offered in every tag picker and every
+  theme picker even before any film carries them, they always print their own spelling,
+  and they are the only tags that dress the table (see *Themed nights*, under Rounds).
+  Every other tag is just as usable as a theme; it gets its label and nothing more.
+- **Public facts, like the details.** Tags are serialized with the movie wherever it
+  appears and carry no phase gate. Removing or watching a film keeps its tags, so a film
+  that comes back comes back tagged.
+- **They touch no tally**, with one exception: a *themed* round deals only the films
+  carrying its theme (voting spec, Eligibility → Themed rounds).
+
 ### Pool screen
 
 The pool is a browsable list: poster, title, year, runtime, suggested-by, and **the
@@ -185,6 +209,13 @@ details — tagline, rating badge, genre chips, story, director, top cast — an
 prominent "Watch trailer" link when there is one.
 
 Unswiped movies surface as a swipe stack ("3 to swipe") pinned at the top.
+
+Each row prints the film's tags, and once any film carries one, a row of tag tokens under
+the header filters the list to a single tag ("All", "Halloween", "Sci-fi", …). The filter
+is a plain link (`?tag=<key>`), so it works without JavaScript and survives a reload; the
+active one sits latched. The detail screen is where tags are edited: the film's own tags
+are latched toggles (tap to take one off), the presets and the group's other tags are raised
+ones (tap to put one on), and a field adds a tag nobody has used yet.
 
 ### Removing
 
@@ -213,7 +244,8 @@ without one — "Deal the night again" on the no-winner reveal — for exactly o
 that round decided nothing, so the tap discards nothing. See `DECIDED` below.
 
 Creating one is the exception that is *not* on the round screen: the app has exactly one
-round-creating button, "Start a movie night" on the lobby, plus the one named carve-out
+round-creating button, "Start a movie night" on the lobby (with its "Themed night?" picker —
+see *Themed nights* below), plus the one named carve-out
 under `DECIDED` — "Deal the night again", which closes a night that picked nothing and
 deals the next in the same tap. Since the lobby is the home tab only when no night is in
 play, that single button is also the rule that a night is closed before the next is dealt
@@ -237,6 +269,51 @@ the group's evening, and the only one that retires a film. (This revokes an earl
 that refused to abandon a decided round on the grounds that it would erase a night from
 history. What that actually produced was a night nothing could close, whose winner was
 then excluded from every future round for good — a worse lie than the missing entry.)
+
+### Themed nights
+
+A round can be played under **one optional theme tag**. It is chosen on the lobby, above
+"Start a movie night": "Themed night?" offers *No theme* (the default), the two presets,
+every tag the group already uses — each with the number of pool films carrying it, so
+nobody starts a night with an empty table by accident — and *Something else*, a field for
+a tag nobody has used yet (a theme no film carries is legal: its films arrive as they are
+suggested). The picker is a plain radio group posted with the button, so it works without
+JavaScript. The theme is **fixed at creation** and never edited; "Deal the night again"
+carries it over to the round it deals, for the same reason it carries the RSVPs — same
+evening, same people.
+
+What a theme does:
+
+- **Eligibility.** A film must carry the theme tag to be dealt (voting spec, Eligibility →
+  Themed rounds). The filter is applied where the round's candidate set is built, at
+  `OPEN → RUNOFF`; everything after it — coverage, approval, finalists, veto, runoff,
+  tiebreaks, fairness — is unchanged and runs on the narrowed set. Finalists are frozen at
+  that transition, so tagging or untagging a film during the runoff changes nothing.
+- **It shapes `OPEN`.** A film suggested while a themed round is `OPEN` is tagged with the
+  theme on the way in (a new suggestion, a restored one, or a re-watch — not an existing
+  pool film, which is navigation rather than a suggestion), and the suggest sheet says so
+  before anyone taps. The swipe stack deals themed films first, still oldest first among
+  themselves. The round screen prints the theme and the count of themed films on the table
+  ("6 Halloween films on the table"), and its "add a film" door reads "Add a Halloween
+  film". From `RUNOFF` on none of this applies: the night is its frozen finalists.
+- **A short hand warns, never blocks.** When fewer themed films are on the table than a
+  full hand of finalists, "Pick finalists" says so in its confirm step ("Only 3 Halloween
+  films are on the table — fewer than a full hand of finalists. Pick anyway?"; with none at
+  all, that the night can only end with no clear favourite). The one block on that
+  transition stays "nobody is in"; an empty themed table already has its honest ending in
+  "no clear favourite", whose "Deal the night again" keeps the theme.
+- **The presets dress the table.** On a Halloween or Christmas night the round screen and
+  the reveal get a themed palette — the felt and the brass plate swap as a set (midnight
+  violet and pumpkin; evergreen and gilt), pinned to the default felt's luminance so every
+  measured contrast survives — and a die-cut ornament lies on the table: a jack-o'-lantern
+  or a sprig of holly by the headline, and tucked into the winner's stub opposite the
+  PICKED seal. Halloween alone also strings chalk cobwebs in the screen's top corners and
+  lowers a die-cut spider on a thread, swaying slowly (still under reduced motion), in a
+  band of its own above the content so it never sits on text or a control. It is a
+  `data-theme` attribute overriding app.css's custom properties, like
+  the per-section felts. Custom themes get no palette, only their label — a chip ("Sci-fi
+  night") on the round screen and the reveal. History prints the chip on a themed night's
+  stub, preset or not.
 
 ### Attendance (default out)
 
@@ -266,7 +343,8 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   lobby, not a dead end. Because suggestions and swipes are standing, it leads with what a
   member can do this minute: the size of the pool ("14 films on the table"), a link to the
   suggest sheet, and their own swipe stack when they have one. "Start a movie night" sits
-  below those, framed as the move you make when the group is together. A cancelled round
+  below those, framed as the move you make when the group is together, with the "Themed
+  night?" picker above it. A cancelled round
   gets this exact lobby with no marker of its own: the cancellation was news in the group
   chat the evening it happened, and the abandon confirm step already said what was
   discarded — the screen doesn't keep re-announcing it. A watched one gets it too: the
@@ -277,7 +355,8 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   for the member whose stack is empty. The transition button shows readiness ("2 of 5
   attendees have unswiped movies"). Any member may close the round to runoff regardless —
   the coverage floor already protects under-seen movies, which simply wait for next
-  round.
+  round. A themed night also prints its theme and its count of themed films, tags new
+  suggestions and deals its films first (see *Themed nights*).
 - **RUNOFF** — computed per the voting spec. If exactly one movie clears the approval
   floor, skip to `DECIDED`; if none, the round ends in a distinct
   `DECIDED`-with-no-winner presentation ("no clear favourite — add suggestions?").
@@ -305,17 +384,19 @@ tap. One attendee is enough; nothing here scales the requirement with group size
   full-width button in the same bottom position: **"Deal the night again"**, which files
   this night away exactly as abandoning does (no History entry, the table untouched,
   nobody's turn spent) *and* opens a fresh `OPEN` round — one tap, one transaction —
-  landing straight back on "Tonight's the night". The slot above it keeps its "Add some
-  suggestions", because the table is what needs filling. Two things about it are
+  landing straight back on "Tonight's the night" — under the same theme, if the night had
+  one. The slot above it keeps its "Add some suggestions", because the table is what needs
+  filling. Two things about it are
   deliberate, and both are exceptions to rules stated above:
   - **No confirm step** — the only transition button in the app without one. A no-winner
     round reached `DECIDED` *straight from `OPEN`*: nothing cleared the approval floor, so
     there was never a runoff, so not one veto or pair vote exists on it to discard. Nothing
     is lost and nothing is one-way, so a guard here would be guarding nothing — and the
     reality it serves is a group still in the room, wanting another go.
-  - **RSVPs carry over.** Every IN and OUT on the no-pick round, proxy attribution
-    included ("in — marked by Ana"), is copied onto the restarted round: same evening, same
-    people, no re-tapping. Nothing else is carried, and nothing else exists to carry.
+  - **RSVPs carry over, and so does the theme.** Every IN and OUT on the no-pick round,
+    proxy attribution included ("in — marked by Ana"), is copied onto the restarted round,
+    and so is its theme: same evening, same people, no re-tapping. Nothing else is carried,
+    and nothing else exists to carry.
   **No round-creating button appears anywhere on this screen, or on any other but the
   lobby — with that one named exception, "Deal the night again", which closes its own
   night before it deals.** A picked night is not over until one of its two endings is
@@ -337,12 +418,12 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 |---|---|
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
-| **Round** (home tab) | State-dependent: the pool lobby whenever no night is in play — none yet, cancelled, or watched — else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. The reveal lasts until the night is closed, watched or not; after that it is History's, or nobody's. |
-| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. |
+| **Round** (home tab) | State-dependent: the pool lobby whenever no night is in play — none yet, cancelled, or watched — with the "Themed night?" picker above "Start a movie night"; else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. A themed night prints its chip (and, while `OPEN`, the count of themed films on the table); a Halloween or Christmas night also repaints this screen and its reveal and lays its ornament on them. The reveal lasts until the night is closed, watched or not; after that it is History's, or nobody's. |
+| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. During a themed `OPEN` round the theme's films are dealt first. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. Absent where the round was frozen with vetoes off — the route redirects to the pairs rather than dead-ending. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
-| **Pool** (tab) | Browsable pool + own standing votes + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, remove). |
-| **History** (tab) | Past nights, newest first: winner poster, date, suggested-by; expandable to the round's full revealed tally. Watched movies also live here. A night that fell through left no entry to show. |
+| **Pool** (tab) | Browsable pool + own standing votes + tags and a tag filter + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, tag / untag, remove). |
+| **History** (tab) | Past nights, newest first: winner poster, date, suggested-by, and the theme chip on a themed night; expandable to the round's full revealed tally. Watched movies also live here. A night that fell through left no entry to show. |
 | Settings | Group name, knobs, invite link + regenerate, members, "not you?". |
 
 Mobile-first, installable PWA (manifest + icons + theme color). Offline support is not a
@@ -414,6 +495,13 @@ Movie        { id, group_id → Group, tmdb_id, title, year, runtime_min, poster
                -- details null = never fetched successfully; the lazy backfill
                   retries on a later read, outside the retry window
 
+MovieTag     { movie_id → Movie, tag, label, created_by → Member, created_at }
+               -- unique (movie_id, tag); CHECK tag = lower(tag) and non-empty
+               -- tag = the folded key (trimmed, single-spaced, ASCII-lowercased);
+                  label = as printed, the group's first spelling of that key
+               -- group-scoped through the movie; deleted with it, kept when it is
+                  removed or watched
+
 StandingVote { member_id, movie_id, value: yes | no, starred: bool, updated_at }
                -- unique (member_id, movie_id); absence = not yet seen
                -- starred = an UPGRADED yes (voting spec, Phase 1 → Stars);
@@ -424,8 +512,11 @@ Round        { id, group_id → Group, state: open | runoff | decided | watched 
                created_at, created_by → Member,
                finalist_ids[], winner_id | null,        -- null in decided = no clear favourite
                tiebreak_rule_used | null, random_seed,
+               theme | null, theme_label | null,      -- one tag key + its label, or neither
                decided_at, watched_at }
                -- at most one round per group with state < decided (partial unique index)
+               -- theme fixed at creation, copied by "Deal the night again"; the label
+                  is stored so History can still print it once no film carries the tag
 
 Attendance   { round_id, member_id, attending: bool, updated_at,
                updated_by → Member,                   -- self, or whoever proxy-RSVPed
@@ -465,7 +556,9 @@ POST  claim-member { name | member_id }  → sets cookie
 GET   events                             → SSE stream; emits an invalidation ping on
                                            every write in the group, no payload
 GET   round                              → current round, my RSVP, my pending work
-POST  round/create | advance | abandon | watched
+POST  round/create { theme? } | advance | abandon | watched
+                                         theme: a tag label, blank = none (the lobby
+                                         posts `theme=__new` + `theme_new` for a new one)
 POST  round/rsvp { member_id, attending }  → self or proxy; records who set it
 POST  round/veto { movie_id | null }
 POST  round/pair { a, b, winner | null }
@@ -476,6 +569,8 @@ POST  movies { tmdb_id }                 → suggest (one server-side detail cal
 POST  movies/[id]/vote { value?, starred? }  → standing-vote upsert; `starred` is
                                            the star flag on a yes (star ⇒ yes)
 POST  movies/[id]/remove
+POST  movies/[id] ?/tag { label } | ?/untag { tag }  → any member; normalised and
+                                           idempotent (form actions on the detail screen)
 GET   history
 POST  settings { ... } | settings/regenerate-link
       settings members: rename self, remove member, restore member (form actions)
@@ -486,6 +581,8 @@ Server-side rules the API must enforce (beyond DB constraints):
 - Aggregates are **never** serialized to the client before the round is `decided` —
   hidden tallies are enforced at the API layer, not by UI omission.
 - Phase-gated writes: vetoes/pairs accepted only in `runoff`, RSVP only before `decided`.
+  Tag edits are deliberately *not* gated — a themed round reads tags once, at
+  `OPEN → RUNOFF`, so no later edit can reach it.
   A veto is additionally refused when the round's frozen knobs have vetoes off — the
   round's own snapshot decides, never the group's current setting.
 - Transition guards: leaving `OPEN` or `RUNOFF` requires at least one attendee — a

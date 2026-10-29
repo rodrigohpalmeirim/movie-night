@@ -17,8 +17,11 @@
  * the spec gave stars a *runoff* rung as well, directly below approval, revoking
  * its own "Stars play no part in Phase 2" guarantee; no existing vector reaches
  * the cycle chain with a star to its name, so again no expected value moved, and
- * three new vectors (V045-V047) pin the new rung. Every edit is dated and
- * explained in spec-tests/README.md §0; every other vector is untouched.
+ * three new vectors (V045-V047) pin the new rung. On 2026-10-29 the spec added
+ * themed rounds — a round may name one tag, and then only films carrying it are
+ * eligible — which changed no existing vector (none names a theme) and is pinned
+ * by V048. Every edit is dated and explained in spec-tests/README.md §0; every
+ * other vector is untouched.
  *
  * Mapping notes (adapter concerns only, no semantics invented):
  *   - `random_seed` is a *string* in the vectors and the seed→choice mapping is
@@ -36,6 +39,10 @@
  *     The tally module is pure and takes an attendee set; "who is still in the
  *     group" is the caller's question, and the spec defines removal as an effect
  *     on that set rather than as a new tally rule.
+ *   - `input.round_theme` is applied HERE too, exactly as the server applies it
+ *     (`planAdvance`): films not carrying the theme are left out of the movies the
+ *     tally is handed, because the spec defines the theme as a filter on what is
+ *     dealt and not as a tally rule. `movies[].tags` are already-normalised keys.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -95,6 +102,8 @@ interface Vector {
 			added_at: string;
 			status: string;
 			watched_at: string | null;
+			/** Normalised tag keys. Absent = no tags. */
+			tags?: string[];
 		}>;
 		standing_votes: Array<{
 			user_id: string;
@@ -106,6 +115,8 @@ interface Vector {
 		vetoes: Array<{ user_id: string; movie_id: string | null }>;
 		pair_votes: Array<{ user_id: string; movie_a_id: string; movie_b_id: string; winner_id: string | null }>;
 		random_seed: string;
+		/** The round's theme, as a normalised tag key; absent or null = an ordinary night. */
+		round_theme?: string | null;
 	};
 	expected: {
 		eligible_movie_ids: string[] | null;
@@ -293,7 +304,23 @@ const SETTLED_BY_SPEC_AMENDMENT = {
 	 *   0 with 0 and is skipped. V045-V047 pin the rung, its position below
 	 *   approval, and its attendee scope. See spec-tests/README.md §0.
 	 */
-	STARS_IN_THE_RUNOFF: 'added: star rung directly below approval in Phase 2; the old "no part in Phase 2" guarantee is revoked'
+	STARS_IN_THE_RUNOFF: 'added: star rung directly below approval in Phase 2; the old "no part in Phase 2" guarantee is revoked',
+
+	/**
+	 * Themed rounds (2026-10-29).
+	 *
+	 * Amended spec: "A movie is eligible if `status = pool`, it carries the round's
+	 * theme tag when the round has one ..." and, under Themed rounds, "The theme is
+	 * a filter, not a rule. Everything after it ... is unchanged and operates on
+	 * the narrowed set."
+	 *
+	 * → ADDED, as a filter on the candidate set applied by the caller (the server's
+	 *   `planAdvance`, this file's `toMovies`), so the pure tally is untouched. No
+	 *   existing vector names a theme, so the filter is a no-op across V001-V047;
+	 *   V048 pins it, with two wrong readings (theme ignored; any tag qualifying)
+	 *   each giving a different documented winner.
+	 */
+	THEMED_ROUNDS: 'added: a themed round deals only films carrying its tag; a caller-side filter, no tally rule moved'
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -307,7 +334,10 @@ const SETTLED_BY_SPEC_AMENDMENT = {
  */
 const REASON_MAP = {
 	status_not_pool: 'not_in_pool',
-	coverage_below_floor: 'coverage_floor'
+	coverage_below_floor: 'coverage_floor',
+	// Not a tally reason: a film without the theme never reaches the tally at all.
+	// `failedReasons` derives it from the vector's own tags.
+	missing_round_theme: 'missing_round_theme'
 } as const;
 
 function ms(iso: string | null): number | null {
@@ -347,8 +377,15 @@ function toAttendeeIds(v: Vector): MemberId[] {
 		.map((row) => row.user_id);
 }
 
+/** Does this film carry the round's theme? Always, on an ordinary night. */
+function carriesTheme(v: Vector, movieId: MovieId): boolean {
+	const theme = v.input.round_theme ?? null;
+	if (theme === null) return true;
+	return v.input.movies.find((m) => m.id === movieId)?.tags?.includes(theme) ?? false;
+}
+
 function toMovies(v: Vector): MovieInput[] {
-	return v.input.movies.map((m) => ({
+	return v.input.movies.filter((m) => carriesTheme(v, m.id)).map((m) => ({
 		id: m.id,
 		runtimeMin: m.runtime_min,
 		suggestedBy: m.suggested_by,
@@ -486,11 +523,13 @@ function decideRound(v: Vector, seedOverride?: number): RoundOutcome {
 function failedReasons(v: Vector, movieId: MovieId): string[] {
 	const config = toConfig(v);
 	const attendees = toAttendeeIds(v).length;
-	const tally = decideRound(v).phase1.tallies.find((t) => t.movieId === movieId)!;
+	const tally = decideRound(v).phase1.tallies.find((t) => t.movieId === movieId);
 	const movie = v.input.movies.find((m) => m.id === movieId)!;
 	const reasons: string[] = [];
+	if (!carriesTheme(v, movieId)) reasons.push('missing_round_theme');
 	if (movie.status !== 'pool') reasons.push('not_in_pool');
-	if (!(tally.attendeeVotes + 1e-9 >= config.coverageFloor * attendees) || attendees === 0) {
+	// A film filtered out by the theme has no tally to read a coverage from.
+	if (tally && (!(tally.attendeeVotes + 1e-9 >= config.coverageFloor * attendees) || attendees === 0)) {
 		reasons.push('coverage_floor');
 	}
 	return reasons;
@@ -503,10 +542,10 @@ const sorted = (ids: readonly string[]) => [...ids].sort();
 /* ------------------------------------------------------------------ */
 
 describe('spec vectors (independently derived from docs/voting-spec.md)', () => {
-	it('found all 47 vector files', () => {
-		expect(vectors.length).toBe(47);
+	it('found all 48 vector files', () => {
+		expect(vectors.length).toBe(48);
 		expect(vectors.map((v) => v.id)).toEqual(
-			Array.from({ length: 47 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
+			Array.from({ length: 48 }, (_, i) => `V${String(i + 1).padStart(3, '0')}`)
 		);
 	});
 
@@ -717,6 +756,23 @@ describe('spec vectors (independently derived from docs/voting-spec.md)', () => 
 		expect(got.runoff!.veto.disqualifiedIds).toEqual([]);
 	});
 
+	it('V048 — both documented wrong readings of the theme really pick other films', () => {
+		const v = vectors.find((x) => x.id === 'V048')!;
+		expect(decideRound(v).winnerId).toBe('m2');
+		// Theme ignored: the untagged favourite is dealt and wins the runoff.
+		const ignored: Vector = { ...v, input: { ...v.input, round_theme: null } };
+		expect(decideRound(ignored).winnerId).toBe('m1');
+		// Any tag qualifies: the Christmas film is dealt and wins the runoff.
+		const anyTag: Vector = {
+			...v,
+			input: {
+				...v.input,
+				movies: v.input.movies.map((m) => ((m.tags ?? []).length > 0 ? { ...m, tags: ['halloween'] } : m))
+			}
+		};
+		expect(decideRound(anyTag).winnerId).toBe('m4');
+	});
+
 	it('records the adjudication registry, so it shows up in test output', () => {
 		// (b) fields withheld because a vector contradicts the spec or itself.
 		expect(Object.keys(FIELD_NOT_ASSERTED)).toEqual([
@@ -732,7 +788,8 @@ describe('spec vectors (independently derived from docs/voting-spec.md)', () => 
 			'VETO_FLIP_FEEDBACK',
 			'MIN_ATTENDEE_VOTES_REMOVED',
 			'STARS_AND_MEMBER_REMOVAL',
-			'STARS_IN_THE_RUNOFF'
+			'STARS_IN_THE_RUNOFF',
+			'THEMED_ROUNDS'
 		]);
 	});
 });

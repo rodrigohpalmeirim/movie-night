@@ -25,6 +25,9 @@ import {
 import { buildLobbyView, buildRoundView, unsubmittedAttendees } from '$lib/server/services/views.js';
 import type { Actions, PageServerLoad } from './$types';
 
+/** The theme picker's "type a new one" option; see `createRound` below. */
+const NEW_THEME = '__new';
+
 function reject(failure: Failure) {
 	return formFail(statusOf(failure), { code: failure.code, message: failure.message });
 }
@@ -66,13 +69,21 @@ export const actions: Actions = {
 	 * posts here. The service is the looser of the two on purpose (it refuses only an
 	 * *active* round, so a decided one does not lock the group out of ever dealing
 	 * again); which screens ask is the app's rule, and it is one screen.
+	 *
+	 * "Themed night?" posts the chosen tag as `theme` (blank = none). The one option
+	 * that is not a tag yet is "something else", which posts `theme=__new` and the
+	 * typed words as `theme_new` — so the picker is a plain radio group that works
+	 * with scripting off.
 	 */
 	createRound: async (event) => {
 		const actor = requireActor(event);
+		const data = await event.request.formData();
+		const picked = formValue(data, 'theme');
 		const result = createRound({
 			db: actor.db,
 			groupId: actor.group.id,
 			actorId: actor.member.id,
+			theme: picked === NEW_THEME ? (formValue(data, 'theme_new') ?? '') : picked,
 			now: actor.now
 		});
 		return result.ok ? { roundId: result.value.id } : reject(result);

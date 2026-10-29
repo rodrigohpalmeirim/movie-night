@@ -12,6 +12,10 @@
  *   - 5 members with staggered join dates (rotation fairness measures never-won
  *     members from their join date, so the dates have to differ).
  *   - 12 pool movies + 1 removed + 2 watched, all from HARDCODED TMDB fixtures.
+ *   - A handful of tags on them — the Halloween preset on three films and a
+ *     custom "Sci-fi" on four — so the pool's tag filter and the lobby's
+ *     "Themed night?" picker have something to offer. Christmas is left on
+ *     nothing, which is worth seeing too: presets are offered regardless.
  *     Nothing here touches the TMDB API: the movies go in through the real
  *     `suggestMovie` service with a `TmdbClient` whose `fetchImpl` serves the
  *     fixtures, so ids, titles, years, runtimes and poster paths are real and
@@ -59,6 +63,7 @@ import { findGroupByToken } from '../src/lib/server/context.js';
 import { unwrap } from '../src/lib/server/result.js';
 import { claimMember, createGroup } from '../src/lib/server/services/groups.js';
 import { removeMovie, setStandingVote, suggestMovie } from '../src/lib/server/services/movies.js';
+import { addMovieTag } from '../src/lib/server/services/tags.js';
 import {
 	advanceRound,
 	castPairVote,
@@ -292,6 +297,7 @@ function wipeGroup(db: Db, inviteToken: string): boolean {
 		}
 		// Cascades attendance, vetoes and pair votes.
 		inner.delete(rounds).where(eq(rounds.groupId, group.id)).run();
+		// Cascades the movies' tags — before the members their `created_by` names.
 		inner.delete(movies).where(eq(movies.groupId, group.id)).run();
 		inner.delete(members).where(eq(members.groupId, group.id)).run();
 		inner.delete(groups).where(eq(groups.id, group.id)).run();
@@ -397,6 +403,35 @@ const movieByTitle = (title: string): Movie => {
 	if (!found) throw new Error(`no movie titled ${title}`);
 	return found;
 };
+
+/* --- tags ---------------------------------------------------------- */
+
+/**
+ * Tags touch no ordinary night, so none of the self-checks below move — tonight's
+ * round is unthemed. The spellings are deliberately untidy ("sci-fi " after
+ * "Sci-fi") to show the fold at work: one tag, printed the first way it was typed.
+ */
+const TAGS: Array<[title: string, label: string, by: MemberName]> = [
+	['The Thing', 'Halloween', 'Ben'],
+	['Alien', 'halloween', 'Eve'],
+	['Coco', 'Halloween', 'Eve'],
+	['The Matrix', 'Sci-fi', 'Cal'],
+	['Arrival', 'sci-fi ', 'Ana'],
+	['Blade Runner 2049', 'Sci-Fi', 'Dee'],
+	['Alien', 'SCI-FI', 'Eve']
+];
+for (const [title, label, by] of TAGS) {
+	unwrap(
+		addMovieTag({
+			db,
+			groupId: group.id,
+			movieId: movieByTitle(title).id,
+			label,
+			actorId: member(by).id,
+			now: daysAgo(3)
+		})
+	);
+}
 
 /* --- standing votes ------------------------------------------------ */
 

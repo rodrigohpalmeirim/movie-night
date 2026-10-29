@@ -275,6 +275,42 @@
 		--color-felt-line: #703962;
 	}
 
+	/* ── Themed nights ─────────────────────────────────────────────────
+	   A round played under one of the two preset themes repaints its own
+	   table: the round screen stamps `data-theme` on its wrapper while that
+	   round is in play (open, runoff, and the reveal), and these swap the felt
+	   trio AND the brass plate as a set — the same mechanism as `data-felt`,
+	   declared after it so a themed night wins on the round's own table. Custom
+	   tags get no palette (see `themePalette` in $lib/tags.ts): just the chip.
+
+	   Same discipline as the tables above, so every measured contrast survives
+	   the costume. The felt trio is pinned to oxblood's luminance (lum(felt) ≈
+	   0.021, felt-deep ≈ 0.008, felt-line ≈ 0.074): chalk ~11.9:1, cherry ~4.2:1.
+	   Brass keeps its job (go forward) and its type (ink on the plate) and only
+	   changes hue — pumpkin or gilt — staying clear of cherry's vermilion so a
+	   forward move never reads as a no: ink on pumpkin 8.3:1, ink on gilt
+	   10.8:1. Jade and cherry, the yes and the no, never change.
+
+	     halloween — midnight violet, pumpkin brass; and, Halloween alone, corner
+	                 cobwebs and a spider on a thread (HalloweenDecor.svelte —
+	                 chalk on the felt, in a band of its own above the content)
+	     christmas — evergreen, gilt brass (the berries are cherry already) */
+	html:has([data-theme='halloween']) {
+		--color-felt: #321959;
+		--color-felt-deep: #1d0e32;
+		--color-felt-line: #5f30a9;
+		--color-brass: #f59b2f;
+		--color-brass-deep: #a85a12;
+	}
+
+	html:has([data-theme='christmas']) {
+		--color-felt: #0b2e20;
+		--color-felt-deep: #061a12;
+		--color-felt-line: #14583c;
+		--color-brass: #f2c14e;
+		--color-brass-deep: #a3801c;
+	}
+
 	::selection {
 		background: var(--color-brass);
 		color: var(--color-ink);
@@ -483,6 +519,22 @@
 	.token-latch-cherry:has(input:checked) {
 		--token-fill: var(--color-cherry);
 		--token-edge: var(--color-cherry-deep);
+	}
+
+	/* A choice that is neither yes nor no — which theme tonight is played under —
+	   latches in the forward ink. The options that are not chosen are felt
+	   slots (chalk type, board-shade edge), so the chosen one states the whole
+	   brass plate outright — ink type, ink edge, ink lip — rather than inherit a
+	   slot's printing on a brass face. */
+	.token-latch-brass:has(input:checked) {
+		--token-fill: var(--color-brass);
+		--token-edge: var(--color-brass-deep);
+		--token-text: var(--color-ink);
+		--token-press-shadow:
+			0 0 0 0 var(--token-edge),
+			0 0 0 0 var(--token-edge),
+			1px 2px 0 0 var(--color-ink);
+		border-color: var(--color-ink);
 	}
 
 	/* The same latch on a whole pressable row whose state is carried by a

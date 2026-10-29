@@ -36,6 +36,14 @@ import {
 	type TiebreakRule
 } from '../db/index.js';
 import { memberSeed, seededShuffle, type HeadToHead, type Matchup, type MovieId } from '../../tally/index.js';
+import type { TagRef } from '../../tags.js';
+import {
+	countPoolFilmsTagged,
+	groupTagSummaries,
+	loadMovieTags,
+	roundTheme,
+	type TagSummary
+} from './tags.js';
 import {
 	evaluateRunoff,
 	getCurrentRound,
@@ -75,13 +83,22 @@ export interface MovieCard {
 	 * back prints, the pool row and the reveal may print too.
 	 */
 	details: MovieDetails | null;
+	/**
+	 * The group's tags on this film ("Halloween", "Sci-fi"), by label. Public facts
+	 * like `details` — anyone may add or remove one — so they ride with the movie
+	 * everywhere and carry no phase gate. Removed and watched films keep theirs.
+	 */
+	tags: TagRef[];
 }
 
 function memberRef(member: Member | undefined): MemberRef | null {
 	return member ? { id: member.id, displayName: member.displayName } : null;
 }
 
-function movieCard(movie: Movie, byId: Map<string, Member>): MovieCard {
+/** `loadMovieTags`' answer, read by every view that prints a card. */
+type TagIndex = Map<string, TagRef[]>;
+
+function movieCard(movie: Movie, byId: Map<string, Member>, tags: TagIndex): MovieCard {
 	return {
 		id: movie.id,
 		tmdbId: movie.tmdbId,
@@ -93,7 +110,8 @@ function movieCard(movie: Movie, byId: Map<string, Member>): MovieCard {
 		addedAt: movie.addedAt.toISOString(),
 		status: movie.status,
 		watchedAt: movie.watchedAt?.toISOString() ?? null,
-		details: movie.details ?? null
+		details: movie.details ?? null,
+		tags: tags.get(movie.id) ?? []
 	};
 }
 
@@ -242,9 +260,31 @@ export interface RevealView {
 	};
 }
 
+/**
+ * The night's theme, when it has one. A config fact about the round, like
+ * `vetoesEnabled` — it says nothing about how anyone voted.
+ */
+export interface RoundThemeView extends TagRef {
+	/**
+	 * "6 Halloween films on the table": pool films carrying the theme right now.
+	 * Inventory, exactly like the lobby's pool size — counted only while OPEN,
+	 * which is when the table can still change; null afterwards, because from
+	 * RUNOFF on the night is its frozen finalists and nothing else.
+	 */
+	filmsOnTable: number | null;
+	/**
+	 * Fewer themed films than a full hand of finalists. "Pick finalists" warns in
+	 * its confirm step and never blocks: a short hand still plays, and a hand of
+	 * none already has an honest ending ("no clear favourite").
+	 */
+	thin: boolean;
+}
+
 export interface RoundView {
 	id: string;
 	state: RoundState;
+	/** Null for an ordinary night. Fixed at creation; see `RoundThemeView`. */
+	theme: RoundThemeView | null;
 	createdAt: string;
 	closesAt: string | null;
 	createdBy: MemberRef | null;
@@ -327,6 +367,7 @@ export function buildRoundView(input: {
 	if (!round) return null;
 
 	const byId = memberIndex(db, group.id);
+	const tags = loadMovieTags(db, group.id);
 	const roster = currentMembers(db, group.id);
 	// Participation is a question about the present, so every count below is over
 	// CURRENT members. A removed member's attendance row is left in the table (it is
@@ -374,8 +415,11 @@ export function buildRoundView(input: {
 			? null
 			: orderedFinalistIds.flatMap((id) => {
 					const movie = finalistById.get(id);
-					return movie ? [movieCard(movie, byId)] : [];
+					return movie ? [movieCard(movie, byId, tags)] : [];
 				});
+
+	const theme = roundTheme(round);
+	const themedOnTable = theme && round.state === 'open' ? countPoolFilmsTagged(db, group.id, theme.key) : null;
 
 	const myRsvp = rsvpByMember.get(me.id);
 	const iAmAttending = myRsvp?.attending === true;
@@ -436,6 +480,13 @@ export function buildRoundView(input: {
 	return {
 		id: round.id,
 		state: round.state,
+		theme: theme
+			? {
+					...theme,
+					filmsOnTable: themedOnTable,
+					thin: themedOnTable !== null && themedOnTable < input.config.n_finalists
+				}
+			: null,
 		createdAt: round.createdAt.toISOString(),
 		closesAt: round.closesAt?.toISOString() ?? null,
 		createdBy: memberRef(byId.get(round.createdBy)),
@@ -456,7 +507,7 @@ export function buildRoundView(input: {
 		me: meView,
 		transitions,
 		// ── the one and only place an aggregate enters a payload ──
-		reveal: revealed ? buildRevealView({ db, group, round, byId }) : null
+		reveal: revealed ? buildRevealView({ db, group, round, byId, tags }) : null
 	};
 }
 
@@ -475,9 +526,11 @@ export function buildRevealView(input: {
 	group: Group;
 	round: Round;
 	byId?: Map<string, Member>;
+	tags?: TagIndex;
 }): RevealView {
 	const { db, round } = input;
 	const byId = input.byId ?? memberIndex(db, input.group.id);
+	const tags = input.tags ?? loadMovieTags(db, input.group.id);
 	const evaluated = evaluateRunoff({ db, groupId: input.group.id, round });
 
 	const finalistIds = round.finalistIds ?? [];
@@ -489,14 +542,14 @@ export function buildRevealView(input: {
 	const base = {
 		vetoesEnabled: roundVetoesEnabled(round),
 		outcome: (round.winnerId === null ? 'no_clear_favourite' : 'winner') as 'winner' | 'no_clear_favourite',
-		winner: winner ? movieCard(winner, byId) : null,
+		winner: winner ? movieCard(winner, byId, tags) : null,
 		tiebreakRuleUsed: round.tiebreakRuleUsed,
 		randomSeed: round.randomSeed,
 		decidedAt: round.decidedAt?.toISOString() ?? null,
 		watchedAt: round.watchedAt?.toISOString() ?? null,
 		finalists: finalistIds.flatMap((id) => {
 			const movie = finalistById.get(id);
-			return movie ? [movieCard(movie, byId)] : [];
+			return movie ? [movieCard(movie, byId, tags)] : [];
 		})
 	};
 
@@ -566,12 +619,18 @@ export interface LobbyView {
 	poolSize: number;
 	/** How many of those I have never swiped: my own stack, same as the Pool tab's. */
 	unswipedCount: number;
+	/**
+	 * What "Themed night?" offers: the two presets, always, then every tag the
+	 * group uses — each with the number of pool films carrying it, so the picker
+	 * can say how big a themed night's table would be. Inventory, not a tally.
+	 */
+	themes: TagSummary[];
 }
 
 /**
- * One pass over the pool answers both: the same left join `unswipedMovieIds`
- * makes, counted instead of collected, so the lobby costs a single query at any
- * pool size.
+ * One pass over the pool answers both counts: the same left join
+ * `unswipedMovieIds` makes, counted instead of collected, so the lobby's numbers
+ * cost a single query at any pool size (and the theme picker one more).
  */
 export function buildLobbyView(input: { db: Db; group: Group; me: Member }): LobbyView {
 	const rows = input.db
@@ -585,7 +644,8 @@ export function buildLobbyView(input: { db: Db; group: Group; me: Member }): Lob
 		.all();
 	return {
 		poolSize: rows.length,
-		unswipedCount: rows.filter((row) => row.myVote === null).length
+		unswipedCount: rows.filter((row) => row.myVote === null).length,
+		themes: groupTagSummaries(input.db, input.group.id)
 	};
 }
 
@@ -619,6 +679,7 @@ export interface PoolView {
 export function buildPoolView(input: { db: Db; group: Group; me: Member }): PoolView {
 	const { db, group, me } = input;
 	const byId = memberIndex(db, group.id);
+	const tags = loadMovieTags(db, group.id);
 	const rows = db
 		.select({ movie: movies, myVote: standingVotes.value, myStarred: standingVotes.starred })
 		.from(movies)
@@ -631,7 +692,7 @@ export function buildPoolView(input: { db: Db; group: Group; me: Member }): Pool
 		.all();
 
 	const list = rows.map((row) => ({
-		...movieCard(row.movie, byId),
+		...movieCard(row.movie, byId, tags),
 		myVote: row.myVote ?? null,
 		myStarred: row.myStarred === true
 	}));
@@ -651,6 +712,8 @@ export interface HistoryEntry {
 	decidedAt: string | null;
 	watchedAt: string | null;
 	winner: MovieCard | null;
+	/** The night's theme, as it was printed when the round was created. */
+	theme: TagRef | null;
 	/** Already-public tallies: every entry here is `decided` or later. */
 	reveal: RevealView;
 }
@@ -665,6 +728,7 @@ export interface HistoryEntry {
 export function buildHistoryView(input: { db: Db; group: Group; limit?: number }): HistoryEntry[] {
 	const { db, group } = input;
 	const byId = memberIndex(db, group.id);
+	const tags = loadMovieTags(db, group.id);
 	return db
 		.select()
 		.from(rounds)
@@ -673,13 +737,14 @@ export function buildHistoryView(input: { db: Db; group: Group; limit?: number }
 		.limit(input.limit ?? 50)
 		.all()
 		.map((round) => {
-			const reveal = buildRevealView({ db, group, round, byId });
+			const reveal = buildRevealView({ db, group, round, byId, tags });
 			return {
 				roundId: round.id,
 				state: round.state,
 				decidedAt: round.decidedAt?.toISOString() ?? null,
 				watchedAt: round.watchedAt?.toISOString() ?? null,
 				winner: reveal.winner,
+				theme: roundTheme(round),
 				reveal
 			};
 		});

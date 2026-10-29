@@ -18,12 +18,18 @@ import { defineConfig } from 'vitest/config';
 // maps a rung to days. It is shared by the settings page and the settings action
 // precisely BECAUSE it depends on neither, and this project is what keeps that
 // true.
+//
+// `tags.ts` likewise: tag normalisation, the presets and the themed deck order —
+// shared by the tag services, the screens and the seed for exactly that reason,
+// and its fold has to agree with SQLite's `lower()`, which is worth pinning here
+// where nothing else can sneak in.
 export default defineConfig({
 	test: {
 		include: [
 			'src/lib/tally/**/*.test.ts',
 			'src/lib/swipe.test.ts',
-			'src/lib/cooldown.test.ts'
+			'src/lib/cooldown.test.ts',
+			'src/lib/tags.test.ts'
 		],
 		environment: 'node',
 		reporters: ['default']

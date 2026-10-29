@@ -22,8 +22,10 @@ import {
 import { notifyGroup } from '../events.js';
 import { fail, ok, type Result } from '../result.js';
 import { TmdbUnavailableError, type TmdbClient } from '../tmdb.js';
+import type { TagRef } from '../../tags.js';
+import { addMovieTag, openRoundTheme } from './tags.js';
 
-export type SuggestOutcome =
+export type SuggestOutcome = (
 	/** Freshly added to the pool. */
 	| { kind: 'created'; movie: Movie }
 	/** Already in the pool: "suggesting an existing pool movie just navigates to it". */
@@ -31,7 +33,33 @@ export type SuggestOutcome =
 	/** Was removed; restored with standing votes intact. */
 	| { kind: 'restored'; movie: Movie }
 	/** Watched and past its cooldown; back in the pool with votes as a starting point. */
-	| { kind: 'rewatch'; movie: Movie };
+	| { kind: 'rewatch'; movie: Movie }
+) & {
+	/**
+	 * The theme this suggestion was tagged with, because it landed on the table
+	 * during a themed OPEN round — or null. Never set on `exists`: that is
+	 * navigation to a film already on the table, not a suggestion of one.
+	 */
+	themedAs: TagRef | null;
+};
+
+/**
+ * app-spec (Rounds → themed nights): "films suggested while a themed round is OPEN
+ * get the theme tag automatically". Whoever suggests during a Halloween night is
+ * suggesting for it, and a film that arrives untagged would be dealt into nobody's
+ * night — tonight's filter would drop it. Untagging it afterwards is one tap on the
+ * film's screen, like any tag.
+ *
+ * OPEN only: from RUNOFF on tonight's finalists are frozen, so a tag added then
+ * would change nothing about the night and would just be a surprise on the film.
+ * Silent, because the suggestion itself pings the group.
+ */
+function tagWithOpenTheme(db: Db, groupId: string, movie: Movie, actorId: string, now: Date): TagRef | null {
+	const theme = openRoundTheme(db, groupId);
+	if (theme === null) return null;
+	const tagged = addMovieTag({ db, groupId, movieId: movie.id, label: theme.label, actorId, now, silent: true });
+	return tagged.ok ? tagged.value : null;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -67,7 +95,7 @@ export async function suggestMovie(input: {
 		.get();
 
 	if (existing) {
-		if (existing.status === 'pool') return ok({ kind: 'exists', movie: existing });
+		if (existing.status === 'pool') return ok({ kind: 'exists', movie: existing, themedAs: null });
 
 		if (existing.status === 'removed') {
 			const restored = input.db
@@ -76,8 +104,9 @@ export async function suggestMovie(input: {
 				.where(eq(movies.id, existing.id))
 				.returning()
 				.get();
+			const themedAs = tagWithOpenTheme(input.db, input.groupId, restored, input.actorId, now);
 			notifyGroup(input.groupId);
-			return ok({ kind: 'restored', movie: restored });
+			return ok({ kind: 'restored', movie: restored, themedAs });
 		}
 
 		// status === 'watched'
@@ -103,8 +132,9 @@ export async function suggestMovie(input: {
 			.where(eq(movies.id, existing.id))
 			.returning()
 			.get();
+		const themedAs = tagWithOpenTheme(input.db, input.groupId, revived, input.actorId, now);
 		notifyGroup(input.groupId);
-		return ok({ kind: 'rewatch', movie: revived });
+		return ok({ kind: 'rewatch', movie: revived, themedAs });
 	}
 
 	let detail;
@@ -141,8 +171,9 @@ export async function suggestMovie(input: {
 			})
 			.returning()
 			.get();
+		const themedAs = tagWithOpenTheme(input.db, input.groupId, created, input.actorId, now);
 		notifyGroup(input.groupId);
-		return ok({ kind: 'created', movie: created });
+		return ok({ kind: 'created', movie: created, themedAs });
 	} catch {
 		// Lost a race against another member suggesting the same film; the unique
 		// (group_id, tmdb_id) index caught it, so just navigate to theirs.
@@ -151,7 +182,7 @@ export async function suggestMovie(input: {
 			.from(movies)
 			.where(and(eq(movies.groupId, input.groupId), eq(movies.tmdbId, tmdbId)))
 			.get();
-		if (raced) return ok({ kind: 'exists', movie: raced });
+		if (raced) return ok({ kind: 'exists', movie: raced, themedAs: null });
 		return fail('invalid_input', 'Could not save that movie');
 	}
 }

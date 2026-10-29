@@ -41,6 +41,7 @@ import {
 import { notifyGroup } from '../events.js';
 import { fail, ok, type Result } from '../result.js';
 import { upsertStandingVote } from './movies.js';
+import { moviesTaggedWith, resolveTheme } from './tags.js';
 import {
 	computePhase1,
 	computeRunoff,
@@ -284,18 +285,26 @@ export function getRound(db: Db, groupId: string, roundId: string): Round | unde
  * constraint violation into a useful message.
  *
  * "Creating a round marks nobody as attending" — no attendance rows are written.
+ *
+ * `theme` is the lobby's "Themed night?" answer: blank or absent for an ordinary
+ * night, otherwise one tag (a preset, one the group uses, or a new one). It is
+ * fixed here, for the life of the round — the one thing that may carry it on is
+ * "Deal the night again", which re-deals the same evening.
  */
 export function createRound(input: {
 	db: Db;
 	groupId: string;
 	actorId: string;
 	closesAt?: Date | null;
+	theme?: unknown;
 	now?: Date;
 	seed?: number;
 }): Result<Round> {
 	const now = input.now ?? new Date();
 	const existing = getActiveRound(input.db, input.groupId);
 	if (existing) return fail('active_round_exists', 'This group already has a round in progress');
+	const theme = resolveTheme(input.db, input.groupId, input.theme);
+	if (!theme.ok) return theme;
 
 	try {
 		const round = input.db
@@ -307,7 +316,9 @@ export function createRound(input: {
 				createdAt: now,
 				createdBy: input.actorId,
 				closesAt: input.closesAt ?? null,
-				randomSeed: input.seed ?? newRandomSeed()
+				randomSeed: input.seed ?? newRandomSeed(),
+				theme: theme.value?.key ?? null,
+				themeLabel: theme.value?.label ?? null
 			})
 			.returning()
 			.get();
@@ -416,9 +427,21 @@ export function planAdvance(input: {
 		// on the lobby, which a decided round does not show, and its two exits are "we
 		// watched it" (which retires the film) and "we didn't watch it" (which files
 		// the night as abandoned and hands the film straight back).
+		// A THEMED NIGHT deals only the films carrying its theme (voting-spec,
+		// Eligibility → Themed rounds: "In a themed round a film must also carry that
+		// tag to be eligible"). The filter lives here, where the candidate set is built, rather than
+		// in the tally: to the tally a film without the tag is simply not on tonight's
+		// table, and every rule after it — coverage, approval, finalists, veto, runoff,
+		// tiebreaks, fairness — runs unchanged on what is. Asked once, at the freeze:
+		// the finalists are frozen from here on, so a tag added or removed during the
+		// runoff can never reach this night.
+		const themed = round.theme === null ? null : moviesTaggedWith(db, input.groupId, round.theme);
+		const candidates = loadTallyMovies(db, input.groupId).filter(
+			(movie) => themed === null || themed.has(movie.id)
+		);
 		const phase1 = computePhase1({
 			attendeeIds,
-			movies: loadTallyMovies(db, input.groupId),
+			movies: candidates,
 			standingVotes: liveVotes,
 			config: toTallyConfig(input.config),
 			fairness: loadFairness(db, input.groupId),
@@ -645,8 +668,9 @@ export function abandonRound(input: { db: Db; groupId: string; roundId: string }
  * round: there is nothing to discard, nothing is one-way, and a guard in front of
  * it would only stand between the group and the thing they obviously want.
  *
- * What it deliberately does NOT carry across is anything else. There is nothing
- * else: the vetoes and pair votes that abandoning discards were never cast.
+ * What it deliberately does NOT carry across is anything else but the theme. There
+ * is nothing else: the vetoes and pair votes that abandoning discards were never
+ * cast.
  */
 export function restartRound(input: {
 	db: Db;
@@ -718,7 +742,12 @@ export function restartRound(input: {
 				// A new night gets a new seed: it is what shuffles each member's pairs and
 				// breaks the deepest ties, and re-dealing with the old one would repeat
 				// this evening's coin flips.
-				randomSeed: input.seed ?? newRandomSeed()
+				randomSeed: input.seed ?? newRandomSeed(),
+				// The theme carries over for the same reason the RSVPs do: same evening,
+				// same people, and a Halloween night that picked nothing is still a
+				// Halloween night when it is dealt again.
+				theme: round.theme,
+				themeLabel: round.themeLabel
 			})
 			.returning()
 			.get();

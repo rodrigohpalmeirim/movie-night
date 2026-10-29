@@ -33,6 +33,10 @@ The details the boxes leave out:
 - **Stars are seasoning, not votes.** They never move coverage or approval; they only break ties.
 - **Vetoes block a film for the night, not forever.** A block lasts only as long as someone
   keeps spending their single veto on it, so grudges expire and real objections don't.
+- **Themed nights narrow the table, nothing else.** Anyone can tag a film (Halloween and
+  Christmas are always on offer, anything else is free-form), and a night started with a theme
+  deals only films carrying that tag. Every rule below runs unchanged on what's left — and the
+  two presets dress the table for the occasion.
 - **The diagram hides two shortcuts**: one runaway favourite skips the runoff entirely, and zero
   qualifying films ends in an honest "no clear favourite" instead of a forced pick.
 - **Nothing ever falls to luck or insertion order** until the ladder says so:
@@ -134,17 +138,17 @@ bun run start             # serve the build
 ## Tests and checks
 
 ```sh
-bun run check             # svelte-check: 826 files, 0 errors, 0 warnings
-bun run test              # vitest — tally, cooldown, spec vectors (246 tests)
-bun run test:server       # bun test src/lib/server — services and serialization (289 tests)
+bun run check             # svelte-check: 838 files, 0 errors, 0 warnings
+bun run test              # vitest — tally, cooldown, tags, spec vectors (257 tests)
+bun run test:server       # bun test src/lib/server — services and serialization (312 tests)
 bun run test:all          # both
 ```
 
-The fun one is [`spec-tests/`](spec-tests/README.md): 47 test vectors hand-derived from the
-voting spec alone, by someone who never saw this code, with the arithmetic for every expected
-value written out in the vector itself. They're an audit trail, not fixtures — they're never
+The fun one is [`spec-tests/`](spec-tests/README.md): 48 test vectors hand-derived from the
+voting spec alone — 47 of them by someone who never saw this code — with the arithmetic for
+every expected value written out in the vector itself. They're an audit trail, not fixtures — they're never
 edited to match the implementation, only re-derived when the spec text itself changes, and
-twenty-one of them are built so a *plausible wrong* implementation produces a different
+twenty-two of them are built so a *plausible wrong* implementation produces a different
 documented outcome rather than merely a different number. `spec-vectors.test.ts` is just an
 adapter that runs them against the real tally module.
 

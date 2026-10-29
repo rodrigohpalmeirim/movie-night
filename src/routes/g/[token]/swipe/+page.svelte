@@ -82,6 +82,7 @@
 	import { flushSync, untrack } from 'svelte';
 	import Poster from '$lib/components/Poster.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
+	import ThemeChip from '$lib/components/ThemeChip.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import Check from '$lib/icons/Check.svelte';
@@ -1023,6 +1024,17 @@
 					style="width:{total === 0 ? 0 : (answered.length / total) * 100}%"
 				></div>
 			</div>
+		{/if}
+		{#if data.theme && total > 0 && data.stack.some((card) => card.tags.some((tag) => tag.key === data.theme?.key))}
+			<!-- Why the deck is in this order tonight: a themed night's films are
+			     dealt first, because they are the only ones it can pick from. Said
+			     only when the deck holds one — otherwise there is no order to explain. -->
+			<p class="flex flex-wrap items-center gap-x-2 gap-y-1">
+				<ThemeChip label={data.theme.label} />
+				<span class="stencil text-[0.7rem] text-chalk-dim uppercase"
+					>{data.theme.label} films first</span
+				>
+			</p>
 		{/if}
 	</div>
 

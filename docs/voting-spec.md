@@ -78,7 +78,7 @@ Each round has an explicit attendee set, drawn from the group's **current** memb
 
 ### Eligibility
 
-A movie is eligible if `status = pool` and:
+A movie is eligible if `status = pool`, it carries the round's theme tag when the round has one (see *Themed rounds*, below), and:
 
 ```
 attendee_votes(movie) = attendees with a standing vote on this movie
@@ -94,6 +94,14 @@ The coverage rule is load-bearing in a persistent pool. Without it, a movie adde
 There is deliberately **no** absolute floor on `attendee_votes`. An earlier version of this spec also required `attendee_votes >= 3`, which locked small groups out: with three attendees and one abstention nothing could ever be eligible, and the round ended "no clear favourite" for a reason the group could not fix. Coverage is a *share*, so it does that job at any size — three of five and one of one are both a fully-seen film. The one thing that cannot be waived is an electorate: with no attendees, `coverage` divides by zero, nothing is eligible, and no round may be decided.
 
 `approval` divides by voters who *saw the card*, never by total attendees.
+
+#### Themed rounds
+
+A round may name **one** tag as its theme — "Halloween", say. In a themed round a film must also carry that tag to be eligible; a film without it is not on tonight's table at all, exactly as a watched one is not. Tags are matched on their normalised key (trimmed, whitespace collapsed, case folded), so "halloween" and "Halloween" are one tag; a film carrying a *different* tag is as ineligible as one carrying none.
+
+The theme is a **filter, not a rule**. Everything after it — coverage, approval, the finalist ranking and both tiebreak chains, the veto, the round robin, rotation fairness — is unchanged and operates on the narrowed set. A themed film is never ranked above an untagged one, because no untagged one is in the race; and a themed round with fewer than two qualifying films ends exactly as any other round does (one clears the approval floor → it wins outright; none → "no clear favourite"). Attendance and the electorate are untouched: the theme narrows what is dealt, never who decides.
+
+Which films carry the tag is read **once**, when the finalists are computed — the same freeze that already fixes the finalist set, the standing votes behind it, and the knobs. Tagging or untagging a film during the runoff therefore changes nothing about that round, and a theme can never retro-affect a live runoff any more than a knob can.
 
 ### Selecting finalists
 
@@ -240,7 +248,9 @@ User          { id, display_name, removed_at }
 
 Movie         { id, title, year, runtime_min, poster_url,
                 suggested_by → User, added_at,
-                status: pool|watched, watched_at }
+                status: pool|watched, watched_at, tags[] }
+                -- tags: free-form labels, matched on a normalised key;
+                --   they matter to a tally only through a round's theme
 
 StandingVote  { user_id, movie_id, value: yes|no, starred: bool, updated_at }
                 -- unique (user_id, movie_id)
@@ -249,8 +259,10 @@ StandingVote  { user_id, movie_id, value: yes|no, starred: bool, updated_at }
                 -- starred = true is an UPGRADED yes; starred with value "no"
                 --   is not a representable state
 
-Round         { id, state, created_at, closes_at,
+Round         { id, state, created_at, closes_at, theme | null,
                 finalist_ids[], winner_id, random_seed }
+                -- theme = one tag key; a themed round deals only films
+                --   carrying it (Eligibility → Themed rounds)
 
 Attendance    { round_id, user_id, attending: bool,
                 runoff_submitted_at }
