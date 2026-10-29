@@ -203,12 +203,38 @@ administration — a tag exists while some film carries it.
 The pool is a browsable list: poster, title, year, runtime, suggested-by, and **the
 viewer's own standing vote** (yes / starred yes / no / not yet seen — visually distinct
 states; a star is an upgraded yes, per the voting spec). Tapping a movie allows revising
-the standing vote, and starring or unstarring it, at any time. Aggregate counts are never
-shown here (hidden-tallies rule). The detail screen also prints the cached TMDB
-details — tagline, rating badge, genre chips, story, director, top cast — and a
-prominent "Watch trailer" link when there is one.
+the standing vote, and starring or unstarring it, at any time. The detail screen also
+prints the cached TMDB details — tagline, rating badge, genre chips, story, director, top
+cast — and a prominent "Watch trailer" link when there is one.
+
+**Where the group stands.** Once the viewer has answered a film (yes, starred or no), its
+detail screen prints the film's standing-vote counts over the group's *current* members: yes (starred yeses included), how many of those yeses are
+starred ("2 of them starred"), no, and not yet seen — so yes + no + not yet seen is the size
+of the group. Counts only: no names, no faces, no per-member breakdown, and nothing in the
+payload that maps a vote to anyone but the viewer (voting spec, *Standing-vote counts are
+public; voters are not*). Before the viewer has answered, the server sends no counts at all
+and the strip's place reads "Vote to see where the group stands"; answering on that screen
+refreshes it with the counts in. The pool list carries the same four numbers, to sort by
+and without printing them, on the films the viewer has answered — and on those only, so the
+list is no way round the detail screen's rule. The swipe screen carries none.
 
 Unswiped movies surface as a swipe stack ("3 to swipe") pinned at the top.
+
+**Sorting.** A "Sorted by" tray under the stack orders the list: *Newest added* (the
+default), *Title A–Z*, *Newest release*, *Shortest first*, *My vote* (starred, yes, not yet
+seen, no), and *Group ranking*. Group ranking is the Phase 1 finalist order with no round
+around it, over the films the viewer has answered: the group's current members stand in
+for the attendees, and the order is the finalist boundary chain's — yes-votes, then stars,
+then approval, then shortest runtime — minus the two rungs that need a round (rotation
+fairness, seeded random). Nothing is gated by the coverage or approval floor; it is a
+ranking to browse, not a finalist cut. Films the viewer has *not* answered come after the
+ranked ones, newest added first, and nothing about the group's votes touches their order.
+Watched films come after all pool films, banded the same way, so the list reads: answered
+pool films (ranked), unanswered pool films, answered watched films (ranked), unanswered
+watched films. Every order falls back to newest added. The sort
+is a plain link (`?sort=<key>`), like the tag filter, and is remembered per device, so
+returning to the pool without one — the tab bar, "Back to the pool" — finds it as it was
+left, scroll position included.
 
 Each row prints the film's tags, and once any film carries one, a row of tag tokens under
 the header filters the list to a single tag ("All", "Halloween", "Sci-fi", …). The filter
@@ -419,10 +445,10 @@ All under `/g/<token>`; the member picker interposes when no session cookie exis
 | Landing (`/`) | Create a group; nothing else. |
 | Member picker | Claim a name or add yourself. |
 | **Round** (home tab) | State-dependent: the pool lobby whenever no night is in play — none yet, cancelled, or watched — with the "Themed night?" picker above "Start a movie night"; else RSVP bar, phase CTA (swipe / veto / pairs), transition buttons, reveal. A themed night prints its chip (and, while `OPEN`, the count of themed films on the table); a Halloween or Christmas night also repaints this screen and its reveal and lays its ornament on them. The reveal lasts until the night is closed, watched or not; after that it is History's, or nobody's. |
-| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. During a themed `OPEN` round the theme's films are dealt first. |
+| Swipe | Full-screen card stack: poster, title, year, runtime, genres · rating; swipe right = yes, left = no, plus a star affordance for an upgraded yes; buttons for desktop. A ⓘ corner turns the card over to a printed back (tagline, story, director, cast, trailer link); a drag turns it face up again and carries on. Used for top-ups and backlog. During a themed `OPEN` round the theme's films are dealt first. Never shows the group's vote counts, and its payload carries none, so a first answer is unprompted. |
 | Veto | One screen, the finalists as rows, one optional tap, explicit "no veto" submit. Absent where the round was frozen with vetoes off — the route redirects to the pairs rather than dead-ending. |
 | Pairwise | Two posters per screen, tap one or "no preference"; progress indicator. |
-| **Pool** (tab) | Browsable pool + own standing votes + tags and a tag filter + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, tag / untag, remove). |
+| **Pool** (tab) | Browsable, sortable pool + own standing votes + tags and a tag filter + suggest (TMDB search) + unswiped stack entry + movie detail (revise vote, the group's anonymous vote counts, tag / untag, remove). |
 | **History** (tab) | Past nights, newest first: winner poster, date, suggested-by, and the theme chip on a themed night; expandable to the round's full revealed tally. Watched movies also live here. A night that fell through left no entry to show. |
 | Settings | Group name, knobs, invite link + regenerate, members, "not you?". |
 
@@ -449,7 +475,8 @@ plus the create form, which is how a device with one group reaches the lid to st
 second; Settings links it as "All groups".
 
 Live-ness: **SSE invalidation pings, no websockets.** Because all state is
-server-computed and tallies are hidden until reveal, real-time sync never pushes data —
+server-computed and shaped per viewer (my own votes, a round's results only after its
+reveal), real-time sync never pushes data —
 only "something changed, refetch". Each group has an in-process emitter (one Bun server,
 so a plain `EventEmitter` keyed by `group_id` is the whole pub/sub); every write action
 emits a ping; the client holds an `EventSource` and calls `invalidateAll()` on ping,
@@ -562,7 +589,12 @@ POST  round/create { theme? } | advance | abandon | watched
 POST  round/rsvp { member_id, attending }  → self or proxy; records who set it
 POST  round/veto { movie_id | null }
 POST  round/pair { a, b, winner | null }
-GET   pool                               → movies + my standing votes only
+GET   pool ?sort&tag                     → movies + my standing votes + the group's
+                                           standing counts on each film I have
+                                           answered (numbers only; null otherwise)
+GET   movies/[id]                        → the film, its tags, my standing vote, and
+                                           the group's standing counts (numbers only;
+                                           null until I have a standing vote on it)
 POST  movies/search { query }            → proxied TMDB search
 POST  movies { tmdb_id }                 → suggest (one server-side detail call:
                                            runtime + the cached details blob)
@@ -578,8 +610,14 @@ POST  settings { ... } | settings/regenerate-link
 
 Server-side rules the API must enforce (beyond DB constraints):
 
-- Aggregates are **never** serialized to the client before the round is `decided` —
-  hidden tallies are enforced at the API layer, not by UI omission.
+- A round's results — its tallies, head-to-heads, veto counts, tiebreak — are **never**
+  serialized to the client before the round is `decided`. Enforced at the API layer, not
+  by UI omission.
+- Standing-vote counts are serialized as four integers per film (yes, starred, no, not yet
+  seen) and nothing else: no payload maps a standing vote or star to a member other than
+  the viewer. The swipe screen's payload carries no counts at all, and neither a film's
+  detail payload nor its pool row carries any until the viewer has a standing vote on it. Again enforced at the
+  API layer, not by UI omission.
 - Phase-gated writes: vetoes/pairs accepted only in `runoff`, RSVP only before `decided`.
   Tag edits are deliberately *not* gated — a themed round reads tags once, at
   `OPEN → RUNOFF`, so no later edit can reach it.

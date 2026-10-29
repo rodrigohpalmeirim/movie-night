@@ -1,9 +1,11 @@
 /**
  * Pool tab: "Browsable pool + own standing votes + suggest (TMDB search) +
- * unswiped stack entry".
+ * unswiped stack entry", sortable.
  *
- * Aggregate counts are never shown here at any phase — standing votes outlive
- * rounds, so there is no point at which they become public.
+ * Each film I have answered carries the group's standing counts (numbers only —
+ * voting-spec: counts are public, voters are not), because the "Group ranking"
+ * sort needs them; a film I have not answered carries none, and sorts below.
+ * The list does not print them; a film's own page does.
  */
 
 import { fail as formFail, redirect } from '@sveltejs/kit';
@@ -12,7 +14,8 @@ import { statusOf, type Failure } from '$lib/server/result.js';
 import { backfillDetails, mergeDetails } from '$lib/server/services/details.js';
 import { suggestMovie } from '$lib/server/services/movies.js';
 import { openRoundTheme } from '$lib/server/services/tags.js';
-import { buildPoolView } from '$lib/server/services/views.js';
+import { buildPoolBrowseView } from '$lib/server/services/views.js';
+import { DEFAULT_POOL_SORT, parsePoolSort } from '$lib/pool-sort.js';
 import { suggestLimiter, tmdbSearchLimiter } from '$lib/server/ratelimit.js';
 import { getTmdb, TmdbUnavailableError } from '$lib/server/tmdb.js';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,9 +24,31 @@ function reject(failure: Failure) {
 	return formFail(statusOf(failure), { code: failure.code, message: failure.message });
 }
 
+/**
+ * The sort lives in the URL (`?sort=title`), so it survives a reload and the
+ * back button, and every sort is a plain link that works with scripting off.
+ * It is also remembered in this cookie, so arriving WITHOUT one — the tab bar,
+ * a film's "Back to the pool" link, the redirect after removing a film — finds
+ * the list the way it was left, which is also what keeps the restored scroll
+ * position pointing at the same rows. One preference per device, not per group.
+ */
+const SORT_COOKIE = 'pool_sort';
+const SORT_COOKIE_OPTIONS = {
+	path: '/',
+	httpOnly: true,
+	sameSite: 'lax',
+	maxAge: 60 * 60 * 24 * 365
+} as const;
+
 export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
-	const pool = buildPoolView({ db: actor.db, group: actor.group, me: actor.member });
+	const pool = buildPoolBrowseView({ db: actor.db, group: actor.group, me: actor.member });
+
+	const asked = parsePoolSort(event.url.searchParams.get('sort'));
+	if (asked && asked !== event.cookies.get(SORT_COOKIE)) {
+		event.cookies.set(SORT_COOKIE, asked, SORT_COOKIE_OPTIONS);
+	}
+	const sort = asked ?? parsePoolSort(event.cookies.get(SORT_COOKIE)) ?? DEFAULT_POOL_SORT;
 
 	// Browsing the pool warms the same cache the deck and the detail screen read
 	// from, a few films at a time, so a group that predates the extras fills in
@@ -38,6 +63,7 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		token: event.params.token,
 		pool: { ...pool, movies: mergeDetails(pool.movies, filled) },
+		sort,
 		/** So the UI can explain a 503 before the member types anything. */
 		searchAvailable: getTmdb().configured,
 		/**

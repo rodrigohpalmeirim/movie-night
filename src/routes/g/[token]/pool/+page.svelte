@@ -7,12 +7,19 @@
 	suggest sheet is the opposite — a flat pad you write on, holding punched
 	blanks and the results it finds.
 
-	Aggregate counts never appear here — not before a reveal and not after, because
-	standing votes outlive rounds.
+	The group's vote counts ride along with every film you have answered, but
+	only to sort by ("Group ranking", where films you have not answered sink to
+	the bottom in date order); they are printed on the film's own page, not on
+	the cards.
 
 	Tags print on the cards, and filter the deck: a row of tag tokens under the
 	header narrows the list to one tag (`?tag=<key>`, a plain link, so it works
 	with scripting off and survives a reload).
+
+	The sort is the same kind of link (`?sort=<key>`), dealt from a drop-down tray
+	beside the filter. The server resolves it (the URL, else the device's last
+	choice) and the rows are ordered right here, so the server render and the
+	browser agree on the order before anything hydrates.
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
@@ -25,6 +32,7 @@
 	import TriangleAlert from '$lib/icons/TriangleAlert.svelte';
 	import X from '$lib/icons/X.svelte';
 	import { movieMeta } from '$lib/images.js';
+	import { POOL_SORT_LABELS, POOL_SORTS, sortPool, type PoolSort } from '$lib/pool-sort.js';
 	import { themedFilmCount, type TagRef } from '$lib/tags.js';
 	import type { ActionData, PageServerData } from './$types';
 
@@ -95,10 +103,28 @@
 		poolTags.find((tag) => tag.key === page.url.searchParams.get('tag')) ?? null
 	);
 	const shown = $derived(
-		activeTag
-			? data.pool.movies.filter((movie) => movie.tags.some((tag) => tag.key === activeTag.key))
-			: data.pool.movies
+		sortPool(
+			activeTag
+				? data.pool.movies.filter((movie) => movie.tags.some((tag) => tag.key === activeTag.key))
+				: data.pool.movies,
+			data.sort
+		)
 	);
+
+	/**
+	 * A link to this list with one of its two settings changed. Each keeps the
+	 * other, so picking a sort never drops the tag filter or the reverse.
+	 */
+	function poolHref(change: { tag?: string | null; sort?: PoolSort }): string {
+		const tag = change.tag !== undefined ? change.tag : (activeTag?.key ?? null);
+		const params = new URLSearchParams();
+		if (tag) params.set('tag', tag);
+		params.set('sort', change.sort ?? data.sort);
+		return `/g/${data.token}/pool?${params}`;
+	}
+
+	/** The sort tray closes behind the choice, as a native menu would. */
+	let sortOpen = $state(false);
 	const serverResults = $derived(form && 'results' in form ? form.results : null);
 	/** Live fetch results win; the no-JS action results are the fallback. */
 	const suggestions = $derived(results.length > 0 ? results : (serverResults ?? []));
@@ -260,22 +286,57 @@
 		</a>
 	{/if}
 
-	<!-- ── The tag filter ──────────────────────────────────────────────
-	     One token per tag on the table, plus "All". Links rather than buttons,
-	     because a filter is a place in the deck you can reload or share; the one
-	     you are on sits latched (pressed flush, inked brass), the rest stay
-	     raised. Shown only once there is a tag to filter by. -->
+	<!-- ── Sort, and the tag filter ────────────────────────────────────
+	     The sort is a tray on <details>, like the overflow menu: no JS needed
+	     to open it, and each choice is a link, so a sort is a place in the deck
+	     you can reload or share, exactly as a tag filter is. Picking one
+	     replaces the history entry rather than adding one, so the back button
+	     leaves the pool instead of stepping through orders.
+
+	     The tag filter: one token per tag on the table, plus "All". The one you
+	     are on sits latched (pressed flush, inked brass), the rest stay raised.
+	     Shown only once there is a tag to filter by. -->
+	{#if data.pool.movies.length > 1}
+		<div class="flex items-center justify-between gap-3">
+			<p class="stencil text-xs text-chalk-dim uppercase">Sorted by</p>
+			<details class="relative" bind:open={sortOpen}>
+				<summary
+					class="token token-sm token-slot cursor-pointer list-none select-none hover:border-brass hover:text-brass"
+				>
+					<span class="sr-only">Sort the pool, currently:</span> {POOL_SORT_LABELS[data.sort]}
+					<ChevronRight size={14} class="rotate-90" />
+				</summary>
+				<nav
+					aria-label="Sort the pool"
+					class="pop-settle absolute right-0 z-10 mt-2 w-52 origin-top-right space-y-1.5 rounded-md border-2 border-board-shade bg-felt-deep p-2"
+				>
+					{#each POOL_SORTS as sort (sort)}
+						<a
+							href={poolHref({ sort })}
+							data-sveltekit-replacestate
+							onclick={() => (sortOpen = false)}
+							aria-current={data.sort === sort ? 'true' : undefined}
+							class="token token-sm w-full justify-start {data.sort === sort
+								? 'token-brass token-latched'
+								: 'token-slot'}">{POOL_SORT_LABELS[sort]}</a
+						>
+					{/each}
+				</nav>
+			</details>
+		</div>
+	{/if}
+
 	{#if poolTags.length > 0}
 		<nav aria-label="Filter by tag" class="flex flex-wrap gap-2">
 			<a
-				href="/g/{data.token}/pool"
+				href={poolHref({ tag: null })}
 				aria-current={activeTag === null ? 'page' : undefined}
 				class="token token-sm {activeTag === null ? 'token-brass token-latched' : 'token-slot'}"
 				>All</a
 			>
 			{#each poolTags as tag (tag.key)}
 				<a
-					href="/g/{data.token}/pool?tag={encodeURIComponent(tag.key)}"
+					href={poolHref({ tag: tag.key })}
 					aria-current={activeTag?.key === tag.key ? 'page' : undefined}
 					class="token token-sm {activeTag?.key === tag.key ? 'token-brass token-latched' : 'token-slot'}"
 					>{tag.label}</a

@@ -1,6 +1,6 @@
 /**
  * Movie detail: revise the standing vote at any time, tag or untag the film, or
- * remove it.
+ * remove it — and see where the group stands on it, as counts.
  */
 
 import { error, fail as formFail, redirect } from '@sveltejs/kit';
@@ -16,6 +16,7 @@ import {
 	loadMovieTags,
 	removeMovieTag
 } from '$lib/server/services/tags.js';
+import { loadVoteCounts } from '$lib/server/services/views.js';
 import { getTmdb } from '$lib/server/tmdb.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -69,9 +70,20 @@ export const load: PageServerLoad = async (event) => {
 		 * way the first one was.
 		 */
 		tagSuggestions: groupTagSummaries(actor.db, actor.group.id),
-		/** Only ever the viewer's own vote — and their own star on it. */
+		/** The only vote attributed to anyone: the viewer's own — and their own star on it. */
 		myVote: mine?.value ?? null,
-		myStarred: mine?.starred === true
+		myStarred: mine?.starred === true,
+		/**
+		 * The group's standing counts on this film, over its CURRENT members:
+		 * four numbers, no names (voting-spec: counts are public, voters are not).
+		 * Null until the viewer has answered (yes, starred or no), so a first
+		 * answer given here is their own — enforced here, not by the screen. A vote
+		 * from this page re-runs this load (the form's invalidation), which is
+		 * what brings them in.
+		 */
+		voteCounts: mine
+			? loadVoteCounts(actor.db, actor.group.id, [row.movie.id]).get(row.movie.id)!
+			: null
 	};
 };
 

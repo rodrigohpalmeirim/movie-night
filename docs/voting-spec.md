@@ -204,7 +204,7 @@ Update the fairness counter for the winner's `suggested_by` when the movie is ma
 
 ## Cross-cutting rules
 
-**Results stay hidden until the round closes.** No live tallies, no vote counts on cards, no "trending" section. Visible partial results cause anchoring and bandwagoning, and hand the last voter disproportionate power. This affects outcomes more than the choice of voting method does — treat it as a hard requirement, not a preference. A voter always sees their own standing votes; only aggregates are hidden.
+**Standing-vote counts are public; voters are not.** Anyone in the group may see how its **current** members stand on a film — how many said yes, how many of those starred it, how many said no, and how many have not seen it yet — once they have answered that film themselves (yes, starred or no). Until then the counts are withheld — from every screen, and from anything derived from them, such as a list sorted by how the group voted — so a first answer is never an echo of the room. No screen and no API payload ever ties a standing vote or a star to a person — no names, no per-member breakdown — except the viewer's own, which they always see. The counts help the group decide what to suggest and what to watch; attributing them would turn a private answer into social pressure. The swipe screen, where first answers are given, shows no counts at all and its payload carries none. Round results are a separate layer and keep their own timing: a round's tallies (taken from its frozen snapshot), vetoes and pairwise picks are published by the reveal, at `DECIDED`, never during the runoff.
 
 **Never conflate "no" with "not yet seen".** The absence of a standing vote is a distinct state from a left-swipe. If they are collapsed, an abandoned half-finished ballot silently reads as rejection of every movie the voter never reached, and the coverage rule stops working entirely. Record veto-pass skips explicitly for the same reason: "done, vetoed nothing" is not "hasn't opened the app".
 
@@ -214,7 +214,7 @@ Update the fairness counter for the winner's `suggested_by` when the movie is ma
 
 - They are not in the member list, and cannot be marked as attending — by themselves or by proxy.
 - They are therefore not in the attendee set, which removes them from every `coverage` denominator, from `approval`, from `star_votes`, from the electorate a round needs in order to be decided, and from rotation fairness.
-- Their standing votes and stars are **kept, not deleted**, and simply stop being counted. Restoring them counts every one of those answers again, exactly as it was.
+- Their standing votes and stars are **kept, not deleted**, and simply stop being counted — in a round's tallies and in the group's public standing counts alike. Restoring them counts every one of those answers again, exactly as it was.
 - Their suggestions stay in the pool and stay credited to them.
 - Past rounds are untouched: a decided outcome, its frozen finalist set and its published tallies are historical facts, and they keep naming whoever was there.
 - The one edge worth stating: if someone is removed *during* an active round, any RSVP, standing vote, star, veto or pairwise pick they had already recorded stops counting from that moment, because every tally is computed on read against the current attendee set. What has already been *decided* does not move.
@@ -231,7 +231,7 @@ OPEN → RUNOFF → DECIDED → WATCHED
 
 - `OPEN` — pool open for additions, and standing swipes for anyone with gaps (new movies only). Suggesting and swiping are one state: a new suggestion simply lands in everyone's top-up stack. Closes on deadline or when all attendees have no gaps.
 - `RUNOFF` — finalists computed. Veto screen (only where `VETOES_ENABLED`, per the round's frozen knobs), then pairwise. Skipped entirely when only one movie clears the approval floor.
-- `DECIDED` — winner revealed, all tallies now visible.
+- `DECIDED` — winner revealed, the round's own tallies (head-to-heads, vetoes, the tiebreak that decided it) now published.
 - `WATCHED` — winner retired, fairness counters updated.
 
 A round can only leave `OPEN` or `RUNOFF` while at least one *current* member is attending (a removed member counts for nothing here, like everywhere else). This is arithmetic, not a preference: an empty attendee set makes every `coverage` a division by zero and turns a "winner" into an all-zero head-to-head grid broken by runtime. One attendee is enough.
@@ -300,4 +300,4 @@ Recorded so these aren't re-derived later:
 
   **Superseded in part (see Phase 1 → Stars).** The star that was later adopted keeps the intent and none of the machinery: it is unlimited, so there is no budget to spend, reset or leak; it is a flag on the standing vote, so there is nothing new to store and no shortlist stage; and it is a *tie-breaker only* in both chains, so it can never outrank a yes-vote — nor, in the runoff, an approval share. It changes an outcome only where a yes-signal has already tied — two films level on yes-votes at the finalist boundary, or two finalists level on both pairwise wins and approval in the runoff — which are the situations the group actually wanted a say in.
 - **A shortlist stage between eligible and finalists.** Only needed to bound the cost of collecting per-movie intensity votes. With those gone, the finalist set is small enough to act on directly.
-- **Live vote counts.** See cross-cutting rules; this is a deliberate omission, not a missing feature.
+- **Live runoff counts.** A runoff's head-to-heads and vetoes are not shown while it is being voted on; the reveal publishes them. Standing-vote counts, by contrast, are public and anonymous — to anyone who has answered the film, never on the swipe screen; see cross-cutting rules. An earlier version hid those too until a round closed; that rule was dropped, while keeping voters unidentifiable.

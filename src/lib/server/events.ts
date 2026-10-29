@@ -4,8 +4,9 @@
  * app-spec: "Each group has an in-process emitter (one Bun server, so a plain
  * `EventEmitter` keyed by `group_id` is the whole pub/sub); every write action
  * emits a ping". No payload ever travels: the client just calls
- * `invalidateAll()`, which keeps the hidden-tallies rule intact by construction —
- * there is no channel through which an aggregate could leak early.
+ * `invalidateAll()`, which keeps the disclosure rules intact by construction —
+ * there is no channel through which a round result could leak early or a vote
+ * reach anyone but the viewer's own loads.
  *
  * Scaling out would need external pub/sub and is explicitly out of scope.
  */

@@ -131,6 +131,18 @@ export const CYCLE_CHAIN: ChainStep<CycleTiebreakRule>[] = [
 	...TAIL
 ];
 
+/**
+ * Phase 1's ranking order with no round around it: the pool's "Group ranking"
+ * sort. The BOUNDARY_CHAIN with the two rungs that need a round dropped —
+ * rotation fairness (measured over a round's attendees) and seeded random (a
+ * round's recorded seed) — so what remains is yes-votes, stars, approval and
+ * shortest runtime, in the boundary's own order. Callers append their own
+ * deterministic last resort via `compareOnChain`.
+ */
+export const STANDING_CHAIN: ChainStep<BoundaryTiebreakRule>[] = BOUNDARY_CHAIN.filter(
+	(step) => step.rule !== 'rotation_fairness' && step.rule !== 'seeded_random'
+);
+
 function stepCompare<R extends string>(step: ChainStep<R>, a: RankRow, b: RankRow): number {
 	const av = a[step.field] as number;
 	const bv = b[step.field] as number;
@@ -158,6 +170,18 @@ export function decide<R extends string>(
 	}
 	const cmp = a.movieId < b.movieId ? -1 : a.movieId > b.movieId ? 1 : 0;
 	return { cmp, rule: chain[chain.length - 1].rule, stepIndex: chain.length - 1 };
+}
+
+/**
+ * Compares on the chain's rungs alone: 0 when every rung ties, with none of
+ * `decide`'s movie-id fallback — for a caller that brings its own last resort.
+ */
+export function compareOnChain<R extends string>(chain: ChainStep<R>[], a: RankRow, b: RankRow): number {
+	for (const step of chain) {
+		const cmp = stepCompare(step, a, b);
+		if (cmp !== 0) return cmp;
+	}
+	return 0;
 }
 
 export function comparator<R extends string>(chain: ChainStep<R>[]): (a: RankRow, b: RankRow) => number {

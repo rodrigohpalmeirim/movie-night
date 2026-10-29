@@ -64,7 +64,9 @@ export { computeRunoff, computeVeto } from './runoff.js';
 export {
 	BOUNDARY_CHAIN,
 	CYCLE_CHAIN,
+	STANDING_CHAIN,
 	buildRankRow,
+	compareOnChain,
 	comparator,
 	decide,
 	describeDecision,

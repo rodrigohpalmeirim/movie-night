@@ -214,8 +214,8 @@ export function fakeTmdb(
 }
 
 /**
- * Recursively collects every key present in a payload, so the hidden-tallies test
- * can prove an aggregate appears *nowhere* rather than spot-checking the handful
+ * Recursively collects every key present in a payload, so the disclosure tests
+ * can prove a round result appears *nowhere* rather than spot-checking the handful
  * of fields a test author happened to think of.
  */
 export function collectKeys(value: unknown, into = new Set<string>()): Set<string> {
@@ -231,7 +231,13 @@ export function collectKeys(value: unknown, into = new Set<string>()): Set<strin
 }
 
 /**
- * Key names that may only appear behind a completed reveal.
+ * Key names of ROUND results, which may only appear behind a completed reveal.
+ *
+ * The standing layer's public counts are not on this list: they travel as
+ * `voteCounts` (`yes` / `starred` / `no` / `unseen`), only on the pool list and a
+ * film's page, and are pinned by vote-counts.spec.ts. A round's own tallies are
+ * a different thing — computed against the round's attendees and frozen
+ * snapshot — and stay here.
  *
  * Deliberately broad, and deliberately including `winner` / `winnerId`: before a
  * reveal, the only place those may legitimately appear is inside the viewer's OWN

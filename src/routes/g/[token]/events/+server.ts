@@ -3,8 +3,10 @@
  *
  * app-spec: "GET events → SSE stream; emits an invalidation ping on every write
  * in the group, no payload." The client holds an `EventSource` and calls
- * `invalidateAll()` on ping. Because nothing is ever pushed, the hidden-tallies
- * rule cannot be violated through this channel.
+ * `invalidateAll()` on ping. Because nothing is ever pushed, every disclosure
+ * rule (a round's results only after its reveal, no voter ever identified, no
+ * counts on the swipe screen) is the per-viewer load's to keep — this channel
+ * cannot break one.
  *
  * "The stream sends a keep-alive comment every ~25 s so proxies don't drop idle
  * connections", and `X-Accel-Buffering: no` stops nginx buffering the stream.

@@ -1,11 +1,15 @@
 /**
- * The hidden-tallies invariant, enforced at the serialisation layer.
+ * What each payload may disclose, enforced at the serialisation layer.
  *
- * voting-spec: "Results stay hidden until the round closes ... treat it as a hard
- * requirement, not a preference. A voter always sees their own standing votes;
- * only aggregates are hidden."
- * app-spec: "Aggregates are **never** serialized to the client before the round is
- * `decided` — hidden tallies are enforced at the API layer, not by UI omission."
+ * ROUND results — the round's frozen tallies, vetoes, pairwise picks, the
+ * tiebreak — are published by the reveal and not before: the round view carries
+ * none of them until the round is `decided`. That is what the AGGREGATE_KEYS
+ * scans below pin.
+ *
+ * STANDING-vote counts are a different rule (voting-spec: "Standing-vote counts
+ * are public; voters are not") and have their own spec, `vote-counts.spec.ts`:
+ * counts on the pool list and a film's page, never a voter's identity, and none
+ * on the swipe screen.
  */
 
 import { afterEach, describe, expect, test } from 'bun:test';
@@ -28,6 +32,7 @@ import {
 import {
 	buildHistoryView,
 	buildLobbyView,
+	buildPoolBrowseView,
 	buildPoolView,
 	buildRoundView,
 	buildSettingsView,
@@ -212,13 +217,34 @@ describe('no aggregate is serialised before the round is decided', () => {
 		expect(found.length).toBeGreaterThan(10);
 	});
 
-	test('the pool view never leaks aggregates, at any phase', () => {
+	test('the swipe deck\'s pool read carries no round result and no standing count, at any phase', () => {
+		// `buildPoolView` is what the swipe screen deals from, and the swipe screen
+		// is the one surface without counts. The pool LIST reads
+		// `buildPoolBrowseView`, which adds them (see vote-counts.spec.ts).
 		const { w, round } = scenario();
 		world = w;
 		const pool = buildPoolView({ db: w.db, group: w.group, me: w.member('Ana') });
 		assertNoAggregates(pool, 'the pool view');
+		expect(collectKeys(pool).has('voteCounts')).toBe(false);
 		toRunoff(w, round.id);
 		assertNoAggregates(buildPoolView({ db: w.db, group: w.group, me: w.member('Ana') }), 'the pool view in runoff');
+	});
+
+	test('the pool list carries standing counts, but still no round result, at any phase', () => {
+		const { w, round } = scenario();
+		world = w;
+		const counted = (title: string) =>
+			buildPoolBrowseView({ db: w.db, group: w.group, me: w.member('Ana') }).movies.find(
+				(movie) => movie.title === title
+			)!;
+		expect(counted('Brazil').voteCounts).toEqual({ yes: 3, starred: 0, no: 1, unseen: 0 });
+		assertNoAggregates(buildPoolBrowseView({ db: w.db, group: w.group, me: w.member('Ana') }), 'the pool list');
+		toRunoff(w, round.id);
+		expect(counted('Casino').voteCounts).toEqual({ yes: 2, starred: 0, no: 2, unseen: 0 });
+		assertNoAggregates(
+			buildPoolBrowseView({ db: w.db, group: w.group, me: w.member('Ana') }),
+			'the pool list in runoff'
+		);
 	});
 
 	test('participants carry participation status and nothing else', () => {
@@ -886,7 +912,7 @@ describe('pool view', () => {
 	});
 
 	test('the cached TMDB extras travel with the card, and a film without them serialises cleanly', () => {
-		// Public facts about a film, not an aggregate: they may ride any payload at
+		// Public facts about a film, not a round result: they may ride any payload at
 		// any phase. What must NOT happen is a film the backfill has not reached
 		// serialising as a hole — the screens read `details === null` as "no
 		// sections", so the key has to be there and be null.
@@ -910,7 +936,7 @@ describe('pool view', () => {
 		expect(Object.keys(byTitle.get('Brazil')!)).toContain('details');
 		// A round trip through JSON is what actually reaches the browser.
 		expect(JSON.parse(JSON.stringify(byTitle.get('Alien'))).details.cast[0].name).toBe('Sigourney Weaver');
-		// And none of it smuggles in an aggregate name.
+		// And none of it smuggles in a round result's name.
 		assertNoAggregates(pool, 'the pool view with details');
 	});
 

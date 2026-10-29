@@ -1,6 +1,9 @@
 <!--
 	Movie detail: revise the standing vote at any time, tag or untag the film, or
-	remove it. The only vote shown is the viewer's own.
+	remove it. The only vote attributed to anyone is the viewer's own; the rest
+	of the group appears as counts and nothing more (voting-spec: counts are
+	public, voters are not), and only once the viewer has answered: until then
+	the server sends none.
 
 	The card pulled out of the deck and turned over: a flat stub, artwork inset in
 	its own ink frame, and your standing answer stamped across the corner in the
@@ -64,6 +67,15 @@
 	 * tapping it puts the tag on. The latch is the state, exactly as the answer
 	 * pair above.
 	 */
+	/**
+	 * THE GROUP'S COUNTS, over its current members: every one of them is exactly
+	 * one of yes / no / not yet seen, so the three plates add up to the group.
+	 * Stars are not a fourth plate — a star is an upgraded yes — so they are said
+	 * under the yes count, as a share of it ("2 of them starred").
+	 */
+	const counts = $derived(data.voteCounts);
+	const memberCount = $derived(counts ? counts.yes + counts.no + counts.unseen : 0);
+
 	const tagRow = $derived([
 		...data.movie.tags.map((tag) => ({ ...tag, on: true })),
 		...data.tagSuggestions
@@ -229,6 +241,56 @@
 			</form>
 			<p class="text-xs leading-relaxed text-chalk-dim">
 				Stars are used as tiebreakers. You can star as many films as you like.
+			</p>
+		{/if}
+	</section>
+
+	<!-- Where the group stands: a scorepad strip on board stock, flat because
+	     it is a record. Counts only — no names, no faces, nobody's answer but
+	     yours (which is the seal on the artwork above). Until you have answered
+	     the server sends no counts, and the strip's place is an empty slot cut
+	     in the felt saying so; answering above re-runs the load, which brings
+	     the strip in. -->
+	<section class="space-y-2.5" aria-labelledby="group-counts">
+		<div>
+			<h3 id="group-counts" class="eyebrow text-chalk">Where the group stands</h3>
+			{#if counts}
+				<p class="mt-1 text-xs leading-relaxed text-chalk-dim">
+					Standing answers across all {memberCount}
+					{memberCount === 1 ? 'member' : 'members'}, counted without names.
+				</p>
+			{/if}
+		</div>
+		{#if counts}
+			<dl class="tile grid grid-cols-3 divide-x-2 divide-dashed divide-board-shade py-2.5 text-center">
+				<div class="px-1.5">
+					<dt class="stencil text-[0.66rem] tracking-[0.08em] text-ink-soft uppercase">Yes</dt>
+					<dd class="display text-[1.6rem] leading-none text-jade-deep tabular-nums">{counts.yes}</dd>
+					{#if counts.starred > 0}
+						<dd
+							class="stencil mt-1 flex items-center justify-center gap-1 text-[0.62rem] leading-tight text-brass-deep uppercase"
+						>
+							<Star size={11} class="shrink-0 fill-current" />
+							{counts.starred === counts.yes && counts.yes > 1
+								? 'all starred'
+								: counts.yes === 1
+									? 'starred'
+									: `${counts.starred} of them starred`}
+						</dd>
+					{/if}
+				</div>
+				<div class="px-1.5">
+					<dt class="stencil text-[0.66rem] tracking-[0.08em] text-ink-soft uppercase">No</dt>
+					<dd class="display text-[1.6rem] leading-none text-cherry-deep tabular-nums">{counts.no}</dd>
+				</div>
+				<div class="px-1.5">
+					<dt class="stencil text-[0.66rem] tracking-[0.08em] text-ink-soft uppercase">Not yet seen</dt>
+					<dd class="display text-[1.6rem] leading-none text-ink-soft tabular-nums">{counts.unseen}</dd>
+				</div>
+			</dl>
+		{:else}
+			<p class="tile-slot px-4 py-3.5 text-center text-sm leading-relaxed text-chalk-dim">
+				Vote to see where the group stands. Your answer comes first.
 			</p>
 		{/if}
 	</section>

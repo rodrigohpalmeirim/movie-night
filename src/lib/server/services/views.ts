@@ -1,20 +1,24 @@
 /**
- * Read models. **This file is where the hidden-tallies rule is enforced.**
+ * Read models. **This file is where the disclosure rules are enforced.**
  *
- * voting-spec: "Results stay hidden until the round closes. No live tallies, no
- * vote counts on cards, no 'trending' section ... treat it as a hard requirement,
- * not a preference. A voter always sees their own standing votes; only aggregates
- * are hidden."
+ * Two layers, two rules (voting-spec, cross-cutting rules):
  *
- * app-spec: "Aggregates are **never** serialized to the client before the round is
- * `decided` — hidden tallies are enforced at the API layer, not by UI omission."
+ * - STANDING votes: the group's aggregate counts are public — but only as
+ *   numbers. No payload maps a standing vote to anyone except the viewer's own,
+ *   which travels as `myVote` / `myStarred`. Counts are built in exactly one
+ *   place, `loadVoteCounts`, and leave this file as `VoteCounts` (four integers,
+ *   nothing else). So a first answer is the voter's own, the swipe deck never
+ *   receives them (it reads `buildPoolView`, which carries no counts, while the
+ *   pool list reads `buildPoolBrowseView`), and a film's detail screen receives
+ *   them only once the viewer has answered it (its load gates that).
  *
- * The mechanism is structural rather than conditional: every aggregate lives
- * inside `RoundView.reveal`, and `reveal` is populated by exactly one `if` in
- * `buildRoundView`. Nothing else in this file can emit a count. Participation
- * status (who is in, who has finished) is deliberately *not* an aggregate — it
- * says nothing about how anyone voted — and app-spec requires showing it
- * ("4 in, 3 no answer", "2 attendees haven't voted — reveal anyway?").
+ * - ROUND results (the round's frozen tallies, vetoes, pairwise picks, the
+ *   tiebreak) are published by the reveal. Every such aggregate lives inside
+ *   `RoundView.reveal`, and `reveal` is populated by exactly one `if` in
+ *   `buildRoundView`. Participation status (who is in, who has finished) is
+ *   deliberately *not* an aggregate — it says nothing about how anyone voted —
+ *   and app-spec requires showing it ("4 in, 3 no answer", "2 attendees haven't
+ *   voted — reveal anyway?").
  */
 
 import { and, desc, eq, inArray, isNotNull, isNull, not } from 'drizzle-orm';
@@ -35,7 +39,15 @@ import {
 	type StandingVoteValue,
 	type TiebreakRule
 } from '../db/index.js';
-import { memberSeed, seededShuffle, type HeadToHead, type Matchup, type MovieId } from '../../tally/index.js';
+import {
+	computeTallies,
+	DEFAULT_TALLY_CONFIG,
+	memberSeed,
+	seededShuffle,
+	type HeadToHead,
+	type Matchup,
+	type MovieId
+} from '../../tally/index.js';
 import type { TagRef } from '../../tags.js';
 import {
 	countPoolFilmsTagged,
@@ -49,6 +61,7 @@ import {
 	getCurrentRound,
 	loadAttendeeIds,
 	loadAttendance,
+	loadStandingVotes,
 	memberRunoffProgress,
 	roundVetoesEnabled,
 	vetoPrefillFor,
@@ -146,6 +159,74 @@ function currentMembers(db: Db, groupId: string): Member[] {
 		.where(and(eq(members.groupId, groupId), isNull(members.removedAt)))
 		.orderBy(members.createdAt, members.id)
 		.all();
+}
+
+/* ------------------------------------------------------------------ */
+/* Standing-vote counts                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where the group's CURRENT members stand on one film — numbers and nothing
+ * else. voting-spec: aggregate standing-vote counts are public (outside the
+ * swipe screen, and on a film's page once you have answered it); who cast
+ * which vote never is. Keep this shape to plain integers: a member id
+ * or name added here would publish exactly what the rule protects.
+ *
+ * Every current member is in exactly one of `yes`, `no` or `unseen`, so
+ * `yes + no + unseen` is the size of the group. `starred` is not a fourth
+ * bucket: a star is an upgraded yes, so starred voters are counted in `yes`
+ * too, and `starred <= yes` always holds.
+ */
+export interface VoteCounts {
+	/** Current members whose standing vote is yes, starred yeses included. */
+	yes: number;
+	/** Of those yeses, how many are starred. */
+	starred: number;
+	no: number;
+	/** Current members with no standing vote on it: "not yet seen", never a no. */
+	unseen: number;
+}
+
+/**
+ * Counts, computed on read, for the given films (default: every film in the
+ * group). The tally module does the counting — the same `computeTallies` Phase 1
+ * runs, with the group's current members standing in for the attendee set — so
+ * a removed member's kept votes and stars stop counting here exactly as they do
+ * in a round, and a star on a "no" can never be counted.
+ */
+export function loadVoteCounts(
+	db: Db,
+	groupId: string,
+	movieIds?: readonly string[]
+): Map<string, VoteCounts> {
+	const memberIds = currentMembers(db, groupId).map((member) => member.id);
+	const ids =
+		movieIds ??
+		db
+			.select({ id: movies.id })
+			.from(movies)
+			.where(eq(movies.groupId, groupId))
+			.all()
+			.map((row) => row.id);
+	// Only the counts are read back, so the movie fields the ranking needs
+	// (runtime, suggester, status) and the config's floors are irrelevant here.
+	const tallies = computeTallies(
+		ids.map((id) => ({ id, runtimeMin: null, suggestedBy: '' })),
+		memberIds,
+		loadStandingVotes(db, groupId),
+		DEFAULT_TALLY_CONFIG
+	);
+	return new Map(
+		tallies.map((tally) => [
+			tally.movieId,
+			{
+				yes: tally.yesVotes,
+				starred: tally.starVotes,
+				no: tally.noVotes,
+				unseen: memberIds.length - tally.attendeeVotes
+			}
+		])
+	);
 }
 
 /* ------------------------------------------------------------------ */
@@ -672,9 +753,10 @@ export interface PoolView {
 }
 
 /**
- * app-spec: "GET pool → movies + my standing votes only." No aggregate counts
- * appear here at any phase — the pool screen never shows them, even after a
- * reveal, because standing votes outlive rounds.
+ * The pool with my own standing votes and NO counts. This is the read the swipe
+ * deck deals from, and the deck is the one surface that never carries counts
+ * (voting-spec: a first impression is the voter's own). The pool list reads
+ * `buildPoolBrowseView`, which adds them.
  */
 export function buildPoolView(input: { db: Db; group: Group; me: Member }): PoolView {
 	const { db, group, me } = input;
@@ -699,6 +781,38 @@ export function buildPoolView(input: { db: Db; group: Group; me: Member }): Pool
 	return {
 		movies: list,
 		unswipedCount: list.filter((movie) => movie.status === 'pool' && movie.myVote === null).length
+	};
+}
+
+export interface BrowsePoolMovieView extends PoolMovieView {
+	/**
+	 * The group's standing counts — numbers only, see `VoteCounts` — and only on
+	 * a film the viewer has answered (yes, starred or no); `null` otherwise. The
+	 * same rule a film's own page enforces: counts follow your own answer, so the
+	 * pool list cannot be a way round it.
+	 */
+	voteCounts: VoteCounts | null;
+}
+
+export interface BrowsePoolView extends PoolView {
+	movies: BrowsePoolMovieView[];
+}
+
+/**
+ * app-spec: "GET pool → movies + my standing votes + the group's vote counts on
+ * the films I have answered." The pool list sorts by them ("Group ranking"); it
+ * does not print them.
+ */
+export function buildPoolBrowseView(input: { db: Db; group: Group; me: Member }): BrowsePoolView {
+	const pool = buildPoolView(input);
+	const counts = loadVoteCounts(
+		input.db,
+		input.group.id,
+		pool.movies.filter((movie) => movie.myVote !== null).map((movie) => movie.id)
+	);
+	return {
+		...pool,
+		movies: pool.movies.map((movie) => ({ ...movie, voteCounts: counts.get(movie.id) ?? null }))
 	};
 }
 

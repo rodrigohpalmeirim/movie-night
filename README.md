@@ -138,9 +138,9 @@ bun run start             # serve the build
 ## Tests and checks
 
 ```sh
-bun run check             # svelte-check: 838 files, 0 errors, 0 warnings
-bun run test              # vitest — tally, cooldown, tags, spec vectors (257 tests)
-bun run test:server       # bun test src/lib/server — services and serialization (312 tests)
+bun run check             # svelte-check: 841 files, 0 errors, 0 warnings
+bun run test              # vitest — tally, cooldown, tags, pool sort, spec vectors (266 tests)
+bun run test:server       # bun test src/lib/server — services and serialization (326 tests)
 bun run test:all          # both
 ```
 
@@ -174,7 +174,10 @@ Some notes for the curious:
   invalidates a vote and why no budget can ever lock up.
 - **Everything is computed on read.** No derived counters, because derived counters drift.
 - **Live-ness is SSE invalidation pings**, not websockets — the server never pushes data, only
-  "something changed, refetch", which is also what keeps hidden tallies hidden.
+  "something changed, refetch", so every payload is still shaped per viewer by its own load.
+- **Counts are public, voters are not.** Once you've answered a film, its page shows how many
+  of the group said yes, starred, no or haven't seen it — never who. Before that, and on the
+  swipe screen always, there are no counts at all, so a first answer is your own.
 - **One third-party origin.** Posters come from `image.tmdb.org`; fonts, scripts and styles are
   self-hosted, and the trailer is a plain link rather than an embed, so the invite token can't
   leak through a `Referer`.

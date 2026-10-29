@@ -23,13 +23,18 @@ import { defineConfig } from 'vitest/config';
 // shared by the tag services, the screens and the seed for exactly that reason,
 // and its fold has to agree with SQLite's `lower()`, which is worth pinning here
 // where nothing else can sneak in.
+//
+// `pool-sort.ts` too: the pool list's sort orders, including the group ranking,
+// which reuses the tally module's Phase 1 chain — pure data, shared by the pool
+// screen's server render and the browser.
 export default defineConfig({
 	test: {
 		include: [
 			'src/lib/tally/**/*.test.ts',
 			'src/lib/swipe.test.ts',
 			'src/lib/cooldown.test.ts',
-			'src/lib/tags.test.ts'
+			'src/lib/tags.test.ts',
+			'src/lib/pool-sort.test.ts'
 		],
 		environment: 'node',
 		reporters: ['default']
