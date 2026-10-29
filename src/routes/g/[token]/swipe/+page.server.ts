@@ -23,27 +23,41 @@ function reject(failure: Failure) {
 }
 
 /**
- * THE INTRO REVEAL'S ONE TICKET, spent by the first swipe screen of a browser
- * session and not refunded until the browser is closed.
+ * THE GESTURE COACH'S ONE SHOWING, per device: a cookie saying this browser has
+ * already been shown how the deck is played, and dismissed it.
  *
- * The reveal deals the first card back up and turns it over on arrival, which is
- * how anyone discovers the card has a back at all. Discovered once is enough:
- * replaying it on every visit to this screen is a card that will not sit still.
+ * Nothing on a card advertises that it turns over or that it can be pushed up,
+ * so the screen says so once — all four gestures at once, over a dimmed deck —
+ * and then gets out of the way for good. Once per DEVICE, not per session: the
+ * gestures are the same tomorrow, and a lesson replayed on every visit is a
+ * screen you have to clear before you can use it. The `?` beside the card count
+ * brings it back for anyone who wants it again.
  *
- * It has to be decided HERE, because the flipped card is in the server's HTML —
- * that is what stops hydration arguing about which way up the first card is. A
- * client-only memory (sessionStorage) is known one frame too late either way: the
- * server would deal the back either always or never, and the client would then
- * have to correct it in view of the reader.
+ * It has to be decided HERE, because the overlay is in the server's HTML — that
+ * is what lets the first paint be the right one. A client-only memory
+ * (localStorage) is known one frame too late either way: the server would print
+ * the overlay always or never, and the client would then have to take it away,
+ * or put it up, in view of the reader.
  *
- * No `maxAge` and no `expires`, which is the whole trick: a session cookie lasts
- * exactly as long as the browser session the reveal is scoped to. `httpOnly` and
- * `sameSite: 'lax'` match the member cookie (see `MEMBER_COOKIE_OPTIONS`); the
- * path is the site, because there is one such cookie for the visitor and not one
- * per group — the back of a card is the same discovery in all of them.
+ * Written when the coach is DISMISSED, not when it is shown (see the `coachSeen`
+ * action), so a tab closed before anyone read it has not spent it. A year, like
+ * the member cookie (`MEMBER_COOKIE_OPTIONS`), with the same `httpOnly` and
+ * `sameSite: 'lax'` — the client never needs to read it, the load does. The path
+ * is the site, because there is one such cookie for the visitor and not one per
+ * group: the deck is played the same way in all of them.
+ *
+ * A new name, not the old `swipe_intro_seen`: that one was a SESSION cookie
+ * meaning "the first card has turned itself over this session", and reading it
+ * as "this device has been coached" would skip the lesson for exactly the people
+ * who were last here before it existed.
  */
-const INTRO_COOKIE = 'swipe_intro_seen';
-const INTRO_COOKIE_OPTIONS = { path: '/', httpOnly: true, sameSite: 'lax' } as const;
+const COACH_COOKIE = 'swipe_coach_seen';
+const COACH_COOKIE_OPTIONS = {
+	path: '/',
+	httpOnly: true,
+	sameSite: 'lax',
+	maxAge: 60 * 60 * 24 * 365
+} as const;
 
 export const load: PageServerLoad = async (event) => {
 	const actor = requireActor(event);
@@ -70,14 +84,10 @@ export const load: PageServerLoad = async (event) => {
 		now: actor.now
 	});
 
-	// Spend the reveal's ticket, and only if there is a card to reveal: an empty
-	// stack has no back to show, so it must not burn the one chance the session
-	// has of showing one. A reader who prefers reduced motion spends it too — they
-	// get the card face up instantly (the page clears the flip on the first
-	// effect), and what they would never want is that not-quite-a-reveal again on
-	// the next visit.
-	const intro = ordered.length > 0 && event.cookies.get(INTRO_COOKIE) === undefined;
-	if (intro) event.cookies.set(INTRO_COOKIE, '1', INTRO_COOKIE_OPTIONS);
+	// Only with a card on the table: an empty deck has nothing to swipe, so the
+	// lesson would be about nothing — and since it is only spent on dismissal, it
+	// is still owed the next time there is a card to play it over.
+	const coach = ordered.length > 0 && event.cookies.get(COACH_COOKIE) === undefined;
 
 	return {
 		token: event.params.token,
@@ -85,12 +95,30 @@ export const load: PageServerLoad = async (event) => {
 		poolSize: pool.movies.filter((movie) => movie.status === 'pool').length,
 		/** Tonight's theme while the round is OPEN, so the deck can say why it is ordered so. */
 		theme,
-		/** Is this the session's first swipe screen? See `INTRO_COOKIE`. */
-		intro
+		/** Has this device yet to be shown the gestures? See `COACH_COOKIE`. */
+		coach
 	};
 };
 
 export const actions: Actions = {
+	/**
+	 * The gesture coach was dismissed: spend its one showing (see `COACH_COOKIE`).
+	 *
+	 * Every way out of the overlay posts here — the "Got it" button, a tap
+	 * anywhere, Escape — so the cookie is written in one place, by the server that
+	 * reads it, with the options it is read under. Enhanced, the overlay is already
+	 * gone before this is answered and nothing waits on the reply; without
+	 * JavaScript the button is a plain submit, and the page this renders is the
+	 * deck without the overlay, which is the only way out of it there is.
+	 *
+	 * No member is required: the cookie is the device's, not anyone's in this
+	 * group, and it says nothing but "seen".
+	 */
+	coachSeen: async (event) => {
+		event.cookies.set(COACH_COOKIE, '1', COACH_COOKIE_OPTIONS);
+		return { coachSeen: true };
+	},
+
 	/**
 	 * One swipe, or one star. Idempotent upsert, so re-answering just overwrites.
 	 *

@@ -32,7 +32,7 @@ export function memberCookieName(groupId: string): string {
 /**
  * The inverse: the group id a cookie name carries, or `undefined` if this cookie
  * is not a member cookie at all. The landing page reads the whole jar, which also
- * holds unrelated site cookies (`swipe_intro_seen`), so the prefix is the filter.
+ * holds unrelated site cookies (`swipe_coach_seen`), so the prefix is the filter.
  */
 export function groupIdFromCookieName(name: string): string | undefined {
 	if (!name.startsWith(MEMBER_COOKIE_PREFIX)) return undefined;

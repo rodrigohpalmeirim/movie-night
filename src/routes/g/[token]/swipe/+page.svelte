@@ -41,12 +41,16 @@
 	affordance, so there is no token on it to aim at, and the only thing inside it
 	a tap means something else on is the trailer button. From the keyboard ArrowDown
 	turns it over and back, Escape only ever face up — ArrowUp is the star, so the
-	keys say what the gestures say. Which leaves the back to be
-	discovered, so it is shown: the first card of a BROWSER SESSION is dealt back up
-	and turns itself over on the frame after it arrives, once, and nothing does that
-	again — not the next card, and not the next visit to this screen, which the
-	server remembers on a session cookie. No dwell either, because the reveal is the
-	turn and not the pause before it.
+	keys say what the gestures say.
+
+	Which leaves the back, and the star, to be DISCOVERED — nothing on a card says
+	it turns over or that it can be pushed up — so they are TOLD, once per device:
+	the first time a device reaches a deck with a card in it, the table is dimmed
+	and all four moves are laid out over the card at once (`SwipeCoach`). One tap
+	anywhere, "Got it" or Escape puts it away, and the server remembers that on a
+	long-lived cookie, written on dismissal rather than on sight; the `?` beside
+	the card count brings it back. Every card, the first included, is dealt face
+	up: the deck never turns a card over by itself.
 	The flip never fights the gesture: it rides a layer inside the element the drag
 	transforms, and the first few pixels of a drag turn the card face up mid-drag,
 	without interrupting it, so a vote is always stamped onto the poster.
@@ -74,18 +78,20 @@
 	card, one for the shadow it casts — which pass through a midpoint (the card
 	swells towards you halfway round and its shadow drops and narrows to a sliver
 	under it) that no transition could hold. `prefers-reduced-motion` drops the
-	fly-out, the spring, the turn and the intro reveal entirely (app.css also zeroes
-	durations globally, so this is belt and braces).
+	fly-out, the spring and the turn entirely, and stills the coach's hands (app.css
+	also zeroes durations globally, so this is belt and braces).
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { flushSync, untrack } from 'svelte';
 	import Poster from '$lib/components/Poster.svelte';
 	import Stamp from '$lib/components/Stamp.svelte';
+	import SwipeCoach from '$lib/components/SwipeCoach.svelte';
 	import ThemeChip from '$lib/components/ThemeChip.svelte';
 	import ArrowLeft from '$lib/icons/ArrowLeft.svelte';
 	import ArrowRight from '$lib/icons/ArrowRight.svelte';
 	import Check from '$lib/icons/Check.svelte';
+	import CircleQuestionMark from '$lib/icons/CircleQuestionMark.svelte';
 	import Play from '$lib/icons/Play.svelte';
 	import StampIcon from '$lib/icons/Stamp.svelte';
 	import Undo2 from '$lib/icons/Undo2.svelte';
@@ -143,27 +149,25 @@
 	 * How long a card takes to turn over. Written down here because the class that
 	 * runs the turn has to be taken off again afterwards; the animation's own
 	 * duration is in the stylesheet below, and the two are the same number.
-	 *
-	 * There is no third number for the intro reveal: it does not wait at all (see
-	 * the intro effect). The back is on screen for the frame it is dealt on, and
-	 * the card is already coming round on the next.
 	 */
 	const FLIP_MS = 350;
+	/** The form that records the coach's dismissal, by id: "Got it" submits it. */
+	const COACH_FORM_ID = 'swipe-coach-seen';
 	/**
-	 * The card the intro reveal deals back up, or null when there is no reveal to
-	 * give: the first card of the FIRST swipe screen of a browser session, read ONCE
-	 * at init and deliberately not reactive. `untrack` says so out loud — the stack
-	 * is rebuilt by every live invalidation, and the intro is a fact about arriving
-	 * on this screen, not about whatever the server most recently dealt.
+	 * Is the gesture coach up? It starts up when the SERVER says this device has
+	 * not been shown it yet (`data.coach` — see `COACH_COOKIE` in
+	 * `+page.server.ts`), and that is read ONCE, at init, and deliberately not
+	 * reactively. `untrack` says so out loud: every live invalidation re-runs the
+	 * load, and the overlay must neither come back because a write landed before
+	 * the dismissal did, nor vanish because one landed after it. From here on it is
+	 * the reader's: "Got it", a tap or Escape put it down, the `?` puts it back up.
 	 *
-	 * Whether the reveal is owed at all is the SERVER's answer (`data.intro`, a
-	 * session cookie — see `INTRO_COOKIE` in `+page.server.ts`), because the card is
-	 * dealt back up in the server's HTML: only knowledge the server already has can
-	 * decide which way up the first paint is without a correction the reader sees.
-	 * Coming back to this screen in the same browser session, `data.intro` is false
-	 * and the deck is simply face up, as it is for every card after the first.
+	 * The server's answer, and not the client's, because the overlay is in the
+	 * server's HTML: only knowledge the server already has can decide whether the
+	 * first paint is dimmed without a correction the reader sees — and starting
+	 * from the same value is what gives hydration nothing to argue with.
 	 */
-	const introId: string | null = untrack(() => (data.intro ? (data.stack[0]?.id ?? null) : null));
+	let coachOpen = $state(untrack(() => data.coach));
 
 	/**
 	 * Answers this session, newest last — powers Undo and drives the cursor. The
@@ -203,13 +207,11 @@
 	 * advances: the id stops matching the top card, so the next film always
 	 * arrives face up without anyone having to remember to clear a flag.
 	 *
-	 * It starts on the FIRST card a browser session is dealt, and on nothing else:
-	 * that card arrives back up and turns itself over on the very next frame (see
-	 * the intro effect), which is how anyone finds out there is a back at all now
-	 * that no token advertises it. Every later visit starts at null — `introId` is
-	 * already null, because the server has spent the session's one reveal.
+	 * It starts at null, every time: the first card is dealt face up like every
+	 * other, and the only things that ever turn one over are the reader's tap and
+	 * ArrowDown. Finding out there IS a back is the coach's job (see `coachOpen`).
 	 */
-	let flippedId = $state<string | null>(introId);
+	let flippedId = $state<string | null>(null);
 	/**
 	 * Which card is mid-turn and which way it is going, or null between turns. The
 	 * animation that turns a card is attached from here and nowhere else — see
@@ -307,6 +309,27 @@
 	const current: Card | null = $derived(queue[0] ?? null);
 	const total = $derived(answered.length + queue.length);
 	const position = $derived(Math.min(answered.length + 1, total));
+	/**
+	 * Is the coach actually ON SCREEN — which is `coachOpen` with a card under it.
+	 * The overlay is laid over the card's box, so it can only exist while there is
+	 * a deck to lay it over; if a live invalidation takes the last card away while
+	 * it is up, it goes with the deck. This, not `coachOpen`, is what the deck's
+	 * own handlers stand down for: an overlay that is not there must not be able
+	 * to leave every key on the screen dead.
+	 */
+	const coaching = $derived(coachOpen && current !== null);
+	let coachForm = $state<HTMLFormElement | undefined>(undefined);
+
+	/**
+	 * Every way out of the coach that is not its own "Got it" button — a tap, or
+	 * Escape — comes here, and goes out the same way the button does: by posting
+	 * the dismissal form, whose enhance callback is what actually puts the overlay
+	 * away. Put away here too, so a closed overlay never waits on the form.
+	 */
+	function dismissCoach() {
+		coachOpen = false;
+		coachForm?.requestSubmit();
+	}
 
 	/** The back on top: the one paragraph the line box is ever read from. */
 	const topOverviewEl = $derived(current ? (overviewEls[current.id] ?? null) : null);
@@ -384,53 +407,6 @@
 		const sync = () => (reduceMotion = query.matches);
 		query.addEventListener('change', sync);
 		return () => query.removeEventListener('change', sync);
-	});
-
-	/**
-	 * THE INTRO REVEAL, and the only thing on this screen that happens by itself.
-	 *
-	 * The session's first card is dealt back up (`flippedId` starts on it, so the
-	 * server's HTML and the first client render agree and hydration has nothing to
-	 * argue with) and starts turning over IMMEDIATELY: there is no dwell, because the
-	 * reveal is the turn, not the pause before it. The back is what the card is
-	 * dealt as, and the poster is what it becomes while you watch — which is the
-	 * whole discoverability story for tap-to-flip, since nothing else on the card
-	 * advertises that it has a back.
-	 *
-	 * Two frames, and only two: one for the back to be on screen as a from-state
-	 * (usually it has been since before this script ran — it is in the server's
-	 * HTML), the next to attach the animation. Skip them and the turn would be
-	 * requested on the frame the card mounts, where a browser is entitled to show
-	 * the card face up rather than coming round.
-	 *
-	 * It runs ONCE: nothing it reads is read reactively, so an invalidation mid
-	 * session cannot deal the current card back up again. If a thumb gets there
-	 * first the card is already face up (`TAP_SLOP` clears the flip mid-drag) and
-	 * a tap has toggled it deliberately — hence the id check, which only ever turns
-	 * over the card the intro itself dealt. Under prefers-reduced-motion there is
-	 * no reveal at all: the card starts face up.
-	 *
-	 * And it runs on the first swipe screen of a browser session only, which is the
-	 * same gate as the dealt-back-up card and therefore the same value: `introId` is
-	 * null when the server did not grant a reveal, so there is nothing here to check
-	 * twice.
-	 */
-	$effect(() => {
-		if (!introId) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-			flippedId = null;
-			return;
-		}
-		let shown = 0;
-		const dealt = requestAnimationFrame(() => {
-			shown = requestAnimationFrame(() => {
-				if (flippedId === introId) turn(introId, false);
-			});
-		});
-		return () => {
-			cancelAnimationFrame(dealt);
-			cancelAnimationFrame(shown);
-		};
 	});
 
 	$effect(() => () => {
@@ -520,6 +496,9 @@
 	function onPointerDown(event: PointerEvent, card: Card) {
 		// Only the top card drags, and only ever one pointer. A card mid-flight
 		// still owns its handler, hence the identity check rather than a lock.
+		// The coach's scrim is over the card while it is up, so no press should get
+		// here then; this says so anyway, rather than trusting a z-index with a vote.
+		if (coaching) return;
 		if (!event.isPrimary || pointerId !== null || card.id !== current?.id) return;
 		pointerId = event.pointerId;
 		dragging = true;
@@ -607,6 +586,9 @@
 	/* ── keyboard (same commit path as the buttons) ────────────────── */
 	function onKeydown(event: KeyboardEvent) {
 		if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+		// The coach is up: every key is the dialog's (it takes Escape and Tab itself),
+		// and none of them may vote, star, turn or undo the deck behind it.
+		if (coaching) return;
 		// A thumb is mid-gesture; let it finish rather than voting underneath it.
 		if (dragging) return;
 		const target = event.target as HTMLElement | null;
@@ -741,7 +723,7 @@
 
 	/**
 	 * TURNING THE CARD, animated. Every turn anyone can see starts here: the tap,
-	 * the key, the first pixels of a drag and the intro reveal.
+	 * the key and the first pixels of a drag.
 	 *
 	 * The turn is a keyframe animation and not a transition, because it passes
 	 * through a midpoint — the card grows towards you as it comes round and settles
@@ -1008,9 +990,25 @@
 				<ArrowLeft size={14} /> Back to the pool
 			</a>
 			{#if total > 0}
-				<p class="eyebrow text-brass" aria-live="polite">
-					Card {position} <span class="text-chalk-dim">of {total}</span>
-				</p>
+				<div class="flex items-center gap-2.5">
+					<p class="eyebrow text-brass" aria-live="polite">
+						Card {position} <span class="text-chalk-dim">of {total}</span>
+					</p>
+					{#if current}
+						<!-- The coach, again, on request: quiet chalk like the back link
+						     opposite, because it is for the reader who wants it and nobody
+						     else. Only while there is a card to show the gestures over. -->
+						<button
+							type="button"
+							onclick={() => (coachOpen = true)}
+							class="-m-1.5 rounded-full p-1.5 text-chalk-dim hover:text-brass"
+							aria-haspopup="dialog"
+							aria-label="How to swipe"
+						>
+							<CircleQuestionMark size={16} />
+						</button>
+					{/if}
+				</div>
 			{/if}
 		</div>
 		{#if total > 0}
@@ -1059,6 +1057,29 @@
 		<!-- Stated on every swipe, true or false: see `pending`. -->
 		<input type="hidden" name="starred" value={pending.starred} />
 	</form>
+
+	<!--
+		The coach's dismissal, posted to the server so the server can stop printing
+		the coach (see `coachSeen`). Mounted for the whole session like the vote form
+		and for the same reason — it has to outlive the overlay it closes — and
+		empty: its submit button is the overlay's "Got it", by `form` id, which is
+		what lets that button work with no JavaScript at all.
+
+		Enhanced, the overlay goes the moment the form is sent and nothing waits on
+		the answer: no `update`, so no invalidation and no rebuilt deck. A reply that
+		never comes costs only a second showing of the coach on the next visit.
+	-->
+	<form
+		id={COACH_FORM_ID}
+		class="contents"
+		method="POST"
+		action="?/coachSeen"
+		bind:this={coachForm}
+		use:enhance={() => {
+			coachOpen = false;
+			return async () => {};
+		}}
+	></form>
 
 	{#if !current && exits.length === 0}
 		<div class="tile-slot space-y-3.5 px-4 py-8 text-center">
@@ -1210,6 +1231,10 @@
 						</div>
 					</div>
 				{/each}
+
+				{#if coaching}
+					<SwipeCoach form={COACH_FORM_ID} ondismiss={dismissCoach} />
+				{/if}
 			</div>
 
 			{#if current}
@@ -1423,7 +1448,7 @@
 		the card is invisible and none of it is hidden behind the stock.
 
 		Symmetric about the midpoint, so the one keyframe serves both directions of
-		the turn and the intro reveal.
+		the turn.
 	*/
 	@keyframes card-cast-lift {
 		from {

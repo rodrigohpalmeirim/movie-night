@@ -141,11 +141,11 @@ describe('the landing page routes by member cookie', () => {
 		// The jar is read whole, because the cookie NAME carries the group id — so
 		// everything else in it must be beneath notice.
 		world = createTestWorld({ memberNames: ['Ana'] });
-		const landed = await land({ world, cookies: { swipe_intro_seen: '1' } });
+		const landed = await land({ world, cookies: { swipe_coach_seen: '1' } });
 		expect(landed.redirectedTo).toBeNull();
 		expect(landed.groups).toEqual([]);
 		expect(landed.jar.deleted).toEqual([]);
-		expect(landed.jar.values.get('swipe_intro_seen')).toBe('1');
+		expect(landed.jar.values.get('swipe_coach_seen')).toBe('1');
 	});
 });
 
